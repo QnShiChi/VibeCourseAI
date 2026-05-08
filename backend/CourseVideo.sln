@@ -1,8 +1,10 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseVideo.API", "CourseVideo.API\CourseVideo.API.csproj", "{3A790F9A-C68F-4D32-846D-419F7ACDD3E7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseVideo.API.Tests", "CourseVideo.API.Tests\CourseVideo.API.Tests.csproj", "{18A5E880-D4DA-48B9-BE53-A46D888AA847}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,6 +16,10 @@ Global
 		{3A790F9A-C68F-4D32-846D-419F7ACDD3E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3A790F9A-C68F-4D32-846D-419F7ACDD3E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3A790F9A-C68F-4D32-846D-419F7ACDD3E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18A5E880-D4DA-48B9-BE53-A46D888AA847}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18A5E880-D4DA-48B9-BE53-A46D888AA847}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18A5E880-D4DA-48B9-BE53-A46D888AA847}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18A5E880-D4DA-48B9-BE53-A46D888AA847}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

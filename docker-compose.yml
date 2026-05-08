@@ -1,0 +1,58 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: course_sqlserver
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD}
+    ports:
+      - "${SQLSERVER_PORT}:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+  backend:
+    build:
+      context: ./backend/CourseVideo.API
+    container_name: course_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      CONNECTION_STRING: ${CONNECTION_STRING}
+    ports:
+      - "${BACKEND_PORT}:8080"
+    depends_on:
+      - sqlserver
+    volumes:
+      - ./storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    container_name: course_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT}:80"
+    depends_on:
+      - backend
+
+  ai-worker:
+    build:
+      context: ./ai-worker
+    container_name: course_ai_worker
+    restart: unless-stopped
+    ports:
+      - "${AI_WORKER_PORT}:8000"
+    depends_on:
+      - sqlserver
+    volumes:
+      - ./storage:/app/storage
+
+volumes:
+  sqlserver_data:

@@ -11,3 +11,5 @@ storage/videos/*
 storage/slides/*
 storage/thumbnails/*
 !storage/**/.gitkeep
+backups/*
+!backups/.gitkeep

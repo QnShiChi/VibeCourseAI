@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "vitest"
   },
   "dependencies": {
     "axios": "^1.7.2",
@@ -14,7 +15,11 @@
     "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.2"
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.2",
+    "vitest": "^2.1.3"
   }
 }

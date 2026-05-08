@@ -34,12 +34,36 @@ export function AuthProvider({ children }) {
     bootstrap();
   }, []);
 
+  async function handleAuthSuccess(response) {
+    const nextSession = {
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      user: response.user
+    };
+
+    saveAuthSession(nextSession);
+    setSession(nextSession);
+    setUser(response.user);
+  }
+
+  async function login(formData) {
+    const response = await authService.login(formData);
+    await handleAuthSuccess(response);
+  }
+
+  async function register(formData) {
+    const response = await authService.register(formData);
+    await handleAuthSuccess(response);
+  }
+
   const value = useMemo(
     () => ({
       session,
       user,
       isAuthenticated: Boolean(session?.accessToken && user),
-      isBootstrapping
+      isBootstrapping,
+      login,
+      register
     }),
     [session, user, isBootstrapping]
   );

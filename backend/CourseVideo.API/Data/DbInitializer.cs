@@ -1,11 +1,14 @@
+using CourseVideo.API.Configuration;
 using CourseVideo.API.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace CourseVideo.API.Data;
 
 public static class DbInitializer
 {
-    public static void Initialize(AppDbContext dbContext)
+    public static void Initialize(AppDbContext dbContext, IOptions<AdminSeedOptions> adminSeedOptions)
     {
         const int maxAttempts = 10;
         var delay = TimeSpan.FromSeconds(3);
@@ -14,7 +17,7 @@ public static class DbInitializer
         {
             try
             {
-                if (dbContext.Database.GetMigrations().Any())
+                if (dbContext.Database.IsRelational() && dbContext.Database.GetMigrations().Any())
                 {
                     dbContext.Database.Migrate();
                 }
@@ -23,7 +26,7 @@ public static class DbInitializer
                     dbContext.Database.EnsureCreated();
                 }
 
-                Seed(dbContext);
+                Seed(dbContext, adminSeedOptions.Value);
                 return;
             }
             catch (Exception) when (attempt < maxAttempts)
@@ -35,8 +38,9 @@ public static class DbInitializer
         throw new InvalidOperationException("Database initialization failed after multiple attempts.");
     }
 
-    public static void Seed(AppDbContext dbContext)
+    public static void Seed(AppDbContext dbContext, AdminSeedOptions adminSeed)
     {
+        // Nếu không có bất kỳ khóa học nào, thì tạo một khóa học mẫu để có dữ liệu ban đầu
         if (!dbContext.Courses.Any())
         {
             dbContext.Courses.Add(new Course
@@ -47,16 +51,27 @@ public static class DbInitializer
             });
         }
 
-        if (!dbContext.Users.Any())
+        var hasAdminSeed = !string.IsNullOrWhiteSpace(adminSeed.Email)
+            && !string.IsNullOrWhiteSpace(adminSeed.Password)
+            && !string.IsNullOrWhiteSpace(adminSeed.FullName);
+
+        var adminRole = dbContext.Roles.First(role => role.Name == "Admin");
+        var hasAdminUser = dbContext.Users.Any(user => user.RoleId == adminRole.Id);
+
+        // Nếu chưa có tài khoản admin và đã cấu hình AdminSeed, thì tạo admin mặc định
+        if (hasAdminSeed && !hasAdminUser)
         {
-            dbContext.Users.Add(new User
+            var adminUser = new User
             {
-                FullName = "System Admin",
-                Email = "admin@example.com",
-                PasswordHash = "change-me",
-                RoleId = 1,
+                FullName = adminSeed.FullName,
+                Email = adminSeed.Email,
+                RoleId = adminRole.Id,
                 IsActive = true
-            });
+            };
+
+            var passwordHasher = new PasswordHasher<User>();
+            adminUser.PasswordHash = passwordHasher.HashPassword(adminUser, adminSeed.Password);
+            dbContext.Users.Add(adminUser);
         }
 
         dbContext.SaveChanges();

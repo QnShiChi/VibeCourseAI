@@ -56,6 +56,23 @@ export function AuthProvider({ children }) {
     await handleAuthSuccess(response);
   }
 
+  async function logout() {
+    try {
+      if (session?.refreshToken) {
+        await authService.logout(session.refreshToken);
+      }
+    } finally {
+      clearAuthSession();
+      setSession(null);
+      setUser(null);
+    }
+  }
+
+  async function changePassword(payload) {
+    await authService.changePassword(payload);
+    await logout();
+  }
+
   const value = useMemo(
     () => ({
       session,
@@ -63,7 +80,9 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(session?.accessToken && user),
       isBootstrapping,
       login,
-      register
+      register,
+      logout,
+      changePassword
     }),
     [session, user, isBootstrapping]
   );

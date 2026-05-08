@@ -26,6 +26,7 @@ public static class DbInitializer
                     dbContext.Database.EnsureCreated();
                 }
 
+                EnsureRefreshTokensTableExists(dbContext);
                 Seed(dbContext, adminSeedOptions.Value);
                 return;
             }
@@ -56,10 +57,10 @@ public static class DbInitializer
             && !string.IsNullOrWhiteSpace(adminSeed.FullName);
 
         var adminRole = dbContext.Roles.First(role => role.Name == "Admin");
-        var hasAdminUser = dbContext.Users.Any(user => user.RoleId == adminRole.Id);
+        var hasConfiguredAdminUser = dbContext.Users.Any(user => user.Email == adminSeed.Email);
 
-        // Nếu chưa có tài khoản admin và đã cấu hình AdminSeed, thì tạo admin mặc định
-        if (hasAdminSeed && !hasAdminUser)
+        // Nếu chưa có đúng tài khoản admin đã cấu hình, thì tạo admin mặc định
+        if (hasAdminSeed && !hasConfiguredAdminUser)
         {
             var adminUser = new User
             {
@@ -75,5 +76,37 @@ public static class DbInitializer
         }
 
         dbContext.SaveChanges();
+    }
+
+    private static void EnsureRefreshTokensTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[RefreshTokens]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [RefreshTokens] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [TokenHash] nvarchar(500) NOT NULL,
+                    [ExpiresAt] datetime2 NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    [RevokedAt] datetime2 NULL,
+                    [ReplacedByTokenHash] nvarchar(500) NULL,
+                    [CreatedByIp] nvarchar(100) NULL,
+                    [RevokedByIp] nvarchar(100) NULL,
+                    CONSTRAINT [PK_RefreshTokens] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_RefreshTokens_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_RefreshTokens_UserId] ON [RefreshTokens] ([UserId]);
+                CREATE UNIQUE INDEX [IX_RefreshTokens_TokenHash] ON [RefreshTokens] ([TokenHash]);
+            END
+            """);
     }
 }

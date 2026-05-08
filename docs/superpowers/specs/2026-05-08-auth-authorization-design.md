@@ -107,6 +107,18 @@ When a user changes password:
 - password hash is replaced
 - all refresh tokens are revoked
 
+### Language And Localization
+
+- The product is intended for Vietnamese users.
+- All user-facing website content in this project should default to Vietnamese with proper diacritics.
+- In this auth iteration, that rule applies to:
+  - login and register page labels
+  - button text
+  - empty-state or status text on auth-related screens
+  - validation and error messages that are shown directly to end users
+- Internal code identifiers, database schema, and developer-facing names remain in English.
+- API field names remain stable and English-friendly for development, but messages meant for direct UI display should be written in Vietnamese.
+
 ## Architecture
 
 The implementation should stay aligned with the existing layered structure.
@@ -402,6 +414,8 @@ Recommended status behavior:
 
 The implementation does not need a full exception framework in this iteration. Clear, consistent controller/service responses are enough.
 
+Where an error message is intended to be surfaced directly in the website UI, the message text should be Vietnamese with diacritics.
+
 ## Testing and Verification
 
 Minimum verification scope:
@@ -431,7 +445,7 @@ This spec is intentionally limited to the auth foundation needed before course i
 It does not attempt to solve:
 
 - email delivery
-- frontend token persistence UX details
+- frontend token persistence UX details beyond auth screens
 - audit history beyond basic refresh-token metadata
 - per-request active-user database checks
 

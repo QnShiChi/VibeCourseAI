@@ -1,0 +1,13 @@
+.worktrees/
+.env
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.pytest_cache/
+**/__pycache__/
+storage/audio/*
+storage/videos/*
+storage/slides/*
+storage/thumbnails/*
+!storage/**/.gitkeep

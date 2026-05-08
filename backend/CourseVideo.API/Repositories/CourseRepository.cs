@@ -14,6 +14,7 @@ public class CourseRepository : ICourseRepository
         _dbContext = dbContext;
     }
 
+    // Hàm async thì phải trả về Task hoặc Task<T>
     public async Task<IReadOnlyList<Course>> GetAllAsync()
     {
         return await _dbContext.Courses

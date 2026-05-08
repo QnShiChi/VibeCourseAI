@@ -5,17 +5,17 @@ namespace CourseVideo.API.Services;
 
 public class AuthService : IAuthService
 {
-    public object Login(LoginRequest request)
+    public LoginResponse Login(LoginRequest request)
     {
-        return new
+        return new LoginResponse
         {
-            accessToken = "development-token",
-            user = new
+            AccessToken = "development-token",
+            User = new AuthUserResponse
             {
-                id = Guid.NewGuid(),
-                fullName = "System Admin",
-                email = request.Email,
-                role = "Admin"
+                Id = Guid.NewGuid(),
+                FullName = "System Admin",
+                Email = request.Email,
+                Role = "Admin"
             }
         };
     }

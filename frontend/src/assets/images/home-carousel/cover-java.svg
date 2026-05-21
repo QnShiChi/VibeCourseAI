@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" fill="none">
+  <rect width="1600" height="900" fill="#FFF8E8"/>
+  <rect x="92" y="92" width="1416" height="716" rx="40" fill="url(#bg)"/>
+  <rect x="150" y="150" width="540" height="600" rx="36" fill="#FFFFFF" stroke="#171717" stroke-width="4"/>
+  <text x="210" y="248" fill="#171717" font-size="56" font-family="Arial, sans-serif" font-weight="700">Java Learning Track</text>
+  <rect x="210" y="308" width="360" height="26" rx="13" fill="#A3E635"/>
+  <rect x="210" y="364" width="420" height="26" rx="13" fill="#D2FAE5"/>
+  <rect x="210" y="420" width="300" height="26" rx="13" fill="#FAE9FF"/>
+  <rect x="784" y="176" width="604" height="188" rx="32" fill="#FFFFFF" stroke="#171717" stroke-width="4"/>
+  <text x="842" y="258" fill="#171717" font-size="46" font-family="Arial, sans-serif" font-weight="700">Progress Tracking</text>
+  <text x="842" y="324" fill="#171717" font-size="30" font-family="Arial, sans-serif">Bài học, ghi chú và tiến trình rõ ràng cho learner.</text>
+  <rect x="844" y="450" width="486" height="220" rx="34" fill="#F5D1FE" stroke="#171717" stroke-width="4"/>
+  <text x="904" y="540" fill="#171717" font-size="44" font-family="Arial, sans-serif" font-weight="700">Course Cards</text>
+  <text x="904" y="600" fill="#171717" font-size="30" font-family="Arial, sans-serif">Từ lesson thành hành trình học tập trực quan.</text>
+  <defs>
+    <linearGradient id="bg" x1="800" y1="92" x2="800" y2="808" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DBF4B5"/>
+      <stop offset="1" stop-color="#FDE5B1"/>
+    </linearGradient>
+  </defs>
+</svg>

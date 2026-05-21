@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" fill="none">
+  <rect width="1600" height="900" fill="#F4FFE0"/>
+  <rect x="92" y="92" width="1416" height="716" rx="40" fill="url(#bg)"/>
+  <rect x="160" y="168" width="420" height="84" rx="42" fill="#FFFFFF" stroke="#171717" stroke-width="4"/>
+  <text x="208" y="221" fill="#171717" font-size="42" font-family="Arial, sans-serif" font-weight="700">AI Video Course</text>
+  <text x="160" y="350" fill="#171717" font-size="98" font-family="Arial, sans-serif" font-weight="700">Lập trình hướng đối tượng</text>
+  <text x="160" y="446" fill="#171717" font-size="38" font-family="Arial, sans-serif">Từ syllabus đến bài giảng video rõ ràng, sáng và giàu nhịp.</text>
+  <rect x="1044" y="188" width="320" height="180" rx="28" fill="#FFFFFF" stroke="#171717" stroke-width="4"/>
+  <rect x="1094" y="240" width="220" height="28" rx="14" fill="#A3E635"/>
+  <rect x="1094" y="288" width="180" height="28" rx="14" fill="#D2FAE5"/>
+  <rect x="1014" y="470" width="360" height="220" rx="34" fill="#FEF3C8" stroke="#171717" stroke-width="4"/>
+  <text x="1066" y="558" fill="#171717" font-size="44" font-family="Arial, sans-serif" font-weight="700">Lesson Script</text>
+  <text x="1066" y="620" fill="#171717" font-size="30" font-family="Arial, sans-serif">Voiceover</text>
+  <text x="1066" y="664" fill="#171717" font-size="30" font-family="Arial, sans-serif">Video Ready</text>
+  <defs>
+    <linearGradient id="bg" x1="800" y1="92" x2="800" y2="808" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#89E5F0"/>
+      <stop offset="1" stop-color="#C6EE89"/>
+    </linearGradient>
+  </defs>
+</svg>

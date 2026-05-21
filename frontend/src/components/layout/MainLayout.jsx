@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import Button from "../ui/Button";
+import Footer from "./Footer";
 
 export default function MainLayout() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -70,9 +71,13 @@ export default function MainLayout() {
         </div>
       </header>
 
-      <main className="page-container app-main">
-        <Outlet />
+      <main className="app-main">
+        <div className="page-container app-main__inner">
+          <Outlet />
+        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

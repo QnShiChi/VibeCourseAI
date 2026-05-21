@@ -20,22 +20,47 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        var result = await _authService.RegisterAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
-        return Ok(result);
+        try
+        {
+            var result = await _authService.RegisterAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
+            return Ok(result);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var result = await _authService.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
-        return Ok(result);
+        try
+        {
+            var result = await _authService.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
     {
-        var result = await _authService.RefreshAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
-        return Ok(result);
+        try
+        {
+            var result = await _authService.RefreshAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
     }
 
     [Authorize]
@@ -68,8 +93,19 @@ public class AuthController : ControllerBase
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub")!.Value);
-        await _authService.ChangePasswordAsync(currentUserId, request, HttpContext.Connection.RemoteIpAddress?.ToString());
-        return NoContent();
+        try
+        {
+            var currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub")!.Value);
+            await _authService.ChangePasswordAsync(currentUserId, request, HttpContext.Connection.RemoteIpAddress?.ToString());
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 }

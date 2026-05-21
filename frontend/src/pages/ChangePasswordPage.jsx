@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../auth/useAuth";
 
 export default function ChangePasswordPage() {
@@ -24,34 +28,41 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <section style={{ maxWidth: 480 }}>
-      <h1 style={{ fontSize: 42, marginBottom: 12 }}>Đổi mật khẩu</h1>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-        <label htmlFor="currentPassword" style={{ display: "grid", gap: 8 }}>
-          <span>Mật khẩu hiện tại</span>
-          <input
-            id="currentPassword"
-            type="password"
-            value={formData.currentPassword}
-            onChange={(event) => setFormData((current) => ({ ...current, currentPassword: event.target.value }))}
-          />
-        </label>
+    <section className="auth-page">
+      <Card className="auth-card" variant="shadowed">
+        <PageHeader
+          eyebrow="Bao mat"
+          title="Đổi mật khẩu"
+          description="Cập nhật mật khẩu mới để bảo vệ tài khoản và tiếp tục sử dụng hệ thống an toàn hơn."
+        />
 
-        <label htmlFor="newPassword" style={{ display: "grid", gap: 8 }}>
-          <span>Mật khẩu mới</span>
-          <input
-            id="newPassword"
-            type="password"
-            value={formData.newPassword}
-            onChange={(event) => setFormData((current) => ({ ...current, newPassword: event.target.value }))}
-          />
-        </label>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <FormField id="currentPassword" label="Mật khẩu hiện tại">
+            <input
+              className="ui-input"
+              id="currentPassword"
+              type="password"
+              value={formData.currentPassword}
+              onChange={(event) => setFormData((current) => ({ ...current, currentPassword: event.target.value }))}
+            />
+          </FormField>
 
-        {message ? <p>{message}</p> : null}
-        {errorMessage ? <p style={{ color: "#ffd6d6" }}>{errorMessage}</p> : null}
+          <FormField id="newPassword" label="Mật khẩu mới">
+            <input
+              className="ui-input"
+              id="newPassword"
+              type="password"
+              value={formData.newPassword}
+              onChange={(event) => setFormData((current) => ({ ...current, newPassword: event.target.value }))}
+            />
+          </FormField>
 
-        <button type="submit">Cập nhật mật khẩu</button>
-      </form>
+          {message ? <p className="ui-alert ui-alert--success">{message}</p> : null}
+          {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
+
+          <Button type="submit">Cập nhật mật khẩu</Button>
+        </form>
+      </Card>
     </section>
   );
 }

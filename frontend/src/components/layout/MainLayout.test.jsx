@@ -9,18 +9,22 @@ vi.mock("../../auth/useAuth", () => ({
     user: {
       fullName: "Quản trị viên hệ thống",
       role: "Admin"
-    }
+    },
+    logout: vi.fn()
   })
 }));
 
 describe("MainLayout", () => {
-  it("hiển thị nút Dashboard cho admin", () => {
+  it("renders the shared navigation shell for an authenticated admin", () => {
     render(
       <MemoryRouter>
         <MainLayout />
       </MemoryRouter>
     );
 
+    expect(screen.getByText("VibeCourseAI")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Trang chủ" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Khóa học" })).toBeInTheDocument();
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Quản trị viên hệ thống")).toBeInTheDocument();
     expect(screen.getByText("Đăng xuất")).toBeInTheDocument();

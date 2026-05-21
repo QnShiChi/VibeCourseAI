@@ -8,4 +8,7 @@ public class Course : BaseEntity
     public bool IsPublished { get; set; }
     public Guid? SyllabusId { get; set; }
     public Guid? CreatedByUserId { get; set; }
+    public Syllabus? Syllabus { get; set; }
+    public ICollection<Module> Modules { get; set; } = new List<Module>();
+    public ICollection<GenerationJob> GenerationJobs { get; set; } = new List<GenerationJob>();
 }

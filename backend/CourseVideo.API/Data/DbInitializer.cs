@@ -27,6 +27,13 @@ public static class DbInitializer
                 }
 
                 EnsureRefreshTokensTableExists(dbContext);
+                EnsureSyllabusesTableExists(dbContext);
+                EnsureCourseColumnsExist(dbContext);
+                EnsureModulesTableExists(dbContext);
+                EnsureLessonsTableExists(dbContext);
+                EnsureGenerationJobsTableExists(dbContext);
+                EnsureLessonGeneratedContentColumnsExist(dbContext);
+                EnsureGenerationJobColumnsExist(dbContext);
                 Seed(dbContext, adminSeedOptions.Value);
                 return;
             }
@@ -41,7 +48,6 @@ public static class DbInitializer
 
     public static void Seed(AppDbContext dbContext, AdminSeedOptions adminSeed)
     {
-        // Nếu không có bất kỳ khóa học nào, thì tạo một khóa học mẫu để có dữ liệu ban đầu
         if (!dbContext.Courses.Any())
         {
             dbContext.Courses.Add(new Course
@@ -59,7 +65,6 @@ public static class DbInitializer
         var adminRole = dbContext.Roles.First(role => role.Name == "Admin");
         var hasConfiguredAdminUser = dbContext.Users.Any(user => user.Email == adminSeed.Email);
 
-        // Nếu chưa có đúng tài khoản admin đã cấu hình, thì tạo admin mặc định
         if (hasAdminSeed && !hasConfiguredAdminUser)
         {
             var adminUser = new User
@@ -76,6 +81,252 @@ public static class DbInitializer
         }
 
         dbContext.SaveChanges();
+    }
+
+    private static void EnsureSyllabusesTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[Syllabuses]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [Syllabuses] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [Title] nvarchar(255) NOT NULL,
+                    [Description] nvarchar(2000) NOT NULL,
+                    [OriginalFileName] nvarchar(255) NOT NULL,
+                    [StoredFileName] nvarchar(255) NOT NULL,
+                    [FilePath] nvarchar(500) NOT NULL,
+                    [FileType] nvarchar(50) NOT NULL,
+                    [FileSize] bigint NOT NULL,
+                    [ExtractedText] nvarchar(max) NOT NULL,
+                    [UploadedByUserId] uniqueidentifier NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_Syllabuses] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_Syllabuses_Users_UploadedByUserId] FOREIGN KEY ([UploadedByUserId]) REFERENCES [Users]([Id])
+                );
+
+                CREATE INDEX [IX_Syllabuses_CreatedAt] ON [Syllabuses] ([CreatedAt]);
+                CREATE INDEX [IX_Syllabuses_UploadedByUserId] ON [Syllabuses] ([UploadedByUserId]);
+            END
+            """);
+    }
+
+    private static void EnsureCourseColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('Courses', 'SyllabusId') IS NULL
+            BEGIN
+                ALTER TABLE [Courses] ADD [SyllabusId] uniqueidentifier NULL;
+                CREATE INDEX [IX_Courses_SyllabusId] ON [Courses] ([SyllabusId]);
+            END
+
+            IF COL_LENGTH('Courses', 'CreatedByUserId') IS NULL
+            BEGIN
+                ALTER TABLE [Courses] ADD [CreatedByUserId] uniqueidentifier NULL;
+            END
+            """);
+    }
+
+    private static void EnsureGenerationJobsTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[GenerationJobs]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [GenerationJobs] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SyllabusId] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NULL,
+                    [LessonId] uniqueidentifier NULL,
+                    [JobType] nvarchar(100) NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [ErrorMessage] nvarchar(2000) NULL,
+                    [TotalItems] int NULL,
+                    [ProcessedItems] int NULL,
+                    [FailedItems] int NULL,
+                    [ProgressMessage] nvarchar(500) NULL,
+                    [CreatedByUserId] uniqueidentifier NOT NULL,
+                    [StartedAt] datetime2 NULL,
+                    [CompletedAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_GenerationJobs] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_GenerationJobs_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]),
+                    CONSTRAINT [FK_GenerationJobs_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]),
+                    CONSTRAINT [FK_GenerationJobs_Users_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [Users]([Id])
+                );
+
+                CREATE INDEX [IX_GenerationJobs_CreatedAt] ON [GenerationJobs] ([CreatedAt]);
+                CREATE INDEX [IX_GenerationJobs_SyllabusId] ON [GenerationJobs] ([SyllabusId]);
+                CREATE INDEX [IX_GenerationJobs_CourseId] ON [GenerationJobs] ([CourseId]);
+                CREATE INDEX [IX_GenerationJobs_CreatedByUserId] ON [GenerationJobs] ([CreatedByUserId]);
+            END
+            """);
+    }
+
+    private static void EnsureModulesTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[Modules]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [Modules] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [Title] nvarchar(200) NOT NULL,
+                    [Description] nvarchar(2000) NOT NULL,
+                    [OrderIndex] int NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_Modules] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_Modules_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_Modules_CourseId_OrderIndex] ON [Modules] ([CourseId], [OrderIndex]);
+            END
+            """);
+    }
+
+    private static void EnsureLessonsTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[Lessons]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [Lessons] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [ModuleId] uniqueidentifier NOT NULL,
+                    [Title] nvarchar(200) NOT NULL,
+                    [Description] nvarchar(2000) NOT NULL,
+                    [OrderIndex] int NOT NULL,
+                    [ContentSeed] nvarchar(max) NOT NULL,
+                    [TeachingScript] nvarchar(max) NULL,
+                    [SlideOutlineJson] nvarchar(max) NULL,
+                    [VoiceoverPlanJson] nvarchar(max) NULL,
+                    [ContentGenerationStatus] nvarchar(50) NOT NULL,
+                    [ContentGeneratedAt] datetime2 NULL,
+                    [ContentGenerationError] nvarchar(2000) NULL,
+                    [VideoUrl] nvarchar(1000) NULL,
+                    [AudioUrl] nvarchar(1000) NULL,
+                    [Duration] int NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_Lessons] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_Lessons_Modules_ModuleId] FOREIGN KEY ([ModuleId]) REFERENCES [Modules]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_Lessons_ModuleId_OrderIndex] ON [Lessons] ([ModuleId], [OrderIndex]);
+            END
+            """);
+    }
+
+    private static void EnsureLessonGeneratedContentColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('Lessons', 'TeachingScript') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [TeachingScript] nvarchar(max) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'SlideOutlineJson') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [SlideOutlineJson] nvarchar(max) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'VoiceoverPlanJson') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [VoiceoverPlanJson] nvarchar(max) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'ContentGenerationStatus') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [ContentGenerationStatus] nvarchar(50) NOT NULL CONSTRAINT [DF_Lessons_ContentGenerationStatus] DEFAULT N'NotGenerated';
+            END
+
+            IF COL_LENGTH('Lessons', 'ContentGeneratedAt') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [ContentGeneratedAt] datetime2 NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'ContentGenerationError') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [ContentGenerationError] nvarchar(2000) NULL;
+            END
+            """);
+    }
+
+    private static void EnsureGenerationJobColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('GenerationJobs', 'LessonId') IS NULL
+            BEGIN
+                ALTER TABLE [GenerationJobs] ADD [LessonId] uniqueidentifier NULL;
+            END
+
+            IF COL_LENGTH('GenerationJobs', 'JobType') IS NULL
+            BEGIN
+                ALTER TABLE [GenerationJobs] ADD [JobType] nvarchar(100) NULL;
+            END
+
+            IF COL_LENGTH('GenerationJobs', 'TotalItems') IS NULL
+            BEGIN
+                ALTER TABLE [GenerationJobs] ADD [TotalItems] int NULL;
+            END
+
+            IF COL_LENGTH('GenerationJobs', 'ProcessedItems') IS NULL
+            BEGIN
+                ALTER TABLE [GenerationJobs] ADD [ProcessedItems] int NULL;
+            END
+
+            IF COL_LENGTH('GenerationJobs', 'FailedItems') IS NULL
+            BEGIN
+                ALTER TABLE [GenerationJobs] ADD [FailedItems] int NULL;
+            END
+
+            IF COL_LENGTH('GenerationJobs', 'ProgressMessage') IS NULL
+            BEGIN
+                ALTER TABLE [GenerationJobs] ADD [ProgressMessage] nvarchar(500) NULL;
+            END
+            """);
     }
 
     private static void EnsureRefreshTokensTableExists(AppDbContext dbContext)

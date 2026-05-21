@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../auth/useAuth";
 
 function getVietnameseErrorMessage(error) {
-  const message = error?.response?.data?.message;
+  const responseData = error?.response?.data;
+  const message = typeof responseData === "string" ? responseData : responseData?.message;
 
   if (message?.includes("Email đã tồn tại")) {
     return "Email đã tồn tại.";
+  }
+
+  if (error?.response?.status === 400 && message) {
+    return message;
   }
 
   return "Không thể kết nối đến máy chủ. Vui lòng thử lại.";
@@ -45,54 +54,59 @@ export default function RegisterPage() {
   }
 
   return (
-    <section style={{ padding: 40, fontFamily: "Georgia, serif", maxWidth: 480 }}>
-      <h1>Đăng ký</h1>
-      <p>Tạo tài khoản mới để bắt đầu học các khóa học trên hệ thống.</p>
+    <section className="auth-page">
+      <Card className="auth-card" variant="shadowed">
+        <PageHeader
+          eyebrow="Tai khoan"
+          title="Đăng ký"
+          description="Tạo tài khoản mới để bắt đầu học và theo dõi các khóa học trên hệ thống."
+        />
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16, marginTop: 24 }}>
-        <label htmlFor="fullName" style={{ display: "grid", gap: 8 }}>
-          <span>Họ và tên</span>
-          <input
-            id="fullName"
-            type="text"
-            placeholder="Nhập họ và tên"
-            value={formData.fullName}
-            onChange={(event) => setFormData((current) => ({ ...current, fullName: event.target.value }))}
-          />
-        </label>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <FormField id="fullName" label="Họ và tên">
+            <input
+              className="ui-input"
+              id="fullName"
+              type="text"
+              placeholder="Nhập họ và tên"
+              value={formData.fullName}
+              onChange={(event) => setFormData((current) => ({ ...current, fullName: event.target.value }))}
+            />
+          </FormField>
 
-        <label htmlFor="email" style={{ display: "grid", gap: 8 }}>
-          <span>Email</span>
-          <input
-            id="email"
-            type="email"
-            placeholder="Nhập email của bạn"
-            value={formData.email}
-            onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
-          />
-        </label>
+          <FormField id="register-email" label="Email">
+            <input
+              className="ui-input"
+              id="register-email"
+              type="email"
+              placeholder="Nhập email của bạn"
+              value={formData.email}
+              onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+            />
+          </FormField>
 
-        <label htmlFor="password" style={{ display: "grid", gap: 8 }}>
-          <span>Mật khẩu</span>
-          <input
-            id="password"
-            type="password"
-            placeholder="Tạo mật khẩu"
-            value={formData.password}
-            onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
-          />
-        </label>
+          <FormField id="register-password" label="Mật khẩu">
+            <input
+              className="ui-input"
+              id="register-password"
+              type="password"
+              placeholder="Tạo mật khẩu"
+              value={formData.password}
+              onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
+            />
+          </FormField>
 
-        {errorMessage ? <p style={{ color: "#ffd6d6" }}>{errorMessage}</p> : null}
+          {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
-        </button>
-      </form>
+          <Button disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+          </Button>
+        </form>
 
-      <p style={{ marginTop: 24 }}>
-        Bạn đã có tài khoản? <Link to="/login">Đăng nhập</Link>
-      </p>
+        <p className="auth-footer">
+          Bạn đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+        </p>
+      </Card>
     </section>
   );
 }

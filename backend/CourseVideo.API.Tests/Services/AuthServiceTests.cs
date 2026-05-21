@@ -54,6 +54,12 @@ public class AuthServiceTests
             Password = "ChangeMe@123"
         }, "127.0.0.1");
 
+        userRepository.Verify(
+            repository => repository.AddAsync(It.Is<User>(user =>
+                user.RoleId == 2 &&
+                user.Role == null &&
+                user.Email == "new-user@example.com")),
+            Times.Once);
         response.AccessToken.Should().Be("access-token");
         response.RefreshToken.Should().Be("refresh-token");
         response.User.Role.Should().Be("User");

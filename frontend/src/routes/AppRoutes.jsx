@@ -3,11 +3,15 @@ import RequireAuth from "../auth/RequireAuth";
 import MainLayout from "../components/layout/MainLayout";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import CoursesPage from "../pages/CoursesPage";
+import CourseLearnPage from "../pages/CourseLearnPage";
+import CourseStructurePage from "../pages/CourseStructurePage";
 import DashboardPage from "../pages/DashboardPage";
+import GenerationJobsPage from "../pages/GenerationJobsPage";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import ProfilePage from "../pages/ProfilePage";
 import RegisterPage from "../pages/RegisterPage";
+import SyllabusesPage from "../pages/SyllabusesPage";
 
 export default function AppRoutes() {
   return (
@@ -16,7 +20,38 @@ export default function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth requiredRole="Admin">
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/syllabuses"
+          element={
+            <RequireAuth requiredRole="Admin">
+              <SyllabusesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/generation-jobs"
+          element={
+            <RequireAuth requiredRole="Admin">
+              <GenerationJobsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/courses/:courseId"
+          element={
+            <RequireAuth requiredRole="Admin">
+              <CourseStructurePage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/profile"
           element={
@@ -38,6 +73,14 @@ export default function AppRoutes() {
           element={
             <RequireAuth>
               <CoursesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/courses/:courseId/learn"
+          element={
+            <RequireAuth>
+              <CourseLearnPage />
             </RequireAuth>
           }
         />

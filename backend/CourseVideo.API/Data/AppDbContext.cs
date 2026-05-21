@@ -12,6 +12,10 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Course> Courses => Set<Course>();
+    public DbSet<Module> Modules => Set<Module>();
+    public DbSet<Lesson> Lessons => Set<Lesson>();
+    public DbSet<Syllabus> Syllabuses => Set<Syllabus>();
+    public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -36,9 +40,6 @@ public class AppDbContext : DbContext
             entity.Property(user => user.Email).HasMaxLength(255).IsRequired();
             entity.Property(user => user.PasswordHash).HasMaxLength(255).IsRequired();
             entity.HasIndex(user => user.Email).IsUnique();
-            // 1 User thuộc về 1 Role
-            // 1 Role có nhiều User
-            // khóa ngoại là RoleId
             entity.HasOne(user => user.Role)
                 .WithMany(role => role.Users)
                 .HasForeignKey(user => user.RoleId);
@@ -49,6 +50,78 @@ public class AppDbContext : DbContext
             entity.HasKey(course => course.Id);
             entity.Property(course => course.Title).HasMaxLength(200).IsRequired();
             entity.Property(course => course.Description).HasMaxLength(2000).IsRequired();
+            entity.HasOne(course => course.Syllabus)
+                .WithMany(syllabus => syllabus.Courses)
+                .HasForeignKey(course => course.SyllabusId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Module>(entity =>
+        {
+            entity.HasKey(module => module.Id);
+            entity.Property(module => module.Title).HasMaxLength(200).IsRequired();
+            entity.Property(module => module.Description).HasMaxLength(2000).IsRequired();
+            entity.HasIndex(module => new { module.CourseId, module.OrderIndex });
+            entity.HasOne(module => module.Course)
+                .WithMany(course => course.Modules)
+                .HasForeignKey(module => module.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Lesson>(entity =>
+        {
+            entity.HasKey(lesson => lesson.Id);
+            entity.Property(lesson => lesson.Title).HasMaxLength(200).IsRequired();
+            entity.Property(lesson => lesson.Description).HasMaxLength(2000).IsRequired();
+            entity.Property(lesson => lesson.ContentSeed).IsRequired();
+            entity.Property(lesson => lesson.ContentGenerationStatus).HasMaxLength(50).IsRequired();
+            entity.Property(lesson => lesson.ContentGenerationError).HasMaxLength(2000);
+            entity.Property(lesson => lesson.VideoUrl).HasMaxLength(1000);
+            entity.Property(lesson => lesson.AudioUrl).HasMaxLength(1000);
+            entity.HasIndex(lesson => new { lesson.ModuleId, lesson.OrderIndex });
+            entity.HasOne(lesson => lesson.Module)
+                .WithMany(module => module.Lessons)
+                .HasForeignKey(lesson => lesson.ModuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Syllabus>(entity =>
+        {
+            entity.HasKey(syllabus => syllabus.Id);
+            entity.Property(syllabus => syllabus.Title).HasMaxLength(255).IsRequired();
+            entity.Property(syllabus => syllabus.Description).HasMaxLength(2000).IsRequired();
+            entity.Property(syllabus => syllabus.OriginalFileName).HasMaxLength(255).IsRequired();
+            entity.Property(syllabus => syllabus.StoredFileName).HasMaxLength(255).IsRequired();
+            entity.Property(syllabus => syllabus.FilePath).HasMaxLength(500).IsRequired();
+            entity.Property(syllabus => syllabus.FileType).HasMaxLength(50).IsRequired();
+            entity.Property(syllabus => syllabus.ExtractedText).IsRequired();
+            entity.HasIndex(syllabus => syllabus.CreatedAt);
+            entity.HasOne(syllabus => syllabus.UploadedByUser)
+                .WithMany(user => user.Syllabuses)
+                .HasForeignKey(syllabus => syllabus.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GenerationJob>(entity =>
+        {
+            entity.HasKey(job => job.Id);
+            entity.Property(job => job.JobType).HasMaxLength(100);
+            entity.Property(job => job.Status).HasMaxLength(50).IsRequired();
+            entity.Property(job => job.ErrorMessage).HasMaxLength(2000);
+            entity.Property(job => job.ProgressMessage).HasMaxLength(500);
+            entity.HasIndex(job => job.CreatedAt);
+            entity.HasOne(job => job.Syllabus)
+                .WithMany(syllabus => syllabus.GenerationJobs)
+                .HasForeignKey(job => job.SyllabusId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(job => job.Course)
+                .WithMany(course => course.GenerationJobs)
+                .HasForeignKey(job => job.CourseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(job => job.CreatedByUser)
+                .WithMany(user => user.CreatedGenerationJobs)
+                .HasForeignKey(job => job.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

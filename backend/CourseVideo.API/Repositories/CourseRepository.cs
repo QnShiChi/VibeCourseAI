@@ -14,11 +14,52 @@ public class CourseRepository : ICourseRepository
         _dbContext = dbContext;
     }
 
-    // Hàm async thì phải trả về Task hoặc Task<T>
+    public Task AddAsync(Course course)
+    {
+        return _dbContext.Courses.AddAsync(course).AsTask();
+    }
+
     public async Task<IReadOnlyList<Course>> GetAllAsync()
     {
         return await _dbContext.Courses
             .OrderBy(course => course.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<Course>> GetAdminCoursesAsync()
+    {
+        return await _dbContext.Courses
+            .Include(course => course.Modules)
+            .ThenInclude(module => module.Lessons)
+            .OrderByDescending(course => course.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<Course>> GetPublishedAsync()
+    {
+        return await _dbContext.Courses
+            .Include(course => course.Modules)
+            .ThenInclude(module => module.Lessons)
+            .Where(course => course.IsPublished)
+            .OrderByDescending(course => course.CreatedAt)
+            .ToListAsync();
+    }
+
+    public Task<Course?> GetByIdAsync(Guid id)
+    {
+        return _dbContext.Courses.FirstOrDefaultAsync(course => course.Id == id);
+    }
+
+    public Task<Course?> GetByIdWithStructureAsync(Guid id)
+    {
+        return _dbContext.Courses
+            .Include(course => course.Modules.OrderBy(module => module.OrderIndex))
+            .ThenInclude(module => module.Lessons.OrderBy(lesson => lesson.OrderIndex))
+            .FirstOrDefaultAsync(course => course.Id == id);
+    }
+
+    public Task SaveChangesAsync()
+    {
+        return _dbContext.SaveChangesAsync();
     }
 }

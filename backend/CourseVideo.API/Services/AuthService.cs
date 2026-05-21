@@ -38,7 +38,6 @@ public class AuthService : IAuthService
             FullName = request.FullName,
             Email = request.Email,
             RoleId = 2,
-            Role = new Role { Id = 2, Name = "User" },
             IsActive = true
         };
 
@@ -47,7 +46,7 @@ public class AuthService : IAuthService
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
 
-        return await CreateAuthResponseAsync(user, ipAddress);
+        return await CreateAuthResponseAsync(user, ipAddress, "User");
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, string? ipAddress)
@@ -174,7 +173,7 @@ public class AuthService : IAuthService
         await RevokeAllUserSessionsAsync(user.Id, ipAddress);
     }
 
-    private async Task<AuthResponse> CreateAuthResponseAsync(User user, string? ipAddress)
+    private async Task<AuthResponse> CreateAuthResponseAsync(User user, string? ipAddress, string? fallbackRoleName = null)
     {
         var refreshToken = _tokenService.CreateRefreshToken();
 
@@ -196,7 +195,7 @@ public class AuthService : IAuthService
                 Id = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
-                Role = user.Role?.Name ?? string.Empty
+                Role = user.Role?.Name ?? fallbackRoleName ?? string.Empty
             }
         };
     }

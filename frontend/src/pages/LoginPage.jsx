@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../auth/useAuth";
 
 function getVietnameseErrorMessage(error) {
@@ -39,43 +43,48 @@ export default function LoginPage() {
   }
 
   return (
-    <section style={{ padding: 40, fontFamily: "Georgia, serif", maxWidth: 480 }}>
-      <h1>Đăng nhập</h1>
-      <p>Vui lòng nhập thông tin tài khoản để truy cập hệ thống học tập.</p>
+    <section className="auth-page">
+      <Card className="auth-card" variant="shadowed">
+        <PageHeader
+          eyebrow="Tai khoan"
+          title="Đăng nhập"
+          description="Vui lòng nhập thông tin tài khoản để truy cập hệ thống học tập."
+        />
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16, marginTop: 24 }}>
-        <label htmlFor="email" style={{ display: "grid", gap: 8 }}>
-          <span>Email</span>
-          <input
-            id="email"
-            type="email"
-            placeholder="Nhập email của bạn"
-            value={formData.email}
-            onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
-          />
-        </label>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <FormField id="email" label="Email">
+            <input
+              className="ui-input"
+              id="email"
+              type="email"
+              placeholder="Nhập email của bạn"
+              value={formData.email}
+              onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+            />
+          </FormField>
 
-        <label htmlFor="password" style={{ display: "grid", gap: 8 }}>
-          <span>Mật khẩu</span>
-          <input
-            id="password"
-            type="password"
-            placeholder="Nhập mật khẩu"
-            value={formData.password}
-            onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
-          />
-        </label>
+          <FormField id="password" label="Mật khẩu">
+            <input
+              className="ui-input"
+              id="password"
+              type="password"
+              placeholder="Nhập mật khẩu"
+              value={formData.password}
+              onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
+            />
+          </FormField>
 
-        {errorMessage ? <p style={{ color: "#ffd6d6" }}>{errorMessage}</p> : null}
+          {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
-        </button>
-      </form>
+          <Button disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
+          </Button>
+        </form>
 
-      <p style={{ marginTop: 24 }}>
-        Bạn chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
-      </p>
+        <p className="auth-footer">
+          Bạn chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+        </p>
+      </Card>
     </section>
   );
 }

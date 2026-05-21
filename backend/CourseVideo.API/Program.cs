@@ -22,6 +22,7 @@ var connectionString = builder.Configuration["CONNECTION_STRING"]
 
 builder.Services.Configure<AdminSeedOptions>(builder.Configuration.GetSection("AdminSeed"));
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<OpenRouterOptions>(builder.Configuration.GetSection("OpenRouter"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing JWT configuration.");
@@ -58,9 +59,32 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddScoped<IModuleRepository, ModuleRepository>();
+builder.Services.AddScoped<ILessonRepository, LessonRepository>();
+builder.Services.AddScoped<IGenerationJobRepository, GenerationJobRepository>();
+builder.Services.AddScoped<ISyllabusRepository, SyllabusRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddSingleton<IGenerationJobQueue, GenerationJobQueue>();
+builder.Services.AddHostedService<LessonContentGenerationWorker>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<ILessonContentGenerationService, LessonContentGenerationService>();
+builder.Services.AddScoped<ICourseGenerationService, CourseGenerationService>();
+builder.Services.AddScoped<ICourseStructureParser, CourseStructureParser>();
+builder.Services.AddScoped<OpenRouterPromptFactory>();
+builder.Services.AddHttpClient<IOpenRouterCourseStructureService, OpenRouterCourseStructureService>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
+});
+builder.Services.AddHttpClient<IOpenRouterLessonContentService, OpenRouterLessonContentService>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
+});
+builder.Services.AddScoped<IModuleService, ModuleService>();
+builder.Services.AddScoped<ILessonService, LessonService>();
+builder.Services.AddScoped<ISyllabusService, SyllabusService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<PasswordHasher<User>>();

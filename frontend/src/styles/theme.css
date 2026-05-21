@@ -743,6 +743,13 @@ img {
   min-height: 360px;
 }
 
+.learn-stage__player video {
+  width: 100%;
+  display: block;
+  background: #111;
+  min-height: 360px;
+}
+
 .learn-stage__player-shell {
   min-height: 360px;
   display: grid;
@@ -890,4 +897,55 @@ img {
 
 .status-badge--failed {
   background: #ffe0e0;
+}
+
+.voiceover-editor-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.voiceover-preview-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.voiceover-preview-item {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 1rem;
+  padding: 1rem 1.125rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.voiceover-preview-item strong {
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+.audio-preview-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.audio-preview-card audio {
+  width: 100%;
+}
+
+.video-preview-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.video-preview-card video {
+  width: 100%;
+  display: block;
+  border-radius: 1rem;
+  background: #111;
 }

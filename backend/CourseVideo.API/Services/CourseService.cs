@@ -9,11 +9,19 @@ public class CourseService : ICourseService
 {
     private readonly ICourseRepository _courseRepository;
     private readonly ILessonContentGenerationService _lessonContentGenerationService;
+    private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
+    private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
 
-    public CourseService(ICourseRepository courseRepository, ILessonContentGenerationService lessonContentGenerationService)
+    public CourseService(
+        ICourseRepository courseRepository,
+        ILessonContentGenerationService lessonContentGenerationService,
+        ILessonAudioGenerationService lessonAudioGenerationService,
+        ILessonVideoGenerationService lessonVideoGenerationService)
     {
         _courseRepository = courseRepository;
         _lessonContentGenerationService = lessonContentGenerationService;
+        _lessonAudioGenerationService = lessonAudioGenerationService;
+        _lessonVideoGenerationService = lessonVideoGenerationService;
     }
 
     public async Task<IReadOnlyList<CourseResponse>> GetAllAsync()
@@ -86,6 +94,26 @@ public class CourseService : ICourseService
     public Task<GenerateLessonContentResponse> RegenerateLessonContentAsync(Guid courseId, Guid lessonId, Guid createdByUserId, CancellationToken cancellationToken = default)
     {
         return _lessonContentGenerationService.RegenerateLessonContentAsync(courseId, lessonId, createdByUserId, cancellationToken);
+    }
+
+    public Task<GenerateLessonAudioResponse> GenerateLessonAudioAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        return _lessonAudioGenerationService.GenerateCourseAudioAsync(id, createdByUserId, cancellationToken);
+    }
+
+    public Task<GenerateLessonAudioResponse> RegenerateLessonAudioAsync(Guid courseId, Guid lessonId, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        return _lessonAudioGenerationService.GenerateLessonAudioAsync(courseId, lessonId, createdByUserId, cancellationToken);
+    }
+
+    public Task<GenerateLessonVideoResponse> GenerateLessonVideoAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        return _lessonVideoGenerationService.GenerateCourseVideoAsync(id, createdByUserId, cancellationToken);
+    }
+
+    public Task<GenerateLessonVideoResponse> RegenerateLessonVideoAsync(Guid courseId, Guid lessonId, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        return _lessonVideoGenerationService.GenerateLessonVideoAsync(courseId, lessonId, createdByUserId, cancellationToken);
     }
 
     public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, bool canPreviewDraft)
@@ -166,7 +194,13 @@ public class CourseService : ICourseService
                             OrderIndex = lesson.OrderIndex,
                             ContentSeed = lesson.ContentSeed,
                             ContentGenerationStatus = lesson.ContentGenerationStatus,
-                            ContentGenerationError = lesson.ContentGenerationError ?? string.Empty
+                            ContentGenerationError = lesson.ContentGenerationError ?? string.Empty,
+                            AudioGenerationStatus = lesson.AudioGenerationStatus,
+                            AudioGenerationError = lesson.AudioGenerationError ?? string.Empty,
+                            AudioUrl = lesson.AudioUrl ?? string.Empty,
+                            VideoGenerationStatus = lesson.VideoGenerationStatus,
+                            VideoGenerationError = lesson.VideoGenerationError ?? string.Empty,
+                            VideoUrl = lesson.VideoUrl ?? string.Empty
                         })
                         .ToList()
                 })
@@ -198,6 +232,8 @@ public class CourseService : ICourseService
             OrderIndex = lesson.OrderIndex,
             ContentSeed = lesson.ContentSeed,
             VideoUrl = lesson.VideoUrl,
+            VideoGenerationStatus = lesson.VideoGenerationStatus,
+            VideoGenerationError = lesson.VideoGenerationError ?? string.Empty,
             Duration = lesson.Duration
         };
     }

@@ -339,5 +339,15 @@ public class LessonContentGenerationService : ILessonContentGenerationService
         lesson.ContentGenerationStatus = "Completed";
         lesson.ContentGenerationError = null;
         lesson.ContentGeneratedAt = DateTime.UtcNow;
+        lesson.AudioUrl = null;
+        lesson.AudioSegmentsJson = null;
+        lesson.AudioGenerationStatus = "NotGenerated";
+        lesson.AudioGenerationError = null;
+        lesson.AudioGeneratedAt = null;
+        lesson.VideoUrl = null;
+        lesson.VideoGenerationStatus = "NotGenerated";
+        lesson.VideoGenerationError = null;
+        lesson.VideoGeneratedAt = null;
+        lesson.Duration = null;
     }
 }

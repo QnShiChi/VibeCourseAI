@@ -14,7 +14,14 @@ public class Lesson : BaseEntity
     public DateTime? ContentGeneratedAt { get; set; }
     public string? ContentGenerationError { get; set; }
     public string? VideoUrl { get; set; }
+    public string VideoGenerationStatus { get; set; } = "NotGenerated";
+    public string? VideoGenerationError { get; set; }
+    public DateTime? VideoGeneratedAt { get; set; }
     public string? AudioUrl { get; set; }
     public int? Duration { get; set; }
+    public string? AudioSegmentsJson { get; set; }
+    public string AudioGenerationStatus { get; set; } = "NotGenerated";
+    public string? AudioGenerationError { get; set; }
+    public DateTime? AudioGeneratedAt { get; set; }
     public Module? Module { get; set; }
 }

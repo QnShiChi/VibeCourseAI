@@ -20,7 +20,10 @@ describe("CourseLearnPage", () => {
         lessonId: "lesson-1",
         lessonTitle: "Lesson 1",
         description: "Mo dau",
-        contentSeed: "Noi dung lesson 1"
+        contentSeed: "Noi dung lesson 1",
+        videoUrl: "",
+        videoGenerationStatus: "NotGenerated",
+        videoGenerationError: ""
       },
       modules: [
         {
@@ -34,6 +37,9 @@ describe("CourseLearnPage", () => {
               lessonTitle: "Lesson 1",
               description: "Mo dau",
               contentSeed: "Noi dung lesson 1",
+              videoUrl: "",
+              videoGenerationStatus: "NotGenerated",
+              videoGenerationError: "",
               orderIndex: 1
             }
           ]
@@ -63,7 +69,10 @@ describe("CourseLearnPage", () => {
         lessonId: "lesson-1",
         lessonTitle: "Lesson 1",
         description: "Mo dau",
-        contentSeed: "Noi dung lesson 1"
+        contentSeed: "Noi dung lesson 1",
+        videoUrl: "",
+        videoGenerationStatus: "NotGenerated",
+        videoGenerationError: ""
       },
       modules: [
         {
@@ -77,6 +86,9 @@ describe("CourseLearnPage", () => {
               lessonTitle: "Lesson 1",
               description: "Mo dau",
               contentSeed: "Noi dung lesson 1",
+              videoUrl: "",
+              videoGenerationStatus: "NotGenerated",
+              videoGenerationError: "",
               orderIndex: 1
             },
             {
@@ -84,6 +96,9 @@ describe("CourseLearnPage", () => {
               lessonTitle: "Lesson 2",
               description: "Tiep theo",
               contentSeed: "Noi dung lesson 2",
+              videoUrl: "",
+              videoGenerationStatus: "NotGenerated",
+              videoGenerationError: "",
               orderIndex: 2
             }
           ]
@@ -102,5 +117,54 @@ describe("CourseLearnPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /2. Lesson 2/i }));
 
     expect(await screen.findByText("Noi dung lesson 2")).toBeInTheDocument();
+  });
+
+  it("renders a video player when the selected lesson has a videoUrl", async () => {
+    mockGetCourseLearnPayload.mockResolvedValue({
+      courseId: "course-1",
+      courseTitle: "OOP",
+      courseDescription: "Desc",
+      selectedLessonId: "lesson-1",
+      selectedLesson: {
+        lessonId: "lesson-1",
+        lessonTitle: "Lesson 1",
+        description: "Mo dau",
+        contentSeed: "Noi dung lesson 1",
+        videoUrl: "/storage/video/lesson-1.mp4",
+        videoGenerationStatus: "Completed",
+        videoGenerationError: ""
+      },
+      modules: [
+        {
+          moduleId: "module-1",
+          moduleTitle: "Module 1",
+          moduleDescription: "M1",
+          orderIndex: 1,
+          lessons: [
+            {
+              lessonId: "lesson-1",
+              lessonTitle: "Lesson 1",
+              description: "Mo dau",
+              contentSeed: "Noi dung lesson 1",
+              videoUrl: "/storage/video/lesson-1.mp4",
+              videoGenerationStatus: "Completed",
+              videoGenerationError: "",
+              orderIndex: 1
+            }
+          ]
+        }
+      ]
+    });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <Routes>
+          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findAllByText("Lesson 1");
+    expect(container.querySelector("video")).not.toBeNull();
   });
 });

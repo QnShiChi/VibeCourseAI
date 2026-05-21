@@ -48,6 +48,26 @@ public class GenerationJobRepository : IGenerationJobRepository
             .ToListAsync();
     }
 
+    public async Task<IReadOnlyList<GenerationJob>> GetRecoverableLessonAudioJobsAsync()
+    {
+        return await _dbContext.GenerationJobs
+            .Where(job =>
+                (job.JobType == "GenerateLessonAudio" || job.JobType == "RegenerateLessonAudio") &&
+                (job.Status == "Pending" || job.Status == "GeneratingLessonAudio"))
+            .OrderBy(job => job.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<GenerationJob>> GetRecoverableLessonVideoJobsAsync()
+    {
+        return await _dbContext.GenerationJobs
+            .Where(job =>
+                (job.JobType == "GenerateLessonVideo" || job.JobType == "RegenerateLessonVideo") &&
+                (job.Status == "Pending" || job.Status == "GeneratingLessonVideo"))
+            .OrderBy(job => job.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<bool> HasRunningJobForSyllabusAsync(Guid syllabusId)
     {
         return await _dbContext.GenerationJobs.AnyAsync(job =>
@@ -67,6 +87,22 @@ public class GenerationJobRepository : IGenerationJobRepository
             job.CourseId == courseId &&
             (job.JobType == "GenerateLessonContent" || job.JobType == "RegenerateLessonContent") &&
             (job.Status == "Pending" || job.Status == "GeneratingLessonContent" || job.Status == "RegeneratingLessonContent"));
+    }
+
+    public async Task<bool> HasRunningLessonAudioJobForCourseAsync(Guid courseId)
+    {
+        return await _dbContext.GenerationJobs.AnyAsync(job =>
+            job.CourseId == courseId &&
+            (job.JobType == "GenerateLessonAudio" || job.JobType == "RegenerateLessonAudio") &&
+            (job.Status == "Pending" || job.Status == "GeneratingLessonAudio"));
+    }
+
+    public async Task<bool> HasRunningLessonVideoJobForCourseAsync(Guid courseId)
+    {
+        return await _dbContext.GenerationJobs.AnyAsync(job =>
+            job.CourseId == courseId &&
+            (job.JobType == "GenerateLessonVideo" || job.JobType == "RegenerateLessonVideo") &&
+            (job.Status == "Pending" || job.Status == "GeneratingLessonVideo"));
     }
 
     public Task SaveChangesAsync()

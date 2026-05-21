@@ -7,7 +7,14 @@ export default function LessonContentStatusBadge({ status }) {
 
 function resolveStatusLabel(status) {
   switch (status) {
+    case "Pending":
+      return "Đang chờ";
     case "Processing":
+    case "GeneratingNarration":
+    case "GeneratingAudio":
+    case "GeneratingFrames":
+    case "RenderingVideo":
+    case "GeneratingLessonVideo":
       return "Đang xử lý";
     case "Completed":
       return "Đã xong";
@@ -22,7 +29,14 @@ function resolveStatusLabel(status) {
 
 function resolveStatusClassName(status) {
   switch (status) {
+    case "Pending":
+      return "status-badge--pending";
     case "Processing":
+    case "GeneratingNarration":
+    case "GeneratingAudio":
+    case "GeneratingFrames":
+    case "RenderingVideo":
+    case "GeneratingLessonVideo":
       return "status-badge--processing";
     case "Completed":
     case "ManuallyEdited":

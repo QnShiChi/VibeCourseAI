@@ -7,8 +7,16 @@ const mockGetCourseStructure = vi.fn();
 const mockUpdateModule = vi.fn();
 const mockUpdateLesson = vi.fn();
 const mockGenerateCourseLessonContent = vi.fn();
+const mockGenerateCourseLessonAudio = vi.fn();
+const mockGenerateCourseLessonVideo = vi.fn();
+const mockGenerateLessonAudio = vi.fn();
+const mockGenerateLessonVideo = vi.fn();
+const mockRegenerateLessonAudio = vi.fn();
+const mockRegenerateLessonVideo = vi.fn();
 const mockRegenerateLessonContent = vi.fn();
 const mockGetLessonGeneratedContent = vi.fn();
+const mockGetLessonAudio = vi.fn();
+const mockGetLessonVideo = vi.fn();
 const mockUpdateLessonGeneratedContent = vi.fn();
 const mockGetGenerationJobs = vi.fn();
 const mockGetGenerationJobDetail = vi.fn();
@@ -21,8 +29,16 @@ vi.mock("../api/courseStructureService", () => ({
 
 vi.mock("../api/lessonContentService", () => ({
   generateCourseLessonContent: (...args) => mockGenerateCourseLessonContent(...args),
+  generateCourseLessonAudio: (...args) => mockGenerateCourseLessonAudio(...args),
+  generateCourseLessonVideo: (...args) => mockGenerateCourseLessonVideo(...args),
+  generateLessonAudio: (...args) => mockGenerateLessonAudio(...args),
+  generateLessonVideo: (...args) => mockGenerateLessonVideo(...args),
+  regenerateLessonAudio: (...args) => mockRegenerateLessonAudio(...args),
+  regenerateLessonVideo: (...args) => mockRegenerateLessonVideo(...args),
   regenerateLessonContent: (...args) => mockRegenerateLessonContent(...args),
   getLessonGeneratedContent: (...args) => mockGetLessonGeneratedContent(...args),
+  getLessonAudio: (...args) => mockGetLessonAudio(...args),
+  getLessonVideo: (...args) => mockGetLessonVideo(...args),
   updateLessonGeneratedContent: (...args) => mockUpdateLessonGeneratedContent(...args)
 }));
 
@@ -49,7 +65,13 @@ const baseCourse = {
           orderIndex: 1,
           contentSeed: "Noi dung",
           contentGenerationStatus: "NotGenerated",
-          contentGenerationError: ""
+          contentGenerationError: "",
+          audioGenerationStatus: "NotGenerated",
+          audioGenerationError: "",
+          audioUrl: "",
+          videoGenerationStatus: "NotGenerated",
+          videoGenerationError: "",
+          videoUrl: ""
         }
       ]
     }
@@ -172,6 +194,37 @@ describe("CourseStructurePage", () => {
     expect(await screen.findAllByText("Đã generate nội dung cho toàn bộ lesson cần xử lý.")).toHaveLength(2);
   });
 
+  it("starts whole-course lesson video generation as a background job", async () => {
+    mockGetCourseStructure.mockResolvedValue({
+      ...baseCourse,
+      modules: [
+        {
+          ...baseCourse.modules[0],
+          lessons: [
+            {
+              ...baseCourse.modules[0].lessons[0],
+              audioGenerationStatus: "Completed",
+              audioUrl: "/storage/audio/lesson-1.wav"
+            }
+          ]
+        }
+      ]
+    });
+    mockGenerateCourseLessonVideo.mockResolvedValue({
+      jobId: "video-job-1",
+      status: "Pending",
+      totalLessons: 1,
+      failedLessons: 0,
+      message: "Đã tạo job generate video 1 lesson."
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Generate video khóa học" }));
+
+    await waitFor(() => expect(mockGenerateCourseLessonVideo).toHaveBeenCalledWith("course-1"));
+  });
+
   it("allows regenerating a failed lesson", async () => {
     mockGetCourseStructure.mockResolvedValue({
       ...baseCourse,
@@ -224,15 +277,17 @@ describe("CourseStructurePage", () => {
       lessonTitle: "Bai 1",
       teachingScript: "Script goc",
       slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
-      voiceoverPlanJson: "{\"tone\":\"clear\"}",
+      voiceoverPlanJson:
+        '{"EstimatedDurationMinutes":8,"Tone":"Clear","Pacing":"Moderate","TargetAudience":"Students","PronunciationNotes":"OOP"}',
       contentGenerationStatus: "Completed"
     });
     mockUpdateLessonGeneratedContent.mockResolvedValue({
       lessonId: "lesson-1",
       lessonTitle: "Bai 1",
-      teachingScript: "Script da sua",
+      teachingScript: "Script goc",
       slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
-      voiceoverPlanJson: "{\"tone\":\"clear\"}",
+      voiceoverPlanJson:
+        '{"estimatedDurationMinutes":8,"tone":"Warm","pacing":"Moderate","targetAudience":"Students","pronunciationNotes":"OOP"}',
       contentGenerationStatus: "ManuallyEdited"
     });
 
@@ -242,13 +297,46 @@ describe("CourseStructurePage", () => {
     expect(await screen.findByText("Script goc")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Chỉnh nội dung AI" }));
-    fireEvent.change(screen.getByLabelText("Teaching script"), { target: { value: "Script da sua" } });
+    fireEvent.change(screen.getByLabelText("Giọng điệu"), { target: { value: "Warm" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu nội dung AI" }));
 
     await waitFor(() => expect(mockUpdateLessonGeneratedContent).toHaveBeenCalledWith("lesson-1", {
-      teachingScript: "Script da sua",
+      teachingScript: "Script goc",
       slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
-      voiceoverPlanJson: "{\"tone\":\"clear\"}"
+      voiceoverPlanJson:
+        '{"estimatedDurationMinutes":8,"tone":"Warm","pacing":"Moderate","targetAudience":"Students","pronunciationNotes":"OOP"}'
     }));
+  });
+
+  it("starts lesson audio generation and shows audio controls", async () => {
+    mockGetCourseStructure.mockResolvedValue({
+      ...baseCourse,
+      modules: [
+        {
+          ...baseCourse.modules[0],
+          lessons: [
+            {
+              ...baseCourse.modules[0].lessons[0],
+              contentGenerationStatus: "Completed",
+              audioGenerationStatus: "NotGenerated",
+              audioUrl: ""
+            }
+          ]
+        }
+      ]
+    });
+    mockGenerateLessonAudio.mockResolvedValue({
+      jobId: "audio-job-1",
+      status: "Pending",
+      totalLessons: 1,
+      failedLessons: 0,
+      message: "Đã tạo job generate audio cho lesson."
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Generate audio" }));
+
+    await waitFor(() => expect(mockGenerateLessonAudio).toHaveBeenCalledWith("course-1", "lesson-1"));
   });
 });

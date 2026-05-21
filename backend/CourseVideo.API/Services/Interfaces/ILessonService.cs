@@ -8,4 +8,6 @@ public interface ILessonService
     Task<LessonStructureResponse?> UpdateAsync(Guid id, UpdateLessonRequest request);
     Task<LessonGeneratedContentResponse?> GetGeneratedContentAsync(Guid id);
     Task<LessonGeneratedContentResponse?> UpdateGeneratedContentAsync(Guid id, UpdateLessonGeneratedContentRequest request);
+    Task<LessonAudioResponse?> GetAudioAsync(Guid id);
+    Task<LessonVideoResponse?> GetVideoAsync(Guid id);
 }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import LessonContentEditor from "./LessonContentEditor";
 
 describe("LessonContentEditor", () => {
-  it("edits generated lesson content with structured slide editor", () => {
+  it("edits generated lesson content with structured slide and voiceover editors", () => {
     const onChange = vi.fn();
     const onSave = vi.fn();
 
@@ -12,7 +12,8 @@ describe("LessonContentEditor", () => {
         form={{
           teachingScript: "Script",
           slideOutlineJson: '[{"slideNumber":1,"title":"Intro","bulletPoints":["A"],"speakerNotes":"N"}]',
-          voiceoverPlanJson: '{"tone":"clear"}'
+          voiceoverPlanJson:
+            '{"estimatedDurationMinutes":8,"tone":"Clear","pacing":"Moderate","targetAudience":"Students","pronunciationNotes":"OOP"}'
         }}
         onChange={onChange}
         onCancel={() => {}}
@@ -27,6 +28,15 @@ describe("LessonContentEditor", () => {
     expect(onChange).toHaveBeenCalledWith(
       "slideOutlineJson",
       '[{"slideNumber":1,"title":"Overview","bulletPoints":["A"],"speakerNotes":"N"}]'
+    );
+
+    fireEvent.change(screen.getByLabelText("Giọng điệu"), {
+      target: { value: "Warm" }
+    });
+
+    expect(onChange).toHaveBeenCalledWith(
+      "voiceoverPlanJson",
+      '{"estimatedDurationMinutes":8,"tone":"Warm","pacing":"Moderate","targetAudience":"Students","pronunciationNotes":"OOP"}'
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Lưu nội dung AI" }));

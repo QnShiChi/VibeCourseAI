@@ -1,18 +1,28 @@
 import { useEffect, useState } from "react";
 import { parseSlideOutlineJson, serializeSlideOutline } from "../../utils/slideOutline";
+import { parseVoiceoverPlanJson, serializeVoiceoverPlan } from "../../utils/voiceoverPlan";
 import Button from "../ui/Button";
 import FormField from "../ui/FormField";
 import SlideEditor from "./SlideEditor";
+import VoiceoverEditor from "./VoiceoverEditor";
 
 export default function LessonContentEditor({ form, onChange, onSave, onCancel }) {
   const [slideError, setSlideError] = useState("");
+  const [voiceoverError, setVoiceoverError] = useState("");
   const [slides, setSlides] = useState(() => safeParseSlides(form.slideOutlineJson).slides);
+  const [voiceoverPlan, setVoiceoverPlan] = useState(
+    () => safeParseVoiceover(form.voiceoverPlanJson).voiceoverPlan
+  );
 
   useEffect(() => {
-    const parsed = safeParseSlides(form.slideOutlineJson);
-    setSlides(parsed.slides);
-    setSlideError(parsed.error);
-  }, [form.slideOutlineJson]);
+    const parsedSlides = safeParseSlides(form.slideOutlineJson);
+    setSlides(parsedSlides.slides);
+    setSlideError(parsedSlides.error);
+
+    const parsedVoiceover = safeParseVoiceover(form.voiceoverPlanJson);
+    setVoiceoverPlan(parsedVoiceover.voiceoverPlan);
+    setVoiceoverError(parsedVoiceover.error);
+  }, [form.slideOutlineJson, form.voiceoverPlanJson]);
 
   function handleSlidesChange(nextSlides) {
     setSlides(nextSlides);
@@ -23,6 +33,18 @@ export default function LessonContentEditor({ form, onChange, onSave, onCancel }
       onChange("slideOutlineJson", serialized);
     } catch (error) {
       setSlideError(error.message);
+    }
+  }
+
+  function handleVoiceoverChange(nextPlan) {
+    setVoiceoverPlan(nextPlan);
+
+    try {
+      const serialized = serializeVoiceoverPlan(nextPlan);
+      setVoiceoverError("");
+      onChange("voiceoverPlanJson", serialized);
+    } catch (error) {
+      setVoiceoverError(error.message);
     }
   }
 
@@ -43,15 +65,14 @@ export default function LessonContentEditor({ form, onChange, onSave, onCancel }
         <SlideEditor slides={slides} onChange={handleSlidesChange} validationError={slideError} />
       </div>
 
-      <FormField id="lesson-generated-voiceover" label="Voiceover plan JSON">
-        <textarea
-          className="ui-input ui-textarea"
-          id="lesson-generated-voiceover"
-          rows="6"
-          value={form.voiceoverPlanJson}
-          onChange={(event) => onChange("voiceoverPlanJson", event.target.value)}
+      <div className="form-field">
+        <span className="form-field__label">Voiceover</span>
+        <VoiceoverEditor
+          voiceoverPlan={voiceoverPlan}
+          onChange={handleVoiceoverChange}
+          validationError={voiceoverError}
         />
-      </FormField>
+      </div>
       <div className="quick-actions">
         <Button onClick={onSave}>Lưu nội dung AI</Button>
         <Button onClick={onCancel} variant="ghost">Hủy</Button>
@@ -75,4 +96,29 @@ function safeParseSlides(slideOutlineJson) {
       error: error.message
     };
   }
+}
+
+function safeParseVoiceover(voiceoverPlanJson) {
+  try {
+    const voiceoverPlan = parseVoiceoverPlanJson(voiceoverPlanJson);
+    return {
+      voiceoverPlan: voiceoverPlan ?? createDefaultVoiceoverPlan(),
+      error: ""
+    };
+  } catch (error) {
+    return {
+      voiceoverPlan: createDefaultVoiceoverPlan(),
+      error: error.message
+    };
+  }
+}
+
+function createDefaultVoiceoverPlan() {
+  return {
+    estimatedDurationMinutes: 1,
+    tone: "",
+    pacing: "",
+    targetAudience: "",
+    pronunciationNotes: ""
+  };
 }

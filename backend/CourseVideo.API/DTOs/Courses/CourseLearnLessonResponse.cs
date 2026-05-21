@@ -8,5 +8,7 @@ public class CourseLearnLessonResponse
     public int OrderIndex { get; set; }
     public string ContentSeed { get; set; } = string.Empty;
     public string? VideoUrl { get; set; }
+    public string VideoGenerationStatus { get; set; } = string.Empty;
+    public string VideoGenerationError { get; set; } = string.Empty;
     public int? Duration { get; set; }
 }

@@ -41,14 +41,32 @@ services:
       - "${FRONTEND_PORT}:80"
     depends_on:
       - backend
+    volumes:
+      - ./storage:/usr/share/nginx/storage:ro
 
   ai-worker:
     build:
       context: ./ai-worker
     container_name: course_ai_worker
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "${AI_WORKER_PORT}:8000"
+    depends_on:
+      - sqlserver
+    volumes:
+      - ./storage:/app/storage
+
+  video-worker:
+    build:
+      context: ./video-worker
+    container_name: course_video_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${VIDEO_WORKER_PORT}:8001"
     depends_on:
       - sqlserver
     volumes:

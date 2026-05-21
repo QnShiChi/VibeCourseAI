@@ -66,9 +66,15 @@ builder.Services.AddScoped<ISyllabusRepository, SyllabusRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddSingleton<IGenerationJobQueue, GenerationJobQueue>();
+builder.Services.AddSingleton<ILessonAudioJobQueue, LessonAudioJobQueue>();
+builder.Services.AddSingleton<ILessonVideoJobQueue, LessonVideoJobQueue>();
 builder.Services.AddHostedService<LessonContentGenerationWorker>();
+builder.Services.AddHostedService<LessonAudioGenerationWorker>();
+builder.Services.AddHostedService<LessonVideoGenerationWorker>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ILessonContentGenerationService, LessonContentGenerationService>();
+builder.Services.AddScoped<ILessonAudioGenerationService, LessonAudioGenerationService>();
+builder.Services.AddScoped<ILessonVideoGenerationService, LessonVideoGenerationService>();
 builder.Services.AddScoped<ICourseGenerationService, CourseGenerationService>();
 builder.Services.AddScoped<ICourseStructureParser, CourseStructureParser>();
 builder.Services.AddScoped<OpenRouterPromptFactory>();
@@ -81,6 +87,16 @@ builder.Services.AddHttpClient<IOpenRouterLessonContentService, OpenRouterLesson
 {
     var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
+});
+builder.Services.AddHttpClient("AiWorker", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AI_WORKER_BASE_URL"] ?? "http://ai-worker:8000");
+    client.Timeout = TimeSpan.FromMinutes(10);
+});
+builder.Services.AddHttpClient("VideoWorker", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["VIDEO_WORKER_BASE_URL"] ?? "http://video-worker:8001");
+    client.Timeout = TimeSpan.FromMinutes(15);
 });
 builder.Services.AddScoped<IModuleService, ModuleService>();
 builder.Services.AddScoped<ILessonService, LessonService>();

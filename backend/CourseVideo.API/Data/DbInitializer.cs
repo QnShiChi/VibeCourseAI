@@ -234,8 +234,15 @@ public static class DbInitializer
                     [ContentGeneratedAt] datetime2 NULL,
                     [ContentGenerationError] nvarchar(2000) NULL,
                     [VideoUrl] nvarchar(1000) NULL,
+                    [VideoGenerationStatus] nvarchar(50) NOT NULL CONSTRAINT [DF_Lessons_VideoGenerationStatus] DEFAULT N'NotGenerated',
+                    [VideoGenerationError] nvarchar(2000) NULL,
+                    [VideoGeneratedAt] datetime2 NULL,
                     [AudioUrl] nvarchar(1000) NULL,
                     [Duration] int NULL,
+                    [AudioSegmentsJson] nvarchar(max) NULL,
+                    [AudioGenerationStatus] nvarchar(50) NOT NULL CONSTRAINT [DF_Lessons_AudioGenerationStatus] DEFAULT N'NotGenerated',
+                    [AudioGenerationError] nvarchar(2000) NULL,
+                    [AudioGeneratedAt] datetime2 NULL,
                     [CreatedAt] datetime2 NOT NULL,
                     [UpdatedAt] datetime2 NULL,
                     CONSTRAINT [PK_Lessons] PRIMARY KEY ([Id]),
@@ -284,6 +291,41 @@ public static class DbInitializer
             IF COL_LENGTH('Lessons', 'ContentGenerationError') IS NULL
             BEGIN
                 ALTER TABLE [Lessons] ADD [ContentGenerationError] nvarchar(2000) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'AudioSegmentsJson') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [AudioSegmentsJson] nvarchar(max) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'AudioGenerationStatus') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [AudioGenerationStatus] nvarchar(50) NOT NULL CONSTRAINT [DF_Lessons_AudioGenerationStatus] DEFAULT N'NotGenerated';
+            END
+
+            IF COL_LENGTH('Lessons', 'AudioGenerationError') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [AudioGenerationError] nvarchar(2000) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'AudioGeneratedAt') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [AudioGeneratedAt] datetime2 NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'VideoGenerationStatus') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [VideoGenerationStatus] nvarchar(50) NOT NULL CONSTRAINT [DF_Lessons_VideoGenerationStatus_Legacy] DEFAULT N'NotGenerated';
+            END
+
+            IF COL_LENGTH('Lessons', 'VideoGenerationError') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [VideoGenerationError] nvarchar(2000) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'VideoGeneratedAt') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [VideoGeneratedAt] datetime2 NULL;
             END
             """);
     }

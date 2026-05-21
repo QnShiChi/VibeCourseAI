@@ -2,6 +2,7 @@ using CourseVideo.API.DTOs.Courses;
 using CourseVideo.API.DTOs.Lessons;
 using CourseVideo.API.Repositories.Interfaces;
 using CourseVideo.API.Services.Interfaces;
+using System.Text.Json;
 
 namespace CourseVideo.API.Services;
 
@@ -55,15 +56,67 @@ public class LessonService : ILessonService
 
         lesson.TeachingScript = request.TeachingScript.Trim();
         SlideOutlineValidation.ParseAndValidate(request.SlideOutlineJson.Trim());
+        VoiceoverPlanValidation.ParseAndValidate(request.VoiceoverPlanJson.Trim());
         lesson.SlideOutlineJson = request.SlideOutlineJson.Trim();
         lesson.VoiceoverPlanJson = request.VoiceoverPlanJson.Trim();
         lesson.ContentGenerationStatus = "ManuallyEdited";
         lesson.ContentGenerationError = null;
         lesson.ContentGeneratedAt = DateTime.UtcNow;
+        lesson.AudioUrl = null;
+        lesson.AudioSegmentsJson = null;
+        lesson.AudioGenerationStatus = "NotGenerated";
+        lesson.AudioGenerationError = null;
+        lesson.AudioGeneratedAt = null;
+        lesson.VideoUrl = null;
+        lesson.VideoGenerationStatus = "NotGenerated";
+        lesson.VideoGenerationError = null;
+        lesson.VideoGeneratedAt = null;
+        lesson.Duration = null;
         lesson.UpdatedAt = DateTime.UtcNow;
         await _lessonRepository.SaveChangesAsync();
 
         return MapGeneratedContent(lesson);
+    }
+
+    public async Task<LessonAudioResponse?> GetAudioAsync(Guid id)
+    {
+        var lesson = await _lessonRepository.GetByIdAsync(id);
+        if (lesson is null)
+        {
+            return null;
+        }
+
+        return new LessonAudioResponse
+        {
+            LessonId = lesson.Id,
+            LessonTitle = lesson.Title,
+            AudioUrl = lesson.AudioUrl ?? string.Empty,
+            Duration = lesson.Duration,
+            AudioGenerationStatus = lesson.AudioGenerationStatus,
+            AudioGenerationError = lesson.AudioGenerationError ?? string.Empty,
+            AudioGeneratedAt = lesson.AudioGeneratedAt,
+            Segments = ParseSegments(lesson.AudioSegmentsJson)
+        };
+    }
+
+    public async Task<LessonVideoResponse?> GetVideoAsync(Guid id)
+    {
+        var lesson = await _lessonRepository.GetByIdAsync(id);
+        if (lesson is null)
+        {
+            return null;
+        }
+
+        return new LessonVideoResponse
+        {
+            LessonId = lesson.Id,
+            LessonTitle = lesson.Title,
+            VideoUrl = lesson.VideoUrl ?? string.Empty,
+            Duration = lesson.Duration,
+            VideoGenerationStatus = lesson.VideoGenerationStatus,
+            VideoGenerationError = lesson.VideoGenerationError ?? string.Empty,
+            VideoGeneratedAt = lesson.VideoGeneratedAt
+        };
     }
 
     private static LessonGeneratedContentResponse MapGeneratedContent(Models.Lesson lesson)
@@ -79,5 +132,22 @@ public class LessonService : ILessonService
             ContentGenerationError = lesson.ContentGenerationError,
             ContentGeneratedAt = lesson.ContentGeneratedAt
         };
+    }
+
+    private static List<LessonAudioSegmentResponse> ParseSegments(string? audioSegmentsJson)
+    {
+        if (string.IsNullOrWhiteSpace(audioSegmentsJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<LessonAudioSegmentResponse>>(audioSegmentsJson) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 }

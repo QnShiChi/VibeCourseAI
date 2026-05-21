@@ -113,6 +113,90 @@ public class CoursesController : ControllerBase
         }
     }
 
+    [HttpPost("{id:guid}/generate-lesson-audio")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GenerateLessonAudio(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
+            var response = await _courseService.GenerateLessonAudioAsync(id, createdByUserId, cancellationToken);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("{courseId:guid}/lessons/{lessonId:guid}/regenerate-lesson-audio")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RegenerateLessonAudio(Guid courseId, Guid lessonId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
+            var response = await _courseService.RegenerateLessonAudioAsync(courseId, lessonId, createdByUserId, cancellationToken);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/generate-lesson-video")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GenerateLessonVideo(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
+            var response = await _courseService.GenerateLessonVideoAsync(id, createdByUserId, cancellationToken);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("{courseId:guid}/lessons/{lessonId:guid}/regenerate-lesson-video")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RegenerateLessonVideo(Guid courseId, Guid lessonId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
+            var response = await _courseService.RegenerateLessonVideoAsync(courseId, lessonId, createdByUserId, cancellationToken);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
     [HttpGet("{id:guid}/structure")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetStructure(Guid id)

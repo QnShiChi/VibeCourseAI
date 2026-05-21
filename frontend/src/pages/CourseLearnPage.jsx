@@ -87,13 +87,23 @@ export default function CourseLearnPage() {
             <Card className="learn-stage" tone="saffron" variant="shadowed">
               <span className="ui-badge">Lesson hiện tại</span>
               <div className="learn-stage__player">
-                <div className="learn-stage__player-shell">
-                  <div className="learn-stage__player-icon">▶</div>
-                  <div className="learn-stage__player-text">
-                    <strong>{selectedLesson.lessonTitle}</strong>
-                    <span>{selectedLesson.duration ? `${selectedLesson.duration} phút` : "Video placeholder"}</span>
+                {selectedLesson.videoUrl ? (
+                  <video controls preload="metadata" src={selectedLesson.videoUrl}>
+                    Trình duyệt của bạn không hỗ trợ phát video.
+                  </video>
+                ) : (
+                  <div className="learn-stage__player-shell">
+                    <div className="learn-stage__player-icon">⏳</div>
+                    <div className="learn-stage__player-text">
+                      <strong>{selectedLesson.lessonTitle}</strong>
+                      <span>
+                        {selectedLesson.videoGenerationStatus === "Failed"
+                          ? "Video lesson đang lỗi, vui lòng thử lại sau."
+                          : "Bài học đang được chuẩn bị video."}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               <h2>{selectedLesson.lessonTitle}</h2>
               <p>{selectedLesson.description}</p>

@@ -223,7 +223,7 @@ describe("CourseStructurePage", () => {
       lessonId: "lesson-1",
       lessonTitle: "Bai 1",
       teachingScript: "Script goc",
-      slideOutlineJson: "{\"slides\":[{\"title\":\"S1\"}]}",
+      slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
       voiceoverPlanJson: "{\"tone\":\"clear\"}",
       contentGenerationStatus: "Completed"
     });
@@ -231,7 +231,7 @@ describe("CourseStructurePage", () => {
       lessonId: "lesson-1",
       lessonTitle: "Bai 1",
       teachingScript: "Script da sua",
-      slideOutlineJson: "{\"slides\":[{\"title\":\"S1\"}]}",
+      slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
       voiceoverPlanJson: "{\"tone\":\"clear\"}",
       contentGenerationStatus: "ManuallyEdited"
     });
@@ -247,7 +247,7 @@ describe("CourseStructurePage", () => {
 
     await waitFor(() => expect(mockUpdateLessonGeneratedContent).toHaveBeenCalledWith("lesson-1", {
       teachingScript: "Script da sua",
-      slideOutlineJson: "{\"slides\":[{\"title\":\"S1\"}]}",
+      slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
       voiceoverPlanJson: "{\"tone\":\"clear\"}"
     }));
   });

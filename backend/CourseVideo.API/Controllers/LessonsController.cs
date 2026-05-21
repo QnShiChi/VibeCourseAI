@@ -34,7 +34,14 @@ public class LessonsController : ControllerBase
             return BadRequest(new { message = "Script, slide outline va voiceover plan la bat buoc." });
         }
 
-        var content = await _lessonService.UpdateGeneratedContentAsync(id, request);
-        return content is null ? NotFound() : Ok(content);
+        try
+        {
+            var content = await _lessonService.UpdateGeneratedContentAsync(id, request);
+            return content is null ? NotFound() : Ok(content);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 }

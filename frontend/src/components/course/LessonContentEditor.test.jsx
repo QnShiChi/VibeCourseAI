@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import LessonContentEditor from "./LessonContentEditor";
 
 describe("LessonContentEditor", () => {
-  it("submits edited lesson generated content", () => {
+  it("edits generated lesson content with structured slide editor", () => {
     const onChange = vi.fn();
     const onSave = vi.fn();
 
@@ -11,8 +11,8 @@ describe("LessonContentEditor", () => {
       <LessonContentEditor
         form={{
           teachingScript: "Script",
-          slideOutlineJson: "{\"slides\":[]}",
-          voiceoverPlanJson: "{\"tone\":\"clear\"}"
+          slideOutlineJson: '[{"slideNumber":1,"title":"Intro","bulletPoints":["A"],"speakerNotes":"N"}]',
+          voiceoverPlanJson: '{"tone":"clear"}'
         }}
         onChange={onChange}
         onCancel={() => {}}
@@ -20,8 +20,14 @@ describe("LessonContentEditor", () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Teaching script"), { target: { value: "Script moi" } });
-    expect(onChange).toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Tiêu đề slide 1"), {
+      target: { value: "Overview" }
+    });
+
+    expect(onChange).toHaveBeenCalledWith(
+      "slideOutlineJson",
+      '[{"slideNumber":1,"title":"Overview","bulletPoints":["A"],"speakerNotes":"N"}]'
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Lưu nội dung AI" }));
     expect(onSave).toHaveBeenCalled();

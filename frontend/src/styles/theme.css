@@ -511,6 +511,56 @@ img {
 }
 
 
+
+
+.slide-preview-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.slide-preview-card {
+  padding: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.slide-preview-card h5 {
+  margin: 8px 0;
+}
+
+.slide-preview-card p,
+.slide-preview-card ul {
+  margin: 8px 0 0;
+}
+
+.slide-editor-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.slide-editor-card {
+  display: grid;
+  gap: 12px;
+}
+
+.slide-editor-bullets {
+  display: grid;
+  gap: 8px;
+}
+
+.slide-editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.slide-editor-inline-row {
+  display: grid;
+  gap: 8px;
+}
+
 .inline-edit-card {
   display: grid;
   gap: var(--spacing-12);

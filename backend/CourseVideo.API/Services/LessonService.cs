@@ -54,6 +54,7 @@ public class LessonService : ILessonService
         }
 
         lesson.TeachingScript = request.TeachingScript.Trim();
+        SlideOutlineValidation.ParseAndValidate(request.SlideOutlineJson.Trim());
         lesson.SlideOutlineJson = request.SlideOutlineJson.Trim();
         lesson.VoiceoverPlanJson = request.VoiceoverPlanJson.Trim();
         lesson.ContentGenerationStatus = "ManuallyEdited";

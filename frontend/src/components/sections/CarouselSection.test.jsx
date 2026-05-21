@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import CarouselSection from "./CarouselSection";
 
 const items = [
-  { id: "1", image: "/a.jpg", alt: "A", title: "Khóa học A", caption: "Caption A", tag: "Tag A" },
+  {
+    id: "1",
+    image: "/a.jpg",
+    alt: "A",
+    title: "Khóa học A",
+    caption: "Caption A",
+    tag: "Tag A",
+    accentPill: { label: "CTA", tone: "system-green" }
+  },
   { id: "2", image: "/b.jpg", alt: "B", title: "Khóa học B", caption: "Caption B", tag: "Tag B" }
 ];
 
@@ -23,5 +31,13 @@ describe("CarouselSection", () => {
     region.focus();
     fireEvent.keyDown(region, { key: "ArrowRight" });
     expect(screen.getByText("Khóa học B")).toBeInTheDocument();
+  });
+
+  it("renders accent pill only for slides configured with one", () => {
+    render(<CarouselSection items={items} />);
+
+    expect(screen.getByLabelText("CTA")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /slide tiếp theo/i }));
+    expect(screen.queryByLabelText("CTA")).not.toBeInTheDocument();
   });
 });

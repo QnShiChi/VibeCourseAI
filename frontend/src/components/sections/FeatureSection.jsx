@@ -10,7 +10,8 @@ export default function FeatureSection({
   cta,
   tone = "mint",
   layout = "content-left",
-  visual
+  visual,
+  className = ""
 }) {
   const { ref, isVisible } = useRevealOnScroll();
   const layoutClass = layout === "content-right" ? styles.featureSectionReverse : layout === "centered" ? styles.featureSectionCentered : "";
@@ -18,7 +19,7 @@ export default function FeatureSection({
   return (
     <section
       ref={ref}
-      className={`${styles.featureSection} ${layoutClass} ${isVisible ? styles.isVisible : ""}`.trim()}
+      className={`${styles.featureSection} ${layoutClass} ${isVisible ? styles.isVisible : ""} ${className}`.trim()}
       data-reveal="true"
     >
       <div className={styles.featureContent}>

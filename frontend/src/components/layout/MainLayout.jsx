@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import vibecourseLogo from "../../assets/icons/vibecourse-logo.png";
 import Button from "../ui/Button";
 import Footer from "./Footer";
 
@@ -12,11 +13,8 @@ export default function MainLayout() {
     <div className="page-shell">
       <header className="app-header">
         <div className="page-container app-header__inner">
-          <Link className="app-brand" to="/">
-            <span aria-hidden="true" className="app-brand__mark">
-              VC
-            </span>
-            <span>VibeCourseAI</span>
+          <Link aria-label="VibeCourseAI" className="app-brand" to="/">
+            <img alt="VibeCourseAI" className="app-brand__logo" src={vibecourseLogo} />
           </Link>
 
           <nav className="app-nav" aria-label="Điều hướng chính">

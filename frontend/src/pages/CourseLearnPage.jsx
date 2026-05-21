@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
+import { useAuth } from "../auth/AuthContext";
+import LessonComments from "../components/comments/LessonComments";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import Section from "../components/ui/Section";
 
 export default function CourseLearnPage() {
   const { courseId = "" } = useParams();
+  const { user } = useAuth();
   const [course, setCourse] = useState(null);
   const [selectedLessonId, setSelectedLessonId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
@@ -62,6 +65,7 @@ export default function CourseLearnPage() {
   const selectedLesson = course?.modules
     ?.flatMap((module) => module.lessons)
     ?.find((lesson) => lesson.lessonId === selectedLessonId) ?? course?.selectedLesson;
+  const isAdmin = user?.role === "Admin";
 
   return (
     <Section className="section-stack">
@@ -107,6 +111,10 @@ export default function CourseLearnPage() {
               </div>
               <h2>{selectedLesson.lessonTitle}</h2>
               <p>{selectedLesson.description}</p>
+            </Card>
+
+            <Card variant="shadowed">
+              <LessonComments isAdmin={isAdmin} lessonId={selectedLesson.lessonId} />
             </Card>
 
             <Card variant="shadowed">

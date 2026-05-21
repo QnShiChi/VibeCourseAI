@@ -1,30 +1,39 @@
-import coverOop from "../assets/images/home-carousel/cover-oop.svg";
-import coverJava from "../assets/images/home-carousel/cover-java.svg";
-import coverAdmin from "../assets/images/home-carousel/cover-admin.svg";
+import carouselOverview from "../assets/images/home-carousel/carousel-1.png";
+import carouselPipeline from "../assets/images/home-carousel/carousel-2.png";
+import carouselCreator from "../assets/images/home-carousel/carousel-3.png";
+import carouselEcosystem from "../assets/images/home-carousel/carousel-4.png";
 
 export const homeCarouselItems = [
   {
-    id: "oop-masterclass",
-    image: coverOop,
-    alt: "Khóa học video AI về lập trình hướng đối tượng với tông màu xanh sáng",
-    title: "Lập trình hướng đối tượng",
-    caption: "Chuỗi bài học được AI chuyển từ syllabus thành script, narration và video có cấu trúc rõ ràng.",
+    id: "platform-overview",
+    image: carouselOverview,
+    alt: "Tổng quan hệ thống VibeCourseAI với giao diện học tập AI hiện đại và trực quan",
+    title: "Tổng quan VibeCourseAI",
+    caption: "Nền tảng học tập AI kết hợp course dashboard, video lesson và trải nghiệm học trực tuyến trong một không gian thống nhất.",
+    tag: "Platform Overview",
+  },
+  {
+    id: "ai-course-pipeline",
+    image: carouselPipeline,
+    alt: "Quy trình AI chuyển syllabus thành script, voiceover và video bài giảng",
+    title: "AI Course Pipeline",
+    caption: "Từ đề cương đến bài giảng video, AI hỗ trợ tạo script, voiceover và cấu trúc khóa học rõ ràng, nhanh và đồng bộ.",
     tag: "AI Video Course"
   },
   {
-    id: "java-learning-track",
-    image: coverJava,
-    alt: "Khóa học Java với thẻ bài học và tiến trình học tập trực quan",
-    title: "Java Learning Track",
-    caption: "Tạo learning path hoàn chỉnh với visual sáng sủa, giàu nhịp và sẵn sàng cho learner journey.",
-    tag: "Course Showcase"
+    id: "creator-workflow",
+    image: carouselCreator,
+    alt: "Giảng viên sử dụng AI để tạo nội dung khóa học, lesson script và video bài giảng",
+    title: "Creator Workflow",
+    caption: "Giảng viên có thể biến ý tưởng và syllabus thành lesson script, narration và video hoàn chỉnh với sự hỗ trợ của AI.",
+    tag: "AI Content Studio"
   },
   {
-    id: "admin-workflow",
-    image: coverAdmin,
-    alt: "Màn hình quản trị generate lesson audio và video theo tiến trình",
-    title: "Admin Workflow In Motion",
-    caption: "Theo dõi generate hàng loạt, kiểm soát pipeline AI và quản lý lesson như một studio giáo dục.",
-    tag: "Admin Ready"
+    id: "feature-ecosystem",
+    image: carouselEcosystem,
+    alt: "Hệ sinh thái tính năng của VibeCourseAI gồm tạo khóa học, quản lý tiến độ và cá nhân hóa học tập",
+    title: "Feature Ecosystem",
+    caption: "Kết nối tạo khóa học, quản lý học viên, theo dõi tiến độ và cá nhân hóa trải nghiệm học tập trong một hệ sinh thái liền mạch.",
+    tag: "All-in-One EdTech"
   }
 ];

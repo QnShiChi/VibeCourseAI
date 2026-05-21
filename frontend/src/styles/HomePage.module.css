@@ -1,5 +1,18 @@
 .homepage {
-  gap: var(--spacing-32);
+  gap: clamp(56px, 7vw, 104px);
+}
+
+.homeSectionBlock {
+  margin-top: 120px;
+  margin-bottom: 120px;
+}
+
+.homeSectionBlock:first-child {
+  margin-top: 0;
+}
+
+.homeSectionBlock:last-child {
+  margin-bottom: 0;
 }
 
 .heroSection {
@@ -185,6 +198,20 @@
   background:
     radial-gradient(circle at top right, rgba(163, 230, 53, 0.24), transparent 22%),
     linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.18) 100%);
+  pointer-events: none;
+}
+
+.carouselAccentPill {
+  position: absolute;
+  left: clamp(24px, 8.4%, 72px);
+  bottom: clamp(76px, 18%, 164px);
+  z-index: 2;
+  width: clamp(112px, 28%, 178px);
+  height: clamp(32px, 7%, 52px);
+  border: 2px solid rgba(23, 23, 23, 0.88);
+  border-radius: 999px;
+  background: var(--color-accent-green);
+  box-shadow: 0 12px 24px rgba(163, 230, 53, 0.34);
   pointer-events: none;
 }
 

@@ -3,7 +3,6 @@ import CarouselSection from "../components/sections/CarouselSection";
 import FeatureSection from "../components/sections/FeatureSection";
 import StatsSection from "../components/sections/StatsSection";
 import Button from "../components/ui/Button";
-import Section from "../components/ui/Section";
 import { homeCarouselItems } from "../data/homeCarousel";
 import styles from "../styles/HomePage.module.css";
 
@@ -89,13 +88,14 @@ const stats = [
 
 export default function HomePage() {
   return (
-    <Section className={`${styles.homepage} section-stack`}>
-      <CarouselSection items={homeCarouselItems} />
+    <section className={styles.homepage}>
+      <CarouselSection className={styles.homeSectionBlock} items={homeCarouselItems} />
 
       {featureSections.map((section) => (
         <FeatureSection
           key={section.title}
           bullets={section.bullets}
+          className={styles.homeSectionBlock}
           cta={section.cta}
           description={section.description}
           layout={section.layout}
@@ -105,9 +105,9 @@ export default function HomePage() {
         />
       ))}
 
-      <StatsSection items={stats} />
+      <StatsSection className={styles.homeSectionBlock} items={stats} />
 
-      <section className={styles.bottomCta}>
+      <section className={`${styles.bottomCta} ${styles.homeSectionBlock}`.trim()}>
         <span className="ui-badge">Launch your next course</span>
         <h2>Sẵn sàng tạo khóa học AI-powered?</h2>
         <p>Tạo ra một workflow hiện đại cho online learning: sáng hơn, nhanh hơn và có video delivery thật sự usable.</p>
@@ -117,6 +117,6 @@ export default function HomePage() {
           <Button as="a" href="mailto:hello@vibecourse.ai" variant="ghost">Liên hệ</Button>
         </div>
       </section>
-    </Section>
+    </section>
   );
 }

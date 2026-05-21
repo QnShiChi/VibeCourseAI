@@ -28,14 +28,14 @@ function StatCounter({ target, suffix = "" }) {
   return <span>{value}{suffix}</span>;
 }
 
-export default function StatsSection({ items }) {
+export default function StatsSection({ items, className = "" }) {
   const { ref, isVisible } = useRevealOnScroll();
   const stats = useMemo(() => items ?? [], [items]);
 
   return (
     <section
       ref={ref}
-      className={`${styles.statsSection} ${isVisible ? styles.isVisible : ""}`.trim()}
+      className={`${styles.statsSection} ${isVisible ? styles.isVisible : ""} ${className}`.trim()}
       data-reveal="true"
     >
       <div className={styles.statsHeader}>

@@ -24,17 +24,19 @@ describe("MainLayout", () => {
 
     const banner = screen.getByRole("banner");
     const footer = screen.getByRole("contentinfo");
+    const logoImages = screen.getAllByAltText("VibeCourseAI");
 
     expect(banner).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "VibeCourseAI" })).toBeInTheDocument();
+    expect(within(banner).getByRole("link", { name: "VibeCourseAI" })).toBeInTheDocument();
+    expect(within(footer).getByRole("link", { name: "VibeCourseAI" })).toBeInTheDocument();
+    expect(logoImages).toHaveLength(2);
     expect(within(banner).getByRole("link", { name: "Trang chủ" })).toBeInTheDocument();
     expect(within(banner).getByRole("link", { name: "Khóa học" })).toBeInTheDocument();
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Quản trị viên hệ thống")).toBeInTheDocument();
     expect(screen.getByText("Đăng xuất")).toBeInTheDocument();
     expect(footer).toBeInTheDocument();
-    expect(footer).toHaveTextContent("VibeCourseAI");
     expect(footer).toHaveTextContent("Trang chủ");
     expect(footer).toHaveTextContent("Khóa học");
   });

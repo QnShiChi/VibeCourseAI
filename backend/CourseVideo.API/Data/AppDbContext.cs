@@ -14,6 +14,8 @@ public class AppDbContext : DbContext
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Module> Modules => Set<Module>();
     public DbSet<Lesson> Lessons => Set<Lesson>();
+    public DbSet<LessonComment> LessonComments => Set<LessonComment>();
+    public DbSet<LessonCommentReaction> LessonCommentReactions => Set<LessonCommentReaction>();
     public DbSet<Syllabus> Syllabuses => Set<Syllabus>();
     public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -83,6 +85,44 @@ public class AppDbContext : DbContext
                 .WithMany(module => module.Lessons)
                 .HasForeignKey(lesson => lesson.ModuleId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LessonComment>(entity =>
+        {
+            entity.HasKey(comment => comment.Id);
+            entity.Property(comment => comment.Content).HasMaxLength(4000).IsRequired();
+            entity.HasIndex(comment => new { comment.LessonId, comment.CreatedAt });
+            entity.HasOne(comment => comment.Lesson)
+                .WithMany()
+                .HasForeignKey(comment => comment.LessonId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(comment => comment.User)
+                .WithMany()
+                .HasForeignKey(comment => comment.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(comment => comment.ParentComment)
+                .WithMany(comment => comment.Replies)
+                .HasForeignKey(comment => comment.ParentCommentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(comment => comment.ReplyToUser)
+                .WithMany()
+                .HasForeignKey(comment => comment.ReplyToUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<LessonCommentReaction>(entity =>
+        {
+            entity.HasKey(reaction => reaction.Id);
+            entity.Property(reaction => reaction.Emoji).HasMaxLength(32).IsRequired();
+            entity.HasIndex(reaction => new { reaction.CommentId, reaction.UserId, reaction.Emoji }).IsUnique();
+            entity.HasOne(reaction => reaction.Comment)
+                .WithMany(comment => comment.Reactions)
+                .HasForeignKey(reaction => reaction.CommentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(reaction => reaction.User)
+                .WithMany()
+                .HasForeignKey(reaction => reaction.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Syllabus>(entity =>

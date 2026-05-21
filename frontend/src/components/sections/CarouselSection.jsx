@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useCarousel } from "../../hooks/useCarousel";
 import styles from "../../styles/HomePage.module.css";
 
-export default function CarouselSection({ items = [] }) {
+export default function CarouselSection({ items = [], className = "" }) {
   const slides = useMemo(() => items, [items]);
   const { activeIndex, goToIndex, goToNext, goToPrevious, pause, resume } = useCarousel({
     totalSlides: slides.length,
@@ -28,7 +28,7 @@ export default function CarouselSection({ items = [] }) {
   return (
     <section
       aria-label="Showcase Carousel từ các khóa học nổi bật"
-      className={styles.carouselSection}
+      className={`${styles.carouselSection} ${className}`.trim()}
       data-reveal="true"
       onKeyDown={handleKeyDown}
       role="region"
@@ -45,6 +45,12 @@ export default function CarouselSection({ items = [] }) {
       <div className={styles.carouselFrame} onMouseEnter={pause} onMouseLeave={resume}>
         <img alt={activeSlide.alt} className={styles.carouselImage} src={activeSlide.image} />
         <div className={styles.carouselGlow} aria-hidden="true" />
+        {activeSlide.accentPill ? (
+          <span
+            aria-label={activeSlide.accentPill.label}
+            className={styles.carouselAccentPill}
+          />
+        ) : null}
 
         <div className={styles.carouselOverlay}>
           <span className="ui-badge">{activeSlide.tag}</span>

@@ -31,6 +31,8 @@ public static class DbInitializer
                 EnsureCourseColumnsExist(dbContext);
                 EnsureModulesTableExists(dbContext);
                 EnsureLessonsTableExists(dbContext);
+                EnsureLessonCommentsTableExists(dbContext);
+                EnsureLessonCommentReactionsTableExists(dbContext);
                 EnsureGenerationJobsTableExists(dbContext);
                 EnsureLessonGeneratedContentColumnsExist(dbContext);
                 EnsureGenerationJobColumnsExist(dbContext);
@@ -326,6 +328,70 @@ public static class DbInitializer
             IF COL_LENGTH('Lessons', 'VideoGeneratedAt') IS NULL
             BEGIN
                 ALTER TABLE [Lessons] ADD [VideoGeneratedAt] datetime2 NULL;
+            END
+            """);
+    }
+
+    private static void EnsureLessonCommentsTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[LessonComments]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonComments] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [LessonId] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [ParentCommentId] uniqueidentifier NULL,
+                    [ReplyToUserId] uniqueidentifier NULL,
+                    [Content] nvarchar(4000) NOT NULL,
+                    [IsHidden] bit NOT NULL CONSTRAINT [DF_LessonComments_IsHidden] DEFAULT 0,
+                    [DeletedAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonComments] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonComments_Lessons_LessonId] FOREIGN KEY ([LessonId]) REFERENCES [Lessons]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_LessonComments_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id]),
+                    CONSTRAINT [FK_LessonComments_LessonComments_ParentCommentId] FOREIGN KEY ([ParentCommentId]) REFERENCES [LessonComments]([Id]),
+                    CONSTRAINT [FK_LessonComments_Users_ReplyToUserId] FOREIGN KEY ([ReplyToUserId]) REFERENCES [Users]([Id])
+                );
+
+                CREATE INDEX [IX_LessonComments_LessonId_CreatedAt] ON [LessonComments] ([LessonId], [CreatedAt]);
+                CREATE INDEX [IX_LessonComments_ParentCommentId] ON [LessonComments] ([ParentCommentId]);
+            END
+            """);
+    }
+
+    private static void EnsureLessonCommentReactionsTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[LessonCommentReactions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonCommentReactions] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [CommentId] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [Emoji] nvarchar(32) NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonCommentReactions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonCommentReactions_LessonComments_CommentId] FOREIGN KEY ([CommentId]) REFERENCES [LessonComments]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_LessonCommentReactions_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id])
+                );
+
+                CREATE UNIQUE INDEX [IX_LessonCommentReactions_CommentId_UserId_Emoji]
+                    ON [LessonCommentReactions] ([CommentId], [UserId], [Emoji]);
             END
             """);
     }

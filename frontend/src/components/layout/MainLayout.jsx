@@ -1,13 +1,78 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import vibecourseLogo from "../../assets/icons/vibecourse-logo.png";
 import Button from "../ui/Button";
 import Footer from "./Footer";
 
+function NavigationGroup({ items, isActive, label }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const closeTimeoutRef = useRef(null);
+  const getNavLinkClassName = ({ isActive: isChildActive }) =>
+    `app-nav__dropdown-link${isChildActive ? " app-nav__dropdown-link--active" : ""}`;
+
+  const clearCloseTimeout = () => {
+    if (closeTimeoutRef.current) {
+      window.clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  const openDropdown = () => {
+    clearCloseTimeout();
+    setIsOpen(true);
+  };
+
+  const scheduleCloseDropdown = () => {
+    clearCloseTimeout();
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setIsOpen(false);
+      closeTimeoutRef.current = null;
+    }, 120);
+  };
+
+  useEffect(() => () => clearCloseTimeout(), []);
+
+  return (
+    <div
+      className="app-nav__group"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          scheduleCloseDropdown();
+        }
+      }}
+      onMouseEnter={openDropdown}
+      onMouseLeave={scheduleCloseDropdown}
+    >
+      <button
+        aria-expanded={isOpen}
+        className={`app-nav__group-trigger${isActive ? " app-nav__group-trigger--active" : ""}`}
+        onFocus={openDropdown}
+        type="button"
+      >
+        {label}
+      </button>
+
+      {isOpen ? (
+        <div className="app-nav__dropdown" onFocus={openDropdown} onMouseEnter={openDropdown}>
+          {items.map((item) => (
+            <NavLink key={item.to} className={getNavLinkClassName} end={item.end} to={item.to}>
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function MainLayout() {
   const { isAuthenticated, user, logout } = useAuth();
+  const { pathname } = useLocation();
   const isAdmin = user?.role === "Admin";
   const getNavLinkClassName = ({ isActive }) => `app-nav__link${isActive ? " app-nav__link--active" : ""}`;
+  const isDashboardSection = pathname === "/dashboard" || pathname.startsWith("/admin/");
+  const isProfileSection = pathname === "/profile" || pathname === "/change-password";
 
   return (
     <div className="page-shell">
@@ -26,17 +91,15 @@ export default function MainLayout() {
                 Khóa học
               </NavLink>
               {isAdmin ? (
-                <>
-                  <NavLink className={getNavLinkClassName} to="/dashboard">
-                    Dashboard
-                  </NavLink>
-                  <NavLink className={getNavLinkClassName} to="/admin/syllabuses">
-                    Đề cương
-                  </NavLink>
-                  <NavLink className={getNavLinkClassName} to="/admin/generation-jobs">
-                    Tiến trình
-                  </NavLink>
-                </>
+                <NavigationGroup
+                  isActive={isDashboardSection}
+                  label="Dashboard"
+                  items={[
+                    { end: true, label: "Tổng quan", to: "/dashboard" },
+                    { label: "Đề cương", to: "/admin/syllabuses" },
+                    { label: "Tiến trình", to: "/admin/generation-jobs" }
+                  ]}
+                />
               ) : null}
             </div>
 
@@ -44,12 +107,14 @@ export default function MainLayout() {
               {isAuthenticated ? (
                 <>
                   <span className="ui-badge">{user?.fullName}</span>
-                  <NavLink className={getNavLinkClassName} to="/profile">
-                    Hồ sơ
-                  </NavLink>
-                  <NavLink className={getNavLinkClassName} to="/change-password">
-                    Đổi mật khẩu
-                  </NavLink>
+                  <NavigationGroup
+                    isActive={isProfileSection}
+                    label="Hồ sơ"
+                    items={[
+                      { label: "Thông tin hồ sơ", to: "/profile" },
+                      { label: "Đổi mật khẩu", to: "/change-password" }
+                    ]}
+                  />
                   <Button onClick={logout} variant="ghost">
                     Đăng xuất
                   </Button>

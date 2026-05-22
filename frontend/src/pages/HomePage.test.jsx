@@ -1,48 +1,36 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import HomePage from "./HomePage";
 
 describe("HomePage", () => {
-  it("renders the redesigned homepage sections", () => {
+  it("renders the refreshed hero and keeps the carousel directly below it", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/Tạo khóa học AI-ready/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Bắt đầu miễn phí/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Xem khóa học/i })).toBeInTheDocument();
+    expect(screen.getByAltText(/Minh họa giao diện dashboard khóa học AI của VibeCourseAI/i)).toBeInTheDocument();
+
+    const orderedSections = Array.from(container.querySelectorAll("section"));
+    expect(orderedSections[0]).toHaveTextContent(/Tạo khóa học AI-ready/i);
+    expect(within(orderedSections[1]).getByRole("region", { name: /showcase carousel/i })).toBeInTheDocument();
+  });
+
+  it("renders the tools grid, stats band, and final CTA sections", () => {
     render(
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Showcase Carousel từ các khóa học nổi bật/i)).toBeInTheDocument();
-    expect(screen.getByText(/Tạo khóa học từ syllabus trong 1 nút/i)).toBeInTheDocument();
-    expect(screen.getByText(/AI tự động tạo Video \+ Narration/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sẵn sàng tạo khóa học AI-powered\?/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Đăng ký miễn phí/i })).toBeInTheDocument();
-  });
-
-  it("renders the homepage wrapper without generic section layout classes", () => {
-    const { container } = render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    );
-
-    const rootSection = container.querySelector("section");
-    expect(rootSection).not.toBeNull();
-    expect(rootSection.className).not.toContain("section-stack");
-    expect(rootSection.className).not.toContain("section ");
-    expect(rootSection.className).not.toBe("section");
-  });
-
-  it("applies the dedicated landing-page margin class to homepage sections", () => {
-    const { container } = render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    );
-
-    const spacedSections = Array.from(container.querySelectorAll("section")).filter((section) =>
-      section.className.includes("homeSectionBlock")
-    );
-
-    expect(spacedSections).toHaveLength(6);
+    expect(screen.getByText(/Công cụ cho toàn bộ pipeline khóa học/i)).toBeInTheDocument();
+    expect(screen.getByText(/Import syllabus thông minh/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tăng tốc vận hành nội dung học tập/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sẵn sàng đưa khóa học lên production/i)).toBeInTheDocument();
   });
 });

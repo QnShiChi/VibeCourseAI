@@ -138,6 +138,16 @@ public static class DbInitializer
             BEGIN
                 ALTER TABLE [Courses] ADD [CreatedByUserId] uniqueidentifier NULL;
             END
+
+            IF COL_LENGTH('Courses', 'ThumbnailUrl') IS NULL
+            BEGIN
+                ALTER TABLE [Courses] ADD [ThumbnailUrl] nvarchar(1000) NULL;
+            END
+
+            IF COL_LENGTH('Courses', 'Category') IS NULL
+            BEGIN
+                ALTER TABLE [Courses] ADD [Category] nvarchar(50) NOT NULL CONSTRAINT [DF_Courses_Category] DEFAULT N'UiUxDesign';
+            END
             """);
     }
 

@@ -1,8 +1,8 @@
-using CourseVideo.API.DTOs.Courses;
 using CourseVideo.API.Models;
 using CourseVideo.API.Repositories.Interfaces;
 using CourseVideo.API.Services;
 using CourseVideo.API.Services.Interfaces;
+using Microsoft.AspNetCore.Hosting;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -25,7 +25,7 @@ public class CourseServiceTests
         repository.Setup(x => x.GetByIdAsync(course.Id)).ReturnsAsync(course);
         repository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
 
-        var service = new CourseService(repository.Object, Mock.Of<ILessonContentGenerationService>());
+        var service = CreateCourseService(repository);
 
         var result = await service.PublishAsync(course.Id);
 
@@ -47,7 +47,7 @@ public class CourseServiceTests
         repository.Setup(x => x.GetByIdAsync(course.Id)).ReturnsAsync(course);
         repository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
 
-        var service = new CourseService(repository.Object, Mock.Of<ILessonContentGenerationService>());
+        var service = CreateCourseService(repository);
 
         var result = await service.UnpublishAsync(course.Id);
 
@@ -65,12 +65,38 @@ public class CourseServiceTests
             new() { Id = Guid.NewGuid(), Title = "Published 2", Description = "Desc", IsPublished = true }
         });
 
-        var service = new CourseService(repository.Object, Mock.Of<ILessonContentGenerationService>());
+        var service = CreateCourseService(repository);
 
         var result = await service.GetPublishedCoursesAsync();
 
         result.Should().HaveCount(2);
         result.Should().OnlyContain(course => course.IsPublished);
+    }
+
+    [Fact]
+    public async Task GetPublishedCoursesAsync_MapsCategoryAndThumbnailUrl()
+    {
+        var repository = new Mock<ICourseRepository>();
+        repository.Setup(x => x.GetPublishedAsync()).ReturnsAsync(new List<Course>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Title = "AI Prompting",
+                Description = "Desc",
+                IsPublished = true,
+                Category = CourseCategory.AiAndData,
+                ThumbnailUrl = "/storage/course-thumbnails/ai.png"
+            }
+        });
+
+        var service = CreateCourseService(repository);
+
+        var result = await service.GetPublishedCoursesAsync();
+
+        result.Should().ContainSingle();
+        result[0].Category.Should().Be("AiAndData");
+        result[0].ThumbnailUrl.Should().Be("/storage/course-thumbnails/ai.png");
     }
 
     [Fact]
@@ -83,7 +109,7 @@ public class CourseServiceTests
             new() { Id = Guid.NewGuid(), Title = "Published", Description = "Desc", IsPublished = true, Modules = [new Module { Lessons = [new Lesson(), new Lesson()] }] }
         });
 
-        var service = new CourseService(repository.Object, Mock.Of<ILessonContentGenerationService>());
+        var service = CreateCourseService(repository);
 
         var result = await service.GetAdminCoursesAsync();
 
@@ -117,7 +143,7 @@ public class CourseServiceTests
 
         repository.Setup(x => x.GetByIdWithStructureAsync(course.Id)).ReturnsAsync(course);
 
-        var service = new CourseService(repository.Object, Mock.Of<ILessonContentGenerationService>());
+        var service = CreateCourseService(repository);
 
         var result = await service.GetLearnPayloadAsync(course.Id, canPreviewDraft: false);
 
@@ -153,7 +179,7 @@ public class CourseServiceTests
 
         repository.Setup(x => x.GetByIdWithStructureAsync(course.Id)).ReturnsAsync(course);
 
-        var service = new CourseService(repository.Object, Mock.Of<ILessonContentGenerationService>());
+        var service = CreateCourseService(repository);
 
         var result = await service.GetLearnPayloadAsync(course.Id, canPreviewDraft: true);
 
@@ -161,5 +187,59 @@ public class CourseServiceTests
         result!.SelectedLessonId.Should().Be(course.Modules.First().Lessons.First().Id);
         result.Modules.Should().ContainSingle();
         result.Modules[0].Lessons.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetStructureAsync_MapsCategoryAndThumbnailUrl()
+    {
+        var repository = new Mock<ICourseRepository>();
+        var courseId = Guid.NewGuid();
+        repository.Setup(x => x.GetByIdWithStructureAsync(courseId)).ReturnsAsync(new Course
+        {
+            Id = courseId,
+            Title = "UI Systems",
+            Description = "Desc",
+            Category = CourseCategory.UiUxDesign,
+            ThumbnailUrl = "/storage/course-thumbnails/ui.png"
+        });
+
+        var service = CreateCourseService(repository);
+
+        var result = await service.GetStructureAsync(courseId);
+
+        result.Should().NotBeNull();
+        result!.Category.Should().Be("UiUxDesign");
+        result.ThumbnailUrl.Should().Be("/storage/course-thumbnails/ui.png");
+    }
+
+    [Fact]
+    public async Task UpdateCategoryAsync_PersistsParsedCategory()
+    {
+        var repository = new Mock<ICourseRepository>();
+        var course = new Course { Id = Guid.NewGuid(), Category = CourseCategory.UiUxDesign };
+        repository.Setup(x => x.GetByIdAsync(course.Id)).ReturnsAsync(course);
+        repository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+        repository.Setup(x => x.GetByIdWithStructureAsync(course.Id)).ReturnsAsync(course);
+
+        var service = CreateCourseService(repository);
+
+        var result = await service.UpdateCategoryAsync(course.Id, "Development");
+
+        result.Should().NotBeNull();
+        course.Category.Should().Be(CourseCategory.Development);
+        result!.Category.Should().Be("Development");
+    }
+
+    private static CourseService CreateCourseService(Mock<ICourseRepository> repository)
+    {
+        var environment = new Mock<IWebHostEnvironment>();
+        environment.SetupGet(x => x.ContentRootPath).Returns("/tmp/vibecourseai-course-service-tests");
+
+        return new CourseService(
+            repository.Object,
+            Mock.Of<ILessonContentGenerationService>(),
+            Mock.Of<ILessonAudioGenerationService>(),
+            Mock.Of<ILessonVideoGenerationService>(),
+            environment.Object);
     }
 }

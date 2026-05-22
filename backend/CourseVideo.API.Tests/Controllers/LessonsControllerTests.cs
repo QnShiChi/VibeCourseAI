@@ -24,7 +24,10 @@ public class LessonsControllerTests
                 ContentGenerationStatus = "Completed"
             });
 
-        var controller = new LessonsController(lessonService.Object);
+        var controller = new LessonsController(
+            lessonService.Object,
+            Mock.Of<ILessonAudioGenerationService>(),
+            Mock.Of<ILessonVideoGenerationService>());
 
         var result = await controller.GetGeneratedContent(lessonId);
 
@@ -46,7 +49,10 @@ public class LessonsControllerTests
                 ContentGenerationStatus = "ManuallyEdited"
             });
 
-        var controller = new LessonsController(lessonService.Object);
+        var controller = new LessonsController(
+            lessonService.Object,
+            Mock.Of<ILessonAudioGenerationService>(),
+            Mock.Of<ILessonVideoGenerationService>());
 
         var result = await controller.UpdateGeneratedContent(lessonId, new UpdateLessonGeneratedContentRequest
         {

@@ -6,6 +6,8 @@ import CourseStructurePage from "./CourseStructurePage";
 const mockGetCourseStructure = vi.fn();
 const mockUpdateModule = vi.fn();
 const mockUpdateLesson = vi.fn();
+const mockUploadCourseThumbnail = vi.fn();
+const mockUpdateCourseCategory = vi.fn();
 const mockGenerateCourseLessonContent = vi.fn();
 const mockGenerateCourseLessonAudio = vi.fn();
 const mockGenerateCourseLessonVideo = vi.fn();
@@ -24,7 +26,9 @@ const mockGetGenerationJobDetail = vi.fn();
 vi.mock("../api/courseStructureService", () => ({
   getCourseStructure: (...args) => mockGetCourseStructure(...args),
   updateModule: (...args) => mockUpdateModule(...args),
-  updateLesson: (...args) => mockUpdateLesson(...args)
+  updateLesson: (...args) => mockUpdateLesson(...args),
+  uploadCourseThumbnail: (...args) => mockUploadCourseThumbnail(...args),
+  updateCourseCategory: (...args) => mockUpdateCourseCategory(...args)
 }));
 
 vi.mock("../api/lessonContentService", () => ({
@@ -51,6 +55,8 @@ const baseCourse = {
   id: "course-1",
   title: "OOP",
   description: "Course description",
+  category: "UiUxDesign",
+  thumbnailUrl: "",
   modules: [
     {
       id: "module-1",
@@ -113,6 +119,36 @@ describe("CourseStructurePage", () => {
     expect(await screen.findByRole("heading", { name: "Cấu trúc khóa học" })).toBeInTheDocument();
     expect(await screen.findByText("Chuong 1")).toBeInTheDocument();
     expect(await screen.findByText("Bai 1")).toBeInTheDocument();
+  });
+
+  it("renders course thumbnail preview and selected category", async () => {
+    mockGetCourseStructure.mockResolvedValue({
+      ...baseCourse,
+      category: "AiAndData",
+      thumbnailUrl: "/storage/course-thumbnails/ai.png"
+    });
+
+    renderPage();
+
+    expect(await screen.findByAltText("Thumbnail khóa học OOP")).toHaveAttribute("src", "/storage/course-thumbnails/ai.png");
+    expect(screen.getByLabelText("Danh mục khóa học")).toHaveValue("AiAndData");
+  });
+
+  it("uploads a new thumbnail", async () => {
+    mockGetCourseStructure.mockResolvedValue({ ...baseCourse, category: "UiUxDesign", thumbnailUrl: "" });
+    mockUploadCourseThumbnail.mockResolvedValue({
+      ...baseCourse,
+      category: "UiUxDesign",
+      thumbnailUrl: "/storage/course-thumbnails/new-thumb.png"
+    });
+
+    renderPage();
+
+    const file = new File(["thumb"], "thumb.png", { type: "image/png" });
+    fireEvent.change(await screen.findByLabelText("Ảnh thumbnail"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Upload thumbnail" }));
+
+    await waitFor(() => expect(mockUploadCourseThumbnail).toHaveBeenCalledWith("course-1", file));
   });
 
   it("updates a module inline", async () => {

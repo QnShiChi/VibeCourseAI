@@ -63,6 +63,46 @@ public class CoursesController : ControllerBase
         return updated is null ? NotFound() : NoContent();
     }
 
+    [HttpPut("{id:guid}/category")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] UpdateCourseCategoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Category))
+        {
+            return BadRequest(new { message = "Category khóa học là bắt buộc." });
+        }
+
+        try
+        {
+            var updated = await _courseService.UpdateCategoryAsync(id, request.Category);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/thumbnail")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UploadThumbnail(Guid id, [FromForm] UploadCourseThumbnailRequest request, CancellationToken cancellationToken)
+    {
+        if (request.File is null || request.File.Length == 0)
+        {
+            return BadRequest(new { message = "Vui lòng chọn ảnh thumbnail hợp lệ." });
+        }
+
+        try
+        {
+            var updated = await _courseService.UploadThumbnailAsync(id, request.File, cancellationToken);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
     [HttpGet("{id:guid}/learn")]
     public async Task<IActionResult> GetLearn(Guid id)
     {

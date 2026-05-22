@@ -52,6 +52,12 @@ public class AppDbContext : DbContext
             entity.HasKey(course => course.Id);
             entity.Property(course => course.Title).HasMaxLength(200).IsRequired();
             entity.Property(course => course.Description).HasMaxLength(2000).IsRequired();
+            entity.Property(course => course.ThumbnailUrl).HasMaxLength(1000);
+            entity.Property(course => course.Category)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .HasDefaultValue(CourseCategory.UiUxDesign)
+                .IsRequired();
             entity.HasOne(course => course.Syllabus)
                 .WithMany(syllabus => syllabus.Courses)
                 .HasForeignKey(course => course.SyllabusId)

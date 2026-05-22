@@ -40,17 +40,21 @@
   --shadow-card: rgb(10, 10, 13) 1px 1px 0px 0px;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: clip;
   font-family: var(--font-satoshi);
   font-size: var(--text-body);
   line-height: 1.5;

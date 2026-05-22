@@ -14,3 +14,16 @@ export async function updateLesson(lessonId, payload) {
   const { data } = await axiosClient.put(`/lessons/${lessonId}`, payload);
   return data;
 }
+
+export async function updateCourseCategory(courseId, category) {
+  const { data } = await axiosClient.put(`/courses/${courseId}/category`, { category });
+  return data;
+}
+
+export async function uploadCourseThumbnail(courseId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const { data } = await axiosClient.post(`/courses/${courseId}/thumbnail`, formData);
+  return data;
+}

@@ -2,26 +2,36 @@ using CourseVideo.API.DTOs.Courses;
 using CourseVideo.API.Models;
 using CourseVideo.API.Repositories.Interfaces;
 using CourseVideo.API.Services.Interfaces;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 
 namespace CourseVideo.API.Services;
 
 public class CourseService : ICourseService
 {
+    private static readonly HashSet<string> AllowedThumbnailExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".webp"
+    };
+
     private readonly ICourseRepository _courseRepository;
     private readonly ILessonContentGenerationService _lessonContentGenerationService;
     private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
     private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
+    private readonly IWebHostEnvironment _environment;
 
     public CourseService(
         ICourseRepository courseRepository,
         ILessonContentGenerationService lessonContentGenerationService,
         ILessonAudioGenerationService lessonAudioGenerationService,
-        ILessonVideoGenerationService lessonVideoGenerationService)
+        ILessonVideoGenerationService lessonVideoGenerationService,
+        IWebHostEnvironment environment)
     {
         _courseRepository = courseRepository;
         _lessonContentGenerationService = lessonContentGenerationService;
         _lessonAudioGenerationService = lessonAudioGenerationService;
         _lessonVideoGenerationService = lessonVideoGenerationService;
+        _environment = environment;
     }
 
     public async Task<IReadOnlyList<CourseResponse>> GetAllAsync()
@@ -46,16 +56,7 @@ public class CourseService : ICourseService
     public async Task<IReadOnlyList<PublishedCourseListItemResponse>> GetPublishedCoursesAsync()
     {
         var courses = await _courseRepository.GetPublishedAsync();
-        return courses.Select(course => new PublishedCourseListItemResponse
-        {
-            Id = course.Id,
-            Title = course.Title,
-            Description = course.Description,
-            IsPublished = course.IsPublished,
-            ModuleCount = course.Modules.Count,
-            LessonCount = course.Modules.Sum(module => module.Lessons.Count),
-            CreatedAt = course.CreatedAt
-        }).ToList();
+        return courses.Select(MapPublishedListItem).ToList();
     }
 
     public async Task<AdminCourseListItemResponse?> PublishAsync(Guid id)
@@ -84,6 +85,62 @@ public class CourseService : ICourseService
         course.UpdatedAt = DateTime.UtcNow;
         await _courseRepository.SaveChangesAsync();
         return MapAdminListItem(course);
+    }
+
+    public async Task<CourseStructureResponse?> UpdateCategoryAsync(Guid id, string category)
+    {
+        var course = await _courseRepository.GetByIdAsync(id);
+        if (course is null)
+        {
+            return null;
+        }
+
+        if (!Enum.TryParse<CourseCategory>(category, true, out var parsedCategory))
+        {
+            throw new InvalidOperationException("Category khóa học không hợp lệ.");
+        }
+
+        course.Category = parsedCategory;
+        course.UpdatedAt = DateTime.UtcNow;
+        await _courseRepository.SaveChangesAsync();
+        return await GetStructureAsync(id);
+    }
+
+    public async Task<CourseStructureResponse?> UploadThumbnailAsync(Guid id, IFormFile file, CancellationToken cancellationToken = default)
+    {
+        var course = await _courseRepository.GetByIdAsync(id);
+        if (course is null)
+        {
+            return null;
+        }
+
+        if (file.Length == 0)
+        {
+            throw new InvalidOperationException("Vui lòng chọn ảnh thumbnail hợp lệ.");
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (!AllowedThumbnailExtensions.Contains(extension))
+        {
+            throw new InvalidOperationException("Chỉ hỗ trợ ảnh PNG, JPG, JPEG hoặc WEBP.");
+        }
+
+        var storageDirectory = Path.Combine(_environment.ContentRootPath, "storage", "course-thumbnails");
+        Directory.CreateDirectory(storageDirectory);
+
+        var storedFileName = $"{course.Id:N}-{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var fullPath = Path.Combine(storageDirectory, storedFileName);
+
+        await using (var fileStream = File.Create(fullPath))
+        {
+            await file.CopyToAsync(fileStream, cancellationToken);
+            await fileStream.FlushAsync(cancellationToken);
+        }
+
+        course.ThumbnailUrl = Path.Combine("/storage", "course-thumbnails", storedFileName).Replace("\\", "/");
+        course.UpdatedAt = DateTime.UtcNow;
+        await _courseRepository.SaveChangesAsync();
+        return await GetStructureAsync(id);
     }
 
     public Task<GenerateLessonContentResponse> GenerateLessonContentAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default)
@@ -174,6 +231,8 @@ public class CourseService : ICourseService
             Id = course.Id,
             Title = course.Title,
             Description = course.Description,
+            ThumbnailUrl = course.ThumbnailUrl,
+            Category = course.Category.ToString(),
             IsPublished = course.IsPublished,
             CreatedAt = course.CreatedAt,
             Modules = course.Modules
@@ -215,6 +274,24 @@ public class CourseService : ICourseService
             Id = course.Id,
             Title = course.Title,
             Description = course.Description,
+            ThumbnailUrl = course.ThumbnailUrl,
+            Category = course.Category.ToString(),
+            IsPublished = course.IsPublished,
+            ModuleCount = course.Modules.Count,
+            LessonCount = course.Modules.Sum(module => module.Lessons.Count),
+            CreatedAt = course.CreatedAt
+        };
+    }
+
+    private static PublishedCourseListItemResponse MapPublishedListItem(Course course)
+    {
+        return new PublishedCourseListItemResponse
+        {
+            Id = course.Id,
+            Title = course.Title,
+            Description = course.Description,
+            ThumbnailUrl = course.ThumbnailUrl,
+            Category = course.Category.ToString(),
             IsPublished = course.IsPublished,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),

@@ -108,6 +108,17 @@ public class CoursesControllerTests
     }
 
     [Fact]
+    public async Task UploadThumbnail_ReturnsBadRequest_WhenFileMissing()
+    {
+        var courseService = new Mock<ICourseService>();
+        var controller = CreateAdminController(courseService);
+
+        var result = await controller.UploadThumbnail(Guid.NewGuid(), new UploadCourseThumbnailRequest(), CancellationToken.None);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task GetLearn_ReturnsNotFound_WhenDraftPreviewForbiddenForUser()
     {
         var courseService = new Mock<ICourseService>();

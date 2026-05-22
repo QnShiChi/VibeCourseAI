@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getCourseStructure, updateLesson, updateModule } from "../api/courseStructureService";
+import {
+  getCourseStructure,
+  updateCourseCategory,
+  updateLesson,
+  updateModule,
+  uploadCourseThumbnail
+} from "../api/courseStructureService";
+import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
 import {
   generateCourseLessonContent,
   generateCourseLessonAudio,
@@ -48,6 +55,9 @@ export default function CourseStructurePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("UiUxDesign");
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [isSavingPresentation, setIsSavingPresentation] = useState(false);
 
   useEffect(() => {
     if (courseId) {
@@ -100,6 +110,8 @@ export default function CourseStructurePage() {
     try {
       const data = await getCourseStructure(courseId);
       setCourse(data);
+      setSelectedCategory(data.category || "UiUxDesign");
+      setThumbnailFile(null);
     } catch {
       setErrorMessage("Không thể tải cấu trúc khóa học.");
     } finally {
@@ -494,6 +506,43 @@ export default function CourseStructurePage() {
     }
   }
 
+  async function handleSaveCategory() {
+    setMessage("");
+    setErrorMessage("");
+    setIsSavingPresentation(true);
+    try {
+      const updatedCourse = await updateCourseCategory(courseId, selectedCategory);
+      setCourse(updatedCourse);
+      setSelectedCategory(updatedCourse.category || selectedCategory);
+      setMessage("Đã cập nhật category khóa học.");
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message ?? "Không thể cập nhật category khóa học.");
+    } finally {
+      setIsSavingPresentation(false);
+    }
+  }
+
+  async function handleUploadThumbnail() {
+    if (!thumbnailFile) {
+      setErrorMessage("Vui lòng chọn ảnh thumbnail hợp lệ.");
+      return;
+    }
+
+    setMessage("");
+    setErrorMessage("");
+    setIsSavingPresentation(true);
+    try {
+      const updatedCourse = await uploadCourseThumbnail(courseId, thumbnailFile);
+      setCourse(updatedCourse);
+      setThumbnailFile(null);
+      setMessage("Đã cập nhật thumbnail khóa học.");
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message ?? "Không thể upload thumbnail khóa học.");
+    } finally {
+      setIsSavingPresentation(false);
+    }
+  }
+
   const hasActiveJob = activeJob && isJobActive(activeJob.status);
   const processedItems = activeJob?.processedItems ?? 0;
   const failedItems = activeJob?.failedItems ?? 0;
@@ -529,7 +578,7 @@ export default function CourseStructurePage() {
                 <h2>{course.title}</h2>
                 <p>{course.description}</p>
               </div>
-              <Button onClick={handleGenerateLessonContent} disabled={isGeneratingContent}>
+              <Button onClick={handleGenerateLessonContent} disabled={isGeneratingContent || isSavingPresentation}>
                 {hasActiveJob ? "Đang generate nền..." : "Generate nội dung bài học"}
               </Button>
               <Button onClick={handleGenerateLessonAudio} disabled={isGeneratingContent} variant="ghost">
@@ -538,6 +587,53 @@ export default function CourseStructurePage() {
               <Button onClick={handleGenerateLessonVideo} disabled={isGeneratingContent} variant="ghost">
                 {hasActiveJob && isVideoJob(activeJob?.jobType) ? "Đang generate video..." : "Generate video khóa học"}
               </Button>
+            </div>
+
+            <div className="course-card__stats">
+              <span>Category: {course.category || "UiUxDesign"}</span>
+              <span>Thumbnail: {course.thumbnailUrl ? "Available" : "Missing"}</span>
+            </div>
+
+            <div className="inline-edit-card">
+              <h3>Thumbnail & category</h3>
+              {course.thumbnailUrl ? (
+                <img
+                  src={course.thumbnailUrl}
+                  alt={`Thumbnail khóa học ${course.title}`}
+                  style={{ width: "100%", maxWidth: "320px", borderRadius: "20px", border: "2px solid var(--color-midnight-ink)" }}
+                />
+              ) : (
+                <div className="empty-state">Chưa có thumbnail.</div>
+              )}
+              <FormField id="course-category" label="Danh mục khóa học">
+                <select
+                  className="ui-input"
+                  id="course-category"
+                  value={selectedCategory}
+                  onChange={(event) => setSelectedCategory(event.target.value)}
+                >
+                  {COURSE_CATEGORY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <div className="quick-actions">
+                <Button onClick={handleSaveCategory} disabled={isSavingPresentation}>Lưu category</Button>
+              </div>
+              <FormField id="course-thumbnail" label="Ảnh thumbnail">
+                <input
+                  className="ui-input"
+                  id="course-thumbnail"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => setThumbnailFile(event.target.files?.[0] ?? null)}
+                />
+              </FormField>
+              <div className="quick-actions">
+                <Button onClick={handleUploadThumbnail} disabled={isSavingPresentation || !thumbnailFile}>Upload thumbnail</Button>
+              </div>
             </div>
 
             {activeJob ? (

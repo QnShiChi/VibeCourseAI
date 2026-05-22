@@ -5,6 +5,7 @@ public class Course : BaseEntity
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string? ThumbnailUrl { get; set; }
+    public CourseCategory Category { get; set; } = CourseCategory.UiUxDesign;
     public bool IsPublished { get; set; }
     public Guid? SyllabusId { get; set; }
     public Guid? CreatedByUserId { get; set; }

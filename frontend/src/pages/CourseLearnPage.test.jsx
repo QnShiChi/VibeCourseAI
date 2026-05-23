@@ -29,34 +29,45 @@ vi.mock("../auth/AuthContext", () => ({
 function buildLearnPayload() {
   return {
     courseId: "course-1",
-    courseTitle: "OOP",
+    courseTitle: "TRÍ TUỆ NHÂN TẠO ỨNG DỤNG",
     courseDescription: "Desc",
     selectedLessonId: "lesson-1",
     selectedLesson: {
       lessonId: "lesson-1",
-      lessonTitle: "Lesson 1",
+      lessonTitle: "Tổng quan về AI",
       description: "Mo dau",
       contentSeed: "Noi dung lesson 1",
       videoUrl: "",
       videoGenerationStatus: "NotGenerated",
-      videoGenerationError: ""
+      videoGenerationError: "",
+      orderIndex: 1
     },
     modules: [
       {
         moduleId: "module-1",
-        moduleTitle: "Module 1",
+        moduleTitle: "Định nghĩa và Lịch sử",
         moduleDescription: "M1",
-        orderIndex: 1,
+        orderIndex: 2,
         lessons: [
           {
             lessonId: "lesson-1",
-            lessonTitle: "Lesson 1",
+            lessonTitle: "Tổng quan về AI",
             description: "Mo dau",
             contentSeed: "Noi dung lesson 1",
             videoUrl: "",
             videoGenerationStatus: "NotGenerated",
             videoGenerationError: "",
             orderIndex: 1
+          },
+          {
+            lessonId: "lesson-2",
+            lessonTitle: "Các mốc lịch sử",
+            description: "Tiep theo",
+            contentSeed: "Noi dung lesson 2",
+            videoUrl: "",
+            videoGenerationStatus: "NotGenerated",
+            videoGenerationError: "",
+            orderIndex: 2
           }
         ]
       }
@@ -88,7 +99,7 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findAllByText("Lesson 1")).not.toHaveLength(0);
+    expect(await screen.findAllByText("Tổng quan về AI")).not.toHaveLength(0);
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Bình luận" })).toBeInTheDocument();
   });
@@ -148,7 +159,7 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: /2. Lesson 2/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Lesson 2/i }));
 
     expect(await screen.findByText("Noi dung lesson 2")).toBeInTheDocument();
   });
@@ -238,5 +249,48 @@ describe("CourseLearnPage", () => {
     );
 
     expect(await screen.findByText("Video này giải thích khá rõ.")).toBeInTheDocument();
+  });
+
+  it("shows progress and moves to the next lesson from the footer navigation", async () => {
+    mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <Routes>
+          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Bài trước/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Tiếp tục bài học/i }));
+
+    expect(await screen.findByText("Noi dung lesson 2")).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 100%/i)).toBeInTheDocument();
+  });
+
+  it("moves back to the previous lesson and renders the course content heading", async () => {
+    const payload = buildLearnPayload();
+    payload.selectedLessonId = "lesson-2";
+    payload.selectedLesson = payload.modules[0].lessons[1];
+    mockGetCourseLearnPayload.mockResolvedValue(payload);
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <Routes>
+          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: /Nội dung khóa học/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 100%/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Bài trước/i }));
+
+    expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
   });
 });

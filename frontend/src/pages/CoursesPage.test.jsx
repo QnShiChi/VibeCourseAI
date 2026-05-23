@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import CoursesPage from "./CoursesPage";
@@ -91,10 +91,18 @@ describe("CoursesPage", () => {
 
     renderCoursesPage();
 
+    const grid = await screen.findByTestId("course-grid");
     const cards = await screen.findAllByTestId("course-card");
+
+    expect(grid).toBeInTheDocument();
     expect(cards).toHaveLength(2);
-    expect(screen.getByRole("img", { name: "Advanced UI Systems" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Prompt Engineering" })).toBeInTheDocument();
+    expect(cards[0]).toHaveAttribute("data-layout", "compact");
+    expect(cards[1]).toHaveAttribute("data-layout", "compact");
+    expect(within(cards[0]).getByText("UI/UX Design")).toBeInTheDocument();
+    expect(within(cards[0]).getByText("Khóa học")).toBeInTheDocument();
+    expect(within(cards[0]).getByRole("link", { name: "Xem khóa học" })).toBeInTheDocument();
+    expect(within(cards[0]).getByRole("img", { name: "Advanced UI Systems" })).toBeInTheDocument();
+    expect(within(cards[1]).getByRole("img", { name: "Prompt Engineering" })).toBeInTheDocument();
   });
 
   it("renders admin publish action inside course cards", async () => {

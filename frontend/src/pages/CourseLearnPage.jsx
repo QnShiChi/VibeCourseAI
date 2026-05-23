@@ -23,11 +23,24 @@ function flattenLessons(modules) {
 
 function buildExpandedModuleState(modules, selectedLessonId) {
   const defaults = {};
+  const selectedContainer = modules.find((module) =>
+    module.lessons.some((lesson) => lesson.lessonId === selectedLessonId)
+  );
+
   modules.forEach((module, index) => {
-    defaults[module.moduleId] =
-      index === 0 || module.lessons.some((lesson) => lesson.lessonId === selectedLessonId);
+    defaults[module.moduleId] = selectedContainer
+      ? module.moduleId === selectedContainer.moduleId
+      : index === 0;
   });
   return defaults;
+}
+
+function buildSingleExpandedState(modules, moduleId, shouldExpand = true) {
+  const next = {};
+  modules.forEach((module) => {
+    next[module.moduleId] = shouldExpand && module.moduleId === moduleId;
+  });
+  return next;
 }
 
 export default function CourseLearnPage() {
@@ -61,18 +74,14 @@ export default function CourseLearnPage() {
   }
 
   function handleToggleModule(moduleId) {
-    setExpandedModules((current) => ({
-      ...current,
-      [moduleId]: !current[moduleId]
-    }));
+    setExpandedModules((current) =>
+      buildSingleExpandedState(modules, moduleId, !current[moduleId])
+    );
   }
 
   function handleSelectLesson(moduleId, lessonId) {
     setSelectedLessonId(lessonId);
-    setExpandedModules((current) => ({
-      ...current,
-      [moduleId]: true
-    }));
+    setExpandedModules(buildSingleExpandedState(modules, moduleId, true));
   }
 
   function handleNavigateLesson(targetLesson) {
@@ -81,10 +90,7 @@ export default function CourseLearnPage() {
     }
 
     setSelectedLessonId(targetLesson.lessonId);
-    setExpandedModules((current) => ({
-      ...current,
-      [targetLesson.moduleId]: true
-    }));
+    setExpandedModules(buildSingleExpandedState(modules, targetLesson.moduleId, true));
   }
 
   const modules = sortByOrder(course?.modules ?? []);

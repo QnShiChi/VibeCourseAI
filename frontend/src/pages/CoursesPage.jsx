@@ -118,20 +118,27 @@ export default function CoursesPage() {
             <Button onClick={handleResetFilters}>Xóa bộ lọc</Button>
           </Card>
         ) : (
-          <div className={styles.grid}>
+          <div className={styles.grid} data-testid="course-grid">
             {filteredCourses.map((course, index) => (
-              <article key={course.id} data-testid="course-card" className={`${styles.courseCard} ${styles[`tone${index % 3}`]}`}>
+              <article
+                key={course.id}
+                data-testid="course-card"
+                data-layout="compact"
+                className={`${styles.courseCard} ${styles[`tone${index % 3}`]}`}
+              >
                 <div className={styles.cardMedia}>
+                  <span className={styles.cardEyebrow}>Khóa học</span>
                   {course.thumbnailUrl ? (
                     <img src={course.thumbnailUrl} alt={course.title} className={styles.cardImage} />
                   ) : (
                     <div className={styles.mediaFallback}>{course.title}</div>
                   )}
+                  <div className={styles.mediaGlow} aria-hidden="true" />
                 </div>
                 <div className={styles.cardBody}>
                   <div className={styles.cardMetaRow}>
-                    <span>{course.moduleCount} modules</span>
-                    <span>{course.lessonCount} lessons</span>
+                    <span className={styles.metaPill}>{course.moduleCount} modules</span>
+                    <span className={styles.metaPill}>{course.lessonCount} lessons</span>
                   </div>
                   <h3>{course.title}</h3>
                   <p>{course.description}</p>
@@ -139,9 +146,11 @@ export default function CoursesPage() {
                 <div className={styles.cardFooter}>
                   <span className={styles.cardCategory}>{getCategoryLabel(course.category)}</span>
                   <div className={styles.cardActions}>
-                    <Button as={Link} to={`/courses/${course.id}/learn`}>Xem khóa học</Button>
+                    <Button as={Link} to={`/courses/${course.id}/learn`} className={styles.primaryAction}>
+                      Xem khóa học
+                    </Button>
                     {isAdmin ? (
-                      <Button onClick={() => handleTogglePublish(course)} variant="ghost">
+                      <Button onClick={() => handleTogglePublish(course)} variant="ghost" className={styles.secondaryAction}>
                         {course.isPublished ? "Unpublish" : "Publish"}
                       </Button>
                     ) : null}

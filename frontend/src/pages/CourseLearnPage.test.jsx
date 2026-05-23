@@ -293,4 +293,45 @@ describe("CourseLearnPage", () => {
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
     expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
   });
+
+  it("keeps only one module expanded when opening another module", async () => {
+    const payload = buildLearnPayload();
+    payload.modules = [
+      payload.modules[0],
+      {
+        moduleId: "module-2",
+        moduleTitle: "Du lieu va hoc may",
+        moduleDescription: "M2",
+        orderIndex: 3,
+        lessons: [
+          {
+            lessonId: "lesson-3",
+            lessonTitle: "Du lieu lon",
+            description: "Mo rong",
+            contentSeed: "Noi dung lesson 3",
+            videoUrl: "",
+            videoGenerationStatus: "NotGenerated",
+            videoGenerationError: "",
+            orderIndex: 1
+          }
+        ]
+      }
+    ];
+    mockGetCourseLearnPayload.mockResolvedValue(payload);
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <Routes>
+          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("button", { name: /Tổng quan về AI/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /3. Du lieu va hoc may/i }));
+
+    expect(await screen.findByRole("button", { name: /Du lieu lon/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Tổng quan về AI/i })).not.toBeInTheDocument();
+  });
 });

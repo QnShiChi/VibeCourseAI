@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import CoursesPage from "./CoursesPage";
+import { ThemeProvider } from "../theme/ThemeContext";
 
 const mockGetAdminCourses = vi.fn();
 const mockGetPublishedCourses = vi.fn();
@@ -24,12 +25,36 @@ vi.mock("../auth/useAuth", () => ({
 function renderCoursesPage() {
   render(
     <MemoryRouter>
-      <CoursesPage />
+      <ThemeProvider>
+        <CoursesPage />
+      </ThemeProvider>
     </MemoryRouter>
   );
 }
 
 describe("CoursesPage", () => {
+  it("exposes a dark-theme scope for the courses discovery surface", async () => {
+    window.localStorage.setItem("app-theme", "dark");
+    mockUseAuth.mockReturnValue({ user: { role: "User" } });
+    mockGetPublishedCourses.mockResolvedValue([
+      {
+        id: "course-1",
+        title: "Prompt Engineering",
+        description: "AI workflows",
+        category: "AiAndData",
+        thumbnailUrl: "/storage/course-thumbnails/ai.png",
+        isPublished: true,
+        moduleCount: 8,
+        lessonCount: 10
+      }
+    ]);
+
+    renderCoursesPage();
+
+    await screen.findByText("Prompt Engineering");
+    expect(screen.getByTestId("courses-page-shell")).toHaveAttribute("data-theme", "dark");
+  });
+
   it("filters courses by search term and category", async () => {
     mockUseAuth.mockReturnValue({ user: { role: "User" } });
     mockGetPublishedCourses.mockResolvedValue([

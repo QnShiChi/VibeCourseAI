@@ -10,7 +10,7 @@ export default function LessonContentPreview({ content }) {
   const { voiceoverPlan, error: voiceoverError } = getVoiceoverPreviewState(content.voiceoverPlanJson);
 
   return (
-    <div className="lesson-generated-stack">
+    <div className="lesson-generated-stack lesson-content-preview">
       <section className="surface-card lesson-generated-card">
         <h4>Script</h4>
         <pre className="text-preview text-preview--compact">{content.teachingScript || "Chưa có script."}</pre>
@@ -24,14 +24,14 @@ export default function LessonContentPreview({ content }) {
           <div className="slide-preview-stack">
             {slides.map((slide) => (
               <article className="slide-preview-card" key={slide.slideNumber}>
-                <strong>Slide {slide.slideNumber}</strong>
-                <h5>{slide.title}</h5>
-                <ul>
+                <strong className="slide-preview-card__label">Slide {slide.slideNumber}</strong>
+                <h5 className="slide-preview-card__title">{slide.title}</h5>
+                <ul className="slide-preview-card__bullets">
                   {slide.bulletPoints.map((point, index) => (
                     <li key={`${slide.slideNumber}-${index}`}>{point}</li>
                   ))}
                 </ul>
-                <p>{slide.speakerNotes}</p>
+                <p className="slide-preview-card__notes">{slide.speakerNotes}</p>
               </article>
             ))}
           </div>
@@ -47,24 +47,24 @@ export default function LessonContentPreview({ content }) {
         ) : voiceoverPlan ? (
           <div className="voiceover-preview-grid">
             <article className="voiceover-preview-item">
-              <strong>Thời lượng dự kiến</strong>
-              <p>{voiceoverPlan.estimatedDurationMinutes} phút</p>
+              <strong className="voiceover-preview-item__label">Thời lượng dự kiến</strong>
+              <p className="voiceover-preview-item__value">{voiceoverPlan.estimatedDurationMinutes} phút</p>
             </article>
             <article className="voiceover-preview-item">
-              <strong>Giọng điệu</strong>
-              <p>{voiceoverPlan.tone}</p>
+              <strong className="voiceover-preview-item__label">Giọng điệu</strong>
+              <p className="voiceover-preview-item__value">{voiceoverPlan.tone}</p>
             </article>
             <article className="voiceover-preview-item">
-              <strong>Nhịp đọc</strong>
-              <p>{voiceoverPlan.pacing}</p>
+              <strong className="voiceover-preview-item__label">Nhịp đọc</strong>
+              <p className="voiceover-preview-item__value">{voiceoverPlan.pacing}</p>
             </article>
             <article className="voiceover-preview-item">
-              <strong>Đối tượng nghe</strong>
-              <p>{voiceoverPlan.targetAudience}</p>
+              <strong className="voiceover-preview-item__label">Đối tượng nghe</strong>
+              <p className="voiceover-preview-item__value">{voiceoverPlan.targetAudience}</p>
             </article>
             <article className="voiceover-preview-item">
-              <strong>Lưu ý phát âm</strong>
-              <p>{voiceoverPlan.pronunciationNotes}</p>
+              <strong className="voiceover-preview-item__label">Lưu ý phát âm</strong>
+              <p className="voiceover-preview-item__value">{voiceoverPlan.pronunciationNotes}</p>
             </article>
           </div>
         ) : (

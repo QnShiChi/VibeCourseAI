@@ -6,12 +6,14 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
 import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
+import { useTheme } from "../theme/ThemeContext";
 import styles from "../styles/CoursesPage.module.css";
 
 const ALL_COURSES_FILTER = "All";
 
 export default function CoursesPage() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const isAdmin = user?.role === "Admin";
   const [courses, setCourses] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -64,104 +66,106 @@ export default function CoursesPage() {
   });
 
   return (
-    <Section className={styles.page}>
-      <div className={styles.pageInner}>
-        <section className={styles.hero}>
-          <p className={styles.eyebrow}>Course discovery</p>
-          <h1 className={styles.title}>
-            Master the Future of <span>Creative Tech</span>
-          </h1>
-          <p className={styles.description}>
-            Khám phá các khóa học thật của VibeCourseAI qua một bề mặt tìm kiếm gọn hơn, trực quan hơn và dễ lọc theo category.
-          </p>
-          <label className={styles.searchBar}>
-            <span className={styles.srOnly}>Tìm khóa học</span>
-            <span className={styles.searchIcon} aria-hidden="true">⌕</span>
-            <input
-              aria-label="Tìm khóa học"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search for courses, tools, or instructors..."
-            />
-          </label>
-          <div className={styles.chipRow}>
-            <button
-              type="button"
-              className={`${styles.chip} ${activeCategory === ALL_COURSES_FILTER ? styles.chipActive : ""}`}
-              onClick={() => setActiveCategory(ALL_COURSES_FILTER)}
-            >
-              All Courses
-            </button>
-            {COURSE_CATEGORY_OPTIONS.map((option) => (
+    <div className={styles.coursesPage} data-testid="courses-page-shell" data-theme={theme}>
+      <Section className={styles.page}>
+        <div className={styles.pageInner}>
+          <section className={styles.hero}>
+            <p className={styles.eyebrow}>Course discovery</p>
+            <h1 className={styles.title}>
+              Master the Future of <span>Creative Tech</span>
+            </h1>
+            <p className={styles.description}>
+              Khám phá các khóa học thật của VibeCourseAI qua một bề mặt tìm kiếm gọn hơn, trực quan hơn và dễ lọc theo category.
+            </p>
+            <label className={styles.searchBar}>
+              <span className={styles.srOnly}>Tìm khóa học</span>
+              <span className={styles.searchIcon} aria-hidden="true">⌕</span>
+              <input
+                aria-label="Tìm khóa học"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search for courses, tools, or instructors..."
+              />
+            </label>
+            <div className={styles.chipRow}>
               <button
-                key={option.value}
                 type="button"
-                className={`${styles.chip} ${activeCategory === option.value ? styles.chipActive : ""}`}
-                onClick={() => setActiveCategory(option.value)}
+                className={`${styles.chip} ${activeCategory === ALL_COURSES_FILTER ? styles.chipActive : ""}`}
+                onClick={() => setActiveCategory(ALL_COURSES_FILTER)}
               >
-                {option.label}
+                All Courses
               </button>
-            ))}
-          </div>
-        </section>
+              {COURSE_CATEGORY_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`${styles.chip} ${activeCategory === option.value ? styles.chipActive : ""}`}
+                  onClick={() => setActiveCategory(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </section>
 
-        {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
+          {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
 
-        {isLoading ? (
-          <Card variant="shadowed">
-            <p>Đang tải danh sách khóa học...</p>
-          </Card>
-        ) : filteredCourses.length === 0 ? (
-          <Card className={styles.emptyState} variant="shadowed">
-            <h2>Không có khóa học phù hợp</h2>
-            <p>Thử đổi category hoặc từ khóa tìm kiếm để mở rộng kết quả.</p>
-            <Button onClick={handleResetFilters}>Xóa bộ lọc</Button>
-          </Card>
-        ) : (
-          <div className={styles.grid} data-testid="course-grid">
-            {filteredCourses.map((course, index) => (
-              <article
-                key={course.id}
-                data-testid="course-card"
-                data-layout="compact"
-                className={`${styles.courseCard} ${styles[`tone${index % 3}`]}`}
-              >
-                <div className={styles.cardMedia}>
-                  <span className={styles.cardEyebrow}>Khóa học</span>
-                  {course.thumbnailUrl ? (
-                    <img src={course.thumbnailUrl} alt={course.title} className={styles.cardImage} />
-                  ) : (
-                    <div className={styles.mediaFallback}>{course.title}</div>
-                  )}
-                  <div className={styles.mediaGlow} aria-hidden="true" />
-                </div>
-                <div className={styles.cardBody}>
-                  <div className={styles.cardMetaRow}>
-                    <span className={styles.metaPill}>{course.moduleCount} modules</span>
-                    <span className={styles.metaPill}>{course.lessonCount} lessons</span>
+          {isLoading ? (
+            <Card variant="shadowed">
+              <p>Đang tải danh sách khóa học...</p>
+            </Card>
+          ) : filteredCourses.length === 0 ? (
+            <Card className={styles.emptyState} variant="shadowed">
+              <h2>Không có khóa học phù hợp</h2>
+              <p>Thử đổi category hoặc từ khóa tìm kiếm để mở rộng kết quả.</p>
+              <Button onClick={handleResetFilters}>Xóa bộ lọc</Button>
+            </Card>
+          ) : (
+            <div className={styles.grid} data-testid="course-grid">
+              {filteredCourses.map((course, index) => (
+                <article
+                  key={course.id}
+                  data-testid="course-card"
+                  data-layout="compact"
+                  className={`${styles.courseCard} ${styles[`tone${index % 3}`]}`}
+                >
+                  <div className={styles.cardMedia}>
+                    <span className={styles.cardEyebrow}>Khóa học</span>
+                    {course.thumbnailUrl ? (
+                      <img src={course.thumbnailUrl} alt={course.title} className={styles.cardImage} />
+                    ) : (
+                      <div className={styles.mediaFallback}>{course.title}</div>
+                    )}
+                    <div className={styles.mediaGlow} aria-hidden="true" />
                   </div>
-                  <h3>{course.title}</h3>
-                  <p>{course.description}</p>
-                </div>
-                <div className={styles.cardFooter}>
-                  <span className={styles.cardCategory}>{getCategoryLabel(course.category)}</span>
-                  <div className={styles.cardActions}>
-                    <Button as={Link} to={`/courses/${course.id}/learn`} className={styles.primaryAction}>
-                      Xem khóa học
-                    </Button>
-                    {isAdmin ? (
-                      <Button onClick={() => handleTogglePublish(course)} variant="ghost" className={styles.secondaryAction}>
-                        {course.isPublished ? "Unpublish" : "Publish"}
+                  <div className={styles.cardBody}>
+                    <div className={styles.cardMetaRow}>
+                      <span className={styles.metaPill}>{course.moduleCount} modules</span>
+                      <span className={styles.metaPill}>{course.lessonCount} lessons</span>
+                    </div>
+                    <h3>{course.title}</h3>
+                    <p>{course.description}</p>
+                  </div>
+                  <div className={styles.cardFooter}>
+                    <span className={styles.cardCategory}>{getCategoryLabel(course.category)}</span>
+                    <div className={styles.cardActions}>
+                      <Button as={Link} to={`/courses/${course.id}/learn`} className={styles.primaryAction}>
+                        Xem khóa học
                       </Button>
-                    ) : null}
+                      {isAdmin ? (
+                        <Button onClick={() => handleTogglePublish(course)} variant="ghost" className={styles.secondaryAction}>
+                          {course.isPublished ? "Unpublish" : "Publish"}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
-    </Section>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </Section>
+    </div>
   );
 }
 

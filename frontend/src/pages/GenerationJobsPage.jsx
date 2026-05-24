@@ -51,7 +51,7 @@ export default function GenerationJobsPage() {
   }
 
   return (
-    <Section className="section-stack">
+    <Section className="section-stack admin-workspace">
       <PageHeader
         eyebrow="Admin"
         title="Generation Jobs"
@@ -61,7 +61,7 @@ export default function GenerationJobsPage() {
       {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
 
       <div className="split-layout split-layout--balanced">
-        <Card variant="shadowed">
+        <Card className="admin-panel-card admin-panel-card--list" variant="shadowed">
           <h2>Danh sách job</h2>
           {isLoading ? (
             <p>Đang tải generation jobs...</p>
@@ -73,7 +73,7 @@ export default function GenerationJobsPage() {
             <div className="list-stack">
               {jobs.map((job) => (
                 <button
-                  className={`list-item-button${selected?.id === job.id ? " list-item-button--active" : ""}`}
+                  className={`list-item-button admin-list-item${selected?.id === job.id ? " list-item-button--active" : ""}`}
                   key={job.id}
                   onClick={() => handleSelect(job.id)}
                   type="button"
@@ -89,7 +89,7 @@ export default function GenerationJobsPage() {
           )}
         </Card>
 
-        <Card variant="shadowed">
+        <Card className="admin-panel-card admin-panel-card--detail" variant="shadowed">
           <div className="detail-header">
             <h2>Chi tiết job</h2>
             <div className="detail-actions">

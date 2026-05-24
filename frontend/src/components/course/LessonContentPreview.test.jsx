@@ -22,6 +22,8 @@ describe("LessonContentPreview", () => {
     expect(screen.getByText("8 phút")).toBeInTheDocument();
     expect(screen.getByText("Giọng điệu")).toBeInTheDocument();
     expect(screen.getByText("Clear")).toBeInTheDocument();
+    expect(screen.getByText("Slide 1")).toHaveClass("slide-preview-card__label");
+    expect(screen.getByText("8 phút")).toHaveClass("voiceover-preview-item__value");
     expect(screen.queryByText('[{"slideNumber":1')).not.toBeInTheDocument();
   });
 

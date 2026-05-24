@@ -2,6 +2,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import MainLayout from "./MainLayout";
+import { ThemeProvider } from "../../theme/ThemeContext";
+
+const { mockLogout } = vi.hoisted(() => ({
+  mockLogout: vi.fn()
+}));
 
 vi.mock("../../auth/useAuth", () => ({
   useAuth: () => ({
@@ -10,19 +15,22 @@ vi.mock("../../auth/useAuth", () => ({
       fullName: "Quản trị viên hệ thống",
       role: "Admin"
     },
-    logout: vi.fn()
+    logout: mockLogout
   })
 }));
 
 afterEach(() => {
   vi.useRealTimers();
+  mockLogout.mockReset();
 });
 
 describe("MainLayout", () => {
   it("renders grouped navigation for an authenticated admin", () => {
     render(
       <MemoryRouter>
-        <MainLayout />
+        <ThemeProvider>
+          <MainLayout />
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -43,6 +51,7 @@ describe("MainLayout", () => {
     expect(screen.queryByRole("link", { name: "Thông tin hồ sơ" })).not.toBeInTheDocument();
     expect(screen.getByText("Quản trị viên hệ thống")).toBeInTheDocument();
     expect(screen.getByText("Đăng xuất")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /chuyển sang dark mode/i })).toBeInTheDocument();
     expect(footer).toBeInTheDocument();
     expect(footer).toHaveTextContent("Trang chủ");
     expect(footer).toHaveTextContent("Khóa học");
@@ -51,7 +60,9 @@ describe("MainLayout", () => {
   it("shows dropdown links when hovering grouped navigation", () => {
     render(
       <MemoryRouter>
-        <MainLayout />
+        <ThemeProvider>
+          <MainLayout />
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -70,7 +81,9 @@ describe("MainLayout", () => {
 
     render(
       <MemoryRouter>
-        <MainLayout />
+        <ThemeProvider>
+          <MainLayout />
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -89,5 +102,93 @@ describe("MainLayout", () => {
     });
 
     expect(screen.getByRole("link", { name: "Tổng quan" })).toBeInTheDocument();
+  });
+
+  it("toggles the global theme from the header and persists it on the page shell", () => {
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <MainLayout />
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    const shell = document.querySelector(".page-shell");
+    const toggle = screen.getByRole("button", { name: /chuyển sang dark mode/i });
+
+    expect(shell).toHaveAttribute("data-theme", "light");
+
+    fireEvent.click(toggle);
+
+    expect(shell).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: /chuyển sang light mode/i })).toBeInTheDocument();
+    expect(window.localStorage.getItem("app-theme")).toBe("dark");
+  });
+
+  it("renders and dismisses the auth success intro overlay after navigation from auth pages", () => {
+    vi.useFakeTimers();
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/",
+            state: {
+              authIntro: {
+                source: "login"
+              }
+            }
+          }
+        ]}
+      >
+        <ThemeProvider>
+          <MainLayout />
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("auth-transition")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(40);
+    });
+
+    expect(screen.getByTestId("auth-transition")).toHaveClass("auth-transition--reveal");
+    expect(screen.getByTestId("auth-transition")).toHaveClass("auth-transition--active");
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.queryByTestId("auth-transition")).not.toBeInTheDocument();
+  });
+
+  it("plays the closing auth transition before completing logout", () => {
+    vi.useFakeTimers();
+
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <MainLayout />
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Đăng xuất" }));
+
+    expect(screen.getByTestId("auth-transition")).toHaveClass("auth-transition--conceal");
+
+    act(() => {
+      vi.advanceTimersByTime(40);
+    });
+
+    expect(screen.getByTestId("auth-transition")).toHaveClass("auth-transition--active");
+    expect(mockLogout).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1100);
+    });
+
+    expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 });

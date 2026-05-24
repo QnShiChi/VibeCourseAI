@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   getCourseStructure,
@@ -59,6 +59,16 @@ export default function CourseStructurePage() {
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [isSavingPresentation, setIsSavingPresentation] = useState(false);
 
+  // States for Centralized Lesson Panel & Bulk Actions
+  const [selectedLessonId, setSelectedLessonId] = useState("");
+  const [checkedLessonIds, setCheckedLessonIds] = useState([]);
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState("");
+  const [activeTab, setActiveTab] = useState("actions");
+  const [expandedModuleId, setExpandedModuleId] = useState(null);
+  const [isPanelFocused, setIsPanelFocused] = useState(false);
+  const panelFocusTimerRef = useRef(null);
+
   useEffect(() => {
     if (courseId) {
       loadCourse();
@@ -103,6 +113,43 @@ export default function CourseStructurePage() {
       window.clearInterval(timerId);
     };
   }, [activeJobId]);
+
+  useEffect(() => {
+    return () => {
+      if (panelFocusTimerRef.current) {
+        window.clearTimeout(panelFocusTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedLessonId) {
+      return;
+    }
+
+    focusCentralizedPanel();
+  }, [selectedLessonId]);
+
+  useEffect(() => {
+    if (!isPanelFocused) {
+      return undefined;
+    }
+
+    if (panelFocusTimerRef.current) {
+      window.clearTimeout(panelFocusTimerRef.current);
+    }
+
+    panelFocusTimerRef.current = window.setTimeout(() => {
+      setIsPanelFocused(false);
+      panelFocusTimerRef.current = null;
+    }, 1200);
+
+    return () => {
+      if (panelFocusTimerRef.current) {
+        window.clearTimeout(panelFocusTimerRef.current);
+      }
+    };
+  }, [isPanelFocused]);
 
   async function loadCourse() {
     setIsLoading(true);
@@ -393,7 +440,6 @@ export default function CourseStructurePage() {
       }
 
       setIsGeneratingContent(false);
-      setErrorMessage(apiMessage || "Không thể generate video cho lesson này.");
     }
   }
 
@@ -406,6 +452,164 @@ export default function CourseStructurePage() {
     } catch (error) {
       setErrorMessage(error?.response?.data?.message ?? "Không thể tải video của lesson.");
     }
+  }
+
+  function getSelectedLesson() {
+    if (!course || !selectedLessonId) return null;
+    for (const module of course.modules) {
+      const lesson = module.lessons.find((l) => l.id === selectedLessonId);
+      if (lesson) {
+        return {
+          ...lesson,
+          moduleId: module.id,
+          moduleOrder: module.orderIndex,
+          moduleTitle: module.title,
+          moduleDescription: module.description
+        };
+      }
+    }
+    return null;
+  }
+
+  async function handleSelectLesson(lessonId) {
+    setSelectedLessonId(lessonId);
+    setExpandedModuleId(null);
+    if (!lessonId) return;
+
+    // Prefetch content, audio, or video if not loaded
+    if (!generatedContentByLessonId[lessonId]) {
+      try {
+        const content = await getLessonGeneratedContent(lessonId);
+        setGeneratedContentByLessonId((current) => ({ ...current, [lessonId]: content }));
+      } catch { }
+    }
+
+    const lessonObj = course?.modules
+      ?.flatMap((m) => m.lessons)
+      ?.find((l) => l.id === lessonId);
+
+    if (lessonObj?.audioUrl && !audioByLessonId[lessonId]) {
+      try {
+        const audio = await getLessonAudio(lessonId);
+        setAudioByLessonId((current) => ({ ...current, [lessonId]: audio }));
+      } catch { }
+    }
+
+    if (lessonObj?.videoUrl && !videoByLessonId[lessonId]) {
+      try {
+        const video = await getLessonVideo(lessonId);
+        setVideoByLessonId((current) => ({ ...current, [lessonId]: video }));
+      } catch { }
+    }
+  }
+
+  function focusCentralizedPanel() {
+    const panelElement = document.getElementById("centralized-lesson-action-panel");
+    if (!panelElement) {
+      return;
+    }
+
+    const headerOffset = document.querySelector(".app-header")?.getBoundingClientRect().height ?? 0;
+    const panelTop = window.scrollY + panelElement.getBoundingClientRect().top - headerOffset - 16;
+
+    window.scrollTo({
+      top: Math.max(panelTop, 0),
+      behavior: "smooth"
+    });
+    panelElement.focus({ preventScroll: true });
+  }
+
+  function handleControlLesson(lessonId) {
+    if (selectedLessonId === lessonId) {
+      focusCentralizedPanel();
+    }
+    setExpandedModuleId(null);
+    handleSelectLesson(lessonId);
+    setIsPanelFocused(true);
+  }
+
+  function toggleModuleDetails(moduleId) {
+    setExpandedModuleId((current) => (current === moduleId ? null : moduleId));
+  }
+
+  function toggleCheckLesson(lessonId) {
+    setCheckedLessonIds((current) =>
+      current.includes(lessonId)
+        ? current.filter((id) => id !== lessonId)
+        : [...current, lessonId]
+    );
+  }
+
+  function toggleCheckAll() {
+    if (!course) return;
+    const allLessonIds = course.modules.flatMap((m) => m.lessons.map((l) => l.id));
+    if (checkedLessonIds.length === allLessonIds.length) {
+      setCheckedLessonIds([]);
+    } else {
+      setCheckedLessonIds(allLessonIds);
+    }
+  }
+
+  async function handleBulkGenerateAudio() {
+    if (checkedLessonIds.length === 0) return;
+    setMessage("");
+    setErrorMessage("");
+    setIsProcessingBulk(true);
+    let processedCount = 0;
+    const total = checkedLessonIds.length;
+
+    for (const lessonId of checkedLessonIds) {
+      processedCount++;
+      setBulkProgress(`Đang tạo Audio cho bài học ${processedCount}/${total}...`);
+      try {
+        const lessonObj = course?.modules?.flatMap((m) => m.lessons)?.find((l) => l.id === lessonId);
+        const regenerate = lessonObj?.audioGenerationStatus === "Failed" || Boolean(lessonObj?.audioUrl);
+        if (regenerate) {
+          await regenerateLessonAudio(courseId, lessonId);
+        } else {
+          await generateLessonAudio(courseId, lessonId);
+        }
+      } catch (err) {
+        console.error("Lỗi generate audio bài học: ", lessonId, err);
+      }
+    }
+
+    setIsProcessingBulk(false);
+    setBulkProgress("");
+    setCheckedLessonIds([]);
+    setMessage(`Đã kích hoạt tiến trình tạo Audio cho ${total} bài học đã chọn.`);
+    await loadCourse();
+  }
+
+  async function handleBulkGenerateVideo() {
+    if (checkedLessonIds.length === 0) return;
+    setMessage("");
+    setErrorMessage("");
+    setIsProcessingBulk(true);
+    let processedCount = 0;
+    const total = checkedLessonIds.length;
+
+    for (const lessonId of checkedLessonIds) {
+      processedCount++;
+      setBulkProgress(`Đang tạo Video cho bài học ${processedCount}/${total}...`);
+      try {
+        const lessonObj = course?.modules?.flatMap((m) => m.lessons)?.find((l) => l.id === lessonId);
+        const regenerate = lessonObj?.videoGenerationStatus === "Failed" || Boolean(lessonObj?.videoUrl);
+        if (regenerate) {
+          await regenerateLessonVideo(courseId, lessonId);
+        } else {
+          await generateLessonVideo(courseId, lessonId);
+        }
+      } catch (err) {
+        console.error("Lỗi generate video bài học: ", lessonId, err);
+      }
+    }
+
+    setIsProcessingBulk(false);
+    setBulkProgress("");
+    setCheckedLessonIds([]);
+    setMessage(`Đã kích hoạt tiến trình tạo Video cho ${total} bài học đã chọn.`);
+    await loadCourse();
   }
 
   function handleStartEditingGeneratedContent(lessonId) {
@@ -435,16 +639,16 @@ export default function CourseStructurePage() {
           lessons: module.lessons.map((lesson) =>
             lesson.id === lessonId
               ? {
-                  ...lesson,
-                  contentGenerationStatus: updated.contentGenerationStatus,
-                  contentGenerationError: "",
-                  audioGenerationStatus: "NotGenerated",
-                  audioGenerationError: "",
-                  audioUrl: "",
-                  videoGenerationStatus: "NotGenerated",
-                  videoGenerationError: "",
-                  videoUrl: ""
-                }
+                ...lesson,
+                contentGenerationStatus: updated.contentGenerationStatus,
+                contentGenerationError: "",
+                audioGenerationStatus: "NotGenerated",
+                audioGenerationError: "",
+                audioUrl: "",
+                videoGenerationStatus: "NotGenerated",
+                videoGenerationError: "",
+                videoUrl: ""
+              }
               : lesson
           )
         }))
@@ -494,9 +698,9 @@ export default function CourseStructurePage() {
           module.id !== moduleId
             ? module
             : {
-                ...module,
-                lessons: module.lessons.map((lesson) => (lesson.id === updated.id ? updated : lesson))
-              }
+              ...module,
+              lessons: module.lessons.map((lesson) => (lesson.id === updated.id ? updated : lesson))
+            }
         )
       }));
       setEditingLessonId(null);
@@ -549,13 +753,14 @@ export default function CourseStructurePage() {
   const totalItems = activeJob?.totalItems ?? 0;
   const successfulItems = Math.max(processedItems - failedItems, 0);
   const progressPercent = getProgressPercent(activeJob);
+  const selectedLesson = getSelectedLesson();
 
   return (
-    <Section className="section-stack">
+    <Section className="section-stack course-structure-workspace">
       <PageHeader
         eyebrow="Admin"
         title="Cấu trúc khóa học"
-        description="Xem và tinh chỉnh skeleton course, module và lesson đã được sinh từ đề cương bằng backend ASP.NET Core Web API."
+        description="Rà soát cấu trúc khóa học, chỉnh sửa module và lesson, đồng thời theo dõi tiến trình generate nội dung tại một nơi."
       />
 
       {message ? <p className="ui-alert ui-alert--success">{message}</p> : null}
@@ -571,68 +776,94 @@ export default function CourseStructurePage() {
         </Card>
       ) : (
         <div className="course-structure-stack">
-          <Card tone="saffron" variant="shadowed">
-            <div className="detail-header">
-              <div>
-                <span className="ui-badge">Course draft</span>
-                <h2>{course.title}</h2>
-                <p>{course.description}</p>
+          <Card className="course-structure-hero-card" tone="saffron" variant="shadowed">
+            <div className="course-structure-hero">
+              <div className="course-structure-hero__header">
+                <div className="course-structure-hero__copy">
+                  <span className="ui-badge">Course draft</span>
+                  <h2>{course.title}</h2>
+                  <p>{course.description}</p>
+                </div>
+                <div className="course-structure-hero__actions">
+                  <Button onClick={handleGenerateLessonContent} disabled={isGeneratingContent || isSavingPresentation}>
+                    {hasActiveJob ? "Đang generate nền..." : "Generate nội dung bài học"}
+                  </Button>
+                  <Button onClick={handleGenerateLessonAudio} disabled={isGeneratingContent} variant="ghost">
+                    {hasActiveJob && isAudioJob(activeJob?.jobType) ? "Đang generate audio..." : "Generate audio khóa học"}
+                  </Button>
+                  <Button onClick={handleGenerateLessonVideo} disabled={isGeneratingContent} variant="ghost">
+                    {hasActiveJob && isVideoJob(activeJob?.jobType) ? "Đang generate video..." : "Generate video khóa học"}
+                  </Button>
+                </div>
               </div>
-              <Button onClick={handleGenerateLessonContent} disabled={isGeneratingContent || isSavingPresentation}>
-                {hasActiveJob ? "Đang generate nền..." : "Generate nội dung bài học"}
-              </Button>
-              <Button onClick={handleGenerateLessonAudio} disabled={isGeneratingContent} variant="ghost">
-                {hasActiveJob && isAudioJob(activeJob?.jobType) ? "Đang generate audio..." : "Generate audio khóa học"}
-              </Button>
-              <Button onClick={handleGenerateLessonVideo} disabled={isGeneratingContent} variant="ghost">
-                {hasActiveJob && isVideoJob(activeJob?.jobType) ? "Đang generate video..." : "Generate video khóa học"}
-              </Button>
             </div>
 
-            <div className="course-card__stats">
-              <span>Category: {course.category || "UiUxDesign"}</span>
-              <span>Thumbnail: {course.thumbnailUrl ? "Available" : "Missing"}</span>
+            <div className="course-structure-summary">
+              <span className="course-structure-summary__pill">
+                Category: {course.category || "UiUxDesign"}
+              </span>
+              <span className="course-structure-summary__pill">
+                Thumbnail: {course.thumbnailUrl ? "Available" : "Missing"}
+              </span>
             </div>
 
-            <div className="inline-edit-card">
-              <h3>Thumbnail & category</h3>
-              {course.thumbnailUrl ? (
-                <img
-                  src={course.thumbnailUrl}
-                  alt={`Thumbnail khóa học ${course.title}`}
-                  style={{ width: "100%", maxWidth: "320px", borderRadius: "20px", border: "2px solid var(--color-midnight-ink)" }}
-                />
-              ) : (
-                <div className="empty-state">Chưa có thumbnail.</div>
-              )}
-              <FormField id="course-category" label="Danh mục khóa học">
-                <select
-                  className="ui-input"
-                  id="course-category"
-                  value={selectedCategory}
-                  onChange={(event) => setSelectedCategory(event.target.value)}
-                >
-                  {COURSE_CATEGORY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <div className="quick-actions">
-                <Button onClick={handleSaveCategory} disabled={isSavingPresentation}>Lưu category</Button>
+            <div className="inline-edit-card course-presentation-panel">
+              <div className="course-presentation-panel__intro">
+                <div>
+                  <span className="ui-badge">Presentation</span>
+                  <h3>Thumbnail & category</h3>
+                  <p>Tinh chỉnh phần trình bày của khóa học trước khi publish cho learner.</p>
+                </div>
               </div>
-              <FormField id="course-thumbnail" label="Ảnh thumbnail">
-                <input
-                  className="ui-input"
-                  id="course-thumbnail"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => setThumbnailFile(event.target.files?.[0] ?? null)}
-                />
-              </FormField>
-              <div className="quick-actions">
-                <Button onClick={handleUploadThumbnail} disabled={isSavingPresentation || !thumbnailFile}>Upload thumbnail</Button>
+
+              <div className="course-presentation-panel__grid">
+                <div className="course-thumbnail-preview">
+                  <span className="course-thumbnail-preview__label">Course thumbnail</span>
+                  {course.thumbnailUrl ? (
+                    <img
+                      className="course-thumbnail-preview__image"
+                      src={course.thumbnailUrl}
+                      alt={`Thumbnail khóa học ${course.title}`}
+                    />
+                  ) : (
+                    <div className="course-thumbnail-preview__empty">
+                      <strong>Chưa có thumbnail</strong>
+                      <span>Upload ảnh 16:9 để thẻ khóa học và trang learner đồng nhất hơn.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="course-presentation-form">
+                  <FormField id="course-category" label="Danh mục khóa học">
+                    <select
+                      className="ui-input"
+                      id="course-category"
+                      value={selectedCategory}
+                      onChange={(event) => setSelectedCategory(event.target.value)}
+                    >
+                      {COURSE_CATEGORY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <div className="quick-actions course-presentation-form__actions">
+                    <Button onClick={handleSaveCategory} disabled={isSavingPresentation}>Lưu category</Button>
+                  </div>
+                  <FormField id="course-thumbnail" label="Ảnh thumbnail">
+                    <input
+                      className="ui-input"
+                      id="course-thumbnail"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(event) => setThumbnailFile(event.target.files?.[0] ?? null)}
+                    />
+                  </FormField>
+                  <div className="quick-actions course-presentation-form__actions">
+                    <Button onClick={handleUploadThumbnail} disabled={isSavingPresentation || !thumbnailFile}>Upload thumbnail</Button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -659,194 +890,340 @@ export default function CourseStructurePage() {
             ) : null}
           </Card>
 
-          <div className="section-stack">
-            {course.modules.map((module) => (
-              <Card key={module.id} className="section-stack" variant="shadowed">
-                <div className="detail-header">
-                  <div>
-                    <span className="ui-badge">Module {module.orderIndex}</span>
-                    <h2>{module.title}</h2>
-                  </div>
-                  <Button onClick={() => startEditModule(module)} variant="ghost">
-                    Sửa module
+          {/* Bảng điều khiển tác vụ hàng loạt */}
+          {checkedLessonIds.length > 0 && (
+            <Card className="bulk-action-card" variant="shadowed">
+              <div className="bulk-action-card__header">
+                <h4>
+                  <span className="ui-badge" style={{ backgroundColor: "#84cc16", borderColor: "#76b813", color: "#fff" }}>
+                    {checkedLessonIds.length} bài học đã chọn
+                  </span>{" "}
+                  Thao tác hàng loạt (Bulk Actions)
+                </h4>
+                <div className="quick-actions">
+                  <Button
+                    onClick={handleBulkGenerateAudio}
+                    disabled={isProcessingBulk || isGeneratingContent}
+                    style={{ backgroundColor: "#84cc16", borderColor: "#76b813", color: "#fff" }}
+                  >
+                    Generate Audio hàng loạt
+                  </Button>
+                  <Button
+                    onClick={handleBulkGenerateVideo}
+                    disabled={isProcessingBulk || isGeneratingContent}
+                    style={{ backgroundColor: "#0284c7", borderColor: "#0275b0", color: "#fff" }}
+                  >
+                    Generate Video hàng loạt
+                  </Button>
+                  <Button
+                    onClick={() => setCheckedLessonIds([])}
+                    variant="ghost"
+                    disabled={isProcessingBulk}
+                  >
+                    Hủy chọn
                   </Button>
                 </div>
+              </div>
 
-                {editingModuleId === module.id ? (
-                  <div className="inline-edit-card">
-                    <FormField id={`module-title-${module.id}`} label="Tiêu đề module">
-                      <input
-                        className="ui-input"
-                        id={`module-title-${module.id}`}
-                        value={moduleForm.title}
-                        onChange={(event) => setModuleForm((current) => ({ ...current, title: event.target.value }))}
-                      />
-                    </FormField>
-                    <FormField id={`module-description-${module.id}`} label="Mô tả module">
-                      <textarea
-                        className="ui-input ui-textarea"
-                        id={`module-description-${module.id}`}
-                        rows="3"
-                        value={moduleForm.description}
-                        onChange={(event) => setModuleForm((current) => ({ ...current, description: event.target.value }))}
-                      />
-                    </FormField>
-                    <div className="quick-actions">
-                      <Button onClick={handleModuleSave}>Lưu module</Button>
-                      <Button onClick={() => setEditingModuleId(null)} variant="ghost">Hủy</Button>
-                    </div>
+              {isProcessingBulk && (
+                <div className="bulk-action-card__progress-container">
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span className="bulk-action-card__spinner" />
+                    <strong>{bulkProgress}</strong>
                   </div>
-                ) : (
-                  <p>{module.description}</p>
-                )}
+                </div>
+              )}
+            </Card>
+          )}
 
-                <div className="lesson-stack">
-                  {module.lessons.map((lesson) => (
-                    <div className="lesson-card" key={lesson.id}>
-                      <div className="detail-header">
-                        <div>
-                          <span className="ui-badge">Lesson {lesson.orderIndex}</span>
-                          <h3>{lesson.title}</h3>
-                        </div>
-                        <div className="detail-actions">
-                          <LessonContentStatusBadge status={lesson.contentGenerationStatus} />
-                          <LessonContentStatusBadge status={lesson.audioGenerationStatus} />
-                          <LessonContentStatusBadge status={lesson.videoGenerationStatus} />
-                          {lesson.contentGenerationStatus === "Failed" ? (
-                            <Button
-                              onClick={() => handleRegenerateLessonContent(lesson.id)}
-                              variant="ghost"
-                              disabled={isGeneratingContent}
-                            >
-                              Generate lại lesson lỗi
-                            </Button>
-                          ) : null}
-                          {lesson.contentGenerationStatus === "Completed" || lesson.contentGenerationStatus === "ManuallyEdited" ? (
-                            <Button
-                              onClick={() => handleGenerateAudioForLesson(lesson.id, lesson.audioGenerationStatus === "Failed")}
-                              variant="ghost"
-                              disabled={isGeneratingContent}
-                            >
-                              {lesson.audioGenerationStatus === "Failed" || lesson.audioUrl ? "Generate lại audio" : "Generate audio"}
-                            </Button>
-                          ) : null}
-                          {lesson.audioUrl ? (
-                            <Button onClick={() => handleViewLessonAudio(lesson.id)} variant="ghost">
-                              Xem audio
-                            </Button>
-                          ) : null}
-                          {(lesson.audioGenerationStatus === "Completed" || lesson.videoUrl) ? (
-                            <Button
-                              onClick={() => handleGenerateVideoForLesson(lesson.id, lesson.videoGenerationStatus === "Failed" || Boolean(lesson.videoUrl))}
-                              variant="ghost"
-                              disabled={isGeneratingContent}
-                            >
-                              {lesson.videoGenerationStatus === "Failed" || lesson.videoUrl ? "Generate lại video" : "Generate video"}
-                            </Button>
-                          ) : null}
-                          {lesson.videoUrl ? (
-                            <Button onClick={() => handleViewLessonVideo(lesson.id)} variant="ghost">
-                              Xem video
-                            </Button>
-                          ) : null}
-                          <Button onClick={() => handleViewGeneratedContent(lesson.id)} variant="ghost">
-                            Xem nội dung AI
+          {/* Bảng điều khiển tác vụ Lesson tập trung */}
+          <Card
+            id="centralized-lesson-action-panel"
+            tabIndex={-1}
+            className={`centralized-panel ${isPanelFocused ? "centralized-panel--focused" : ""}`.trim()}
+            variant="shadowed"
+          >
+            <div className="centralized-panel__title-bar">
+              <h2>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "8px" }}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                Bảng điều khiển tác vụ Lesson tập trung
+              </h2>
+
+              <div className="centralized-panel__status-container" style={{ minWidth: "280px" }}>
+                <select
+                  className="ui-input"
+                  aria-label="Chọn bài học để điều khiển"
+                  value={selectedLessonId}
+                  onChange={(e) => handleSelectLesson(e.target.value)}
+                  style={{ fontWeight: "700", borderColor: "#737373" }}
+                >
+                  <option value="">-- Chọn bài học để điều khiển --</option>
+                  {course.modules.map((module) => (
+                    <optgroup key={module.id} label={`Module ${module.orderIndex}: ${module.title}`}>
+                      {module.lessons.map((lesson) => (
+                        <option key={lesson.id} value={lesson.id}>
+                          Bài {lesson.orderIndex}: {lesson.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {selectedLesson ? (
+              <>
+                <div className="centralized-panel__active-lesson-banner">
+                  <div>
+                    <h3>
+                      Bài {selectedLesson.orderIndex}: {selectedLesson.title}
+                    </h3>
+                    <p style={{ margin: "4px 0 0" }}>Thuộc Module {selectedLesson.moduleOrder}</p>
+                  </div>
+                  <div className="centralized-panel__status-container">
+                    <LessonContentStatusBadge type="content" status={selectedLesson.contentGenerationStatus} />
+                    <LessonContentStatusBadge type="audio" status={selectedLesson.audioGenerationStatus} />
+                    <LessonContentStatusBadge type="video" status={selectedLesson.videoGenerationStatus} />
+                  </div>
+                </div>
+
+                <div className="centralized-panel__tabs">
+                  <button
+                    className={`centralized-panel__tab-btn ${activeTab === "actions" ? "centralized-panel__tab-btn--active" : ""}`}
+                    onClick={() => setActiveTab("actions")}
+                  >
+                    Tác vụ & Trạng thái
+                  </button>
+                  <button
+                    className={`centralized-panel__tab-btn ${activeTab === "ai-content" ? "centralized-panel__tab-btn--active" : ""}`}
+                    onClick={() => setActiveTab("ai-content")}
+                  >
+                    Nội dung AI
+                  </button>
+                  <button
+                    className={`centralized-panel__tab-btn ${activeTab === "edit-details" ? "centralized-panel__tab-btn--active" : ""}`}
+                    onClick={() => setActiveTab("edit-details")}
+                  >
+                    Sửa thông tin
+                  </button>
+                </div>
+
+                <div className="centralized-panel__content-box">
+                  {activeTab === "actions" && (
+                    <div className="section-stack">
+                      <div className="centralized-panel__actions-grid">
+                        {selectedLesson.contentGenerationStatus === "Failed" && (
+                          <Button
+                            onClick={() => handleRegenerateLessonContent(selectedLesson.id)}
+                            disabled={isGeneratingContent}
+                          >
+                            Generate lại lesson lỗi
                           </Button>
-                          {generatedContentByLessonId[lesson.id] ? (
-                            <Button onClick={() => handleStartEditingGeneratedContent(lesson.id)} variant="ghost">
-                              Chỉnh nội dung AI
-                            </Button>
-                          ) : null}
-                          <Button onClick={() => startEditLesson(lesson)} variant="ghost">
-                            Sửa lesson
+                        )}
+                        {(selectedLesson.contentGenerationStatus === "Completed" || selectedLesson.contentGenerationStatus === "ManuallyEdited") && (
+                          <Button
+                            onClick={() => handleGenerateAudioForLesson(selectedLesson.id, selectedLesson.audioGenerationStatus === "Failed")}
+                            disabled={isGeneratingContent}
+                          >
+                            {selectedLesson.audioGenerationStatus === "Failed" || selectedLesson.audioUrl ? "Generate lại audio" : "Generate audio"}
                           </Button>
-                        </div>
+                        )}
+                        {(selectedLesson.audioGenerationStatus === "Completed" || selectedLesson.videoUrl) && (
+                          <Button
+                            onClick={() => handleGenerateVideoForLesson(selectedLesson.id, selectedLesson.videoGenerationStatus === "Failed" || Boolean(selectedLesson.videoUrl))}
+                            disabled={isGeneratingContent}
+                          >
+                            {selectedLesson.videoGenerationStatus === "Failed" || selectedLesson.videoUrl ? "Generate lại video" : "Generate video"}
+                          </Button>
+                        )}
                       </div>
 
-                      {editingLessonId === lesson.id ? (
-                        <div className="inline-edit-card">
-                          <FormField id={`lesson-title-${lesson.id}`} label="Tiêu đề lesson">
-                            <input
-                              className="ui-input"
-                              id={`lesson-title-${lesson.id}`}
-                              value={lessonForm.title}
-                              onChange={(event) => setLessonForm((current) => ({ ...current, title: event.target.value }))}
-                            />
-                          </FormField>
-                          <FormField id={`lesson-description-${lesson.id}`} label="Mô tả lesson">
-                            <textarea
-                              className="ui-input ui-textarea"
-                              id={`lesson-description-${lesson.id}`}
-                              rows="3"
-                              value={lessonForm.description}
-                              onChange={(event) => setLessonForm((current) => ({ ...current, description: event.target.value }))}
-                            />
-                          </FormField>
-                          <FormField id={`lesson-content-${lesson.id}`} label="Content seed">
-                            <textarea
-                              className="ui-input ui-textarea"
-                              id={`lesson-content-${lesson.id}`}
-                              rows="6"
-                              value={lessonForm.contentSeed}
-                              onChange={(event) => setLessonForm((current) => ({ ...current, contentSeed: event.target.value }))}
-                            />
-                          </FormField>
-                          <div className="quick-actions">
-                            <Button onClick={() => handleLessonSave(module.id)}>Lưu lesson</Button>
-                            <Button onClick={() => setEditingLessonId(null)} variant="ghost">Hủy</Button>
+                      {/* Hiển thị lỗi (nếu có) */}
+                      {selectedLesson.contentGenerationError && (
+                        <p className="lesson-card__error">Lỗi generate: {selectedLesson.contentGenerationError}</p>
+                      )}
+                      {selectedLesson.audioGenerationError && (
+                        <p className="lesson-card__error">Lỗi audio: {selectedLesson.audioGenerationError}</p>
+                      )}
+                      {selectedLesson.videoGenerationError && (
+                        <p className="lesson-card__error">Lỗi video: {selectedLesson.videoGenerationError}</p>
+                      )}
+
+                      {/* Preview audio & video */}
+                      <div className="card-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "16px" }}>
+                        {(audioByLessonId[selectedLesson.id]?.audioUrl || selectedLesson.audioUrl) ? (
+                          <div className="audio-preview-card">
+                            <strong>Audio lesson</strong>
+                            <audio controls preload="none" src={audioByLessonId[selectedLesson.id]?.audioUrl || selectedLesson.audioUrl}>
+                              Trình duyệt không hỗ trợ audio preview.
+                            </audio>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="audio-preview-card" style={{ opacity: 0.5, borderStyle: "dashed", placeItems: "center", minHeight: "90px" }}>
+                            <span style={{ fontSize: "var(--text-body-sm)", fontWeight: "bold" }}>Chưa có Audio</span>
+                          </div>
+                        )}
+
+                        {(videoByLessonId[selectedLesson.id]?.videoUrl || selectedLesson.videoUrl) ? (
+                          <div className="video-preview-card">
+                            <strong>Video bài học</strong>
+                            <video controls preload="metadata" src={videoByLessonId[selectedLesson.id]?.videoUrl || selectedLesson.videoUrl}>
+                              Trình duyệt không hỗ trợ video preview.
+                            </video>
+                          </div>
+                        ) : (
+                          <div className="video-preview-card" style={{ opacity: 0.5, borderStyle: "dashed", placeItems: "center", minHeight: "90px" }}>
+                            <span style={{ fontSize: "var(--text-body-sm)", fontWeight: "bold" }}>Chưa có Video</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "ai-content" && (
+                    <div>
+                      {generatedContentByLessonId[selectedLesson.id] ? (
+                        editingGeneratedLessonId === selectedLesson.id ? (
+                          <LessonContentEditor
+                            form={generatedContentForm}
+                            onChange={(field, value) =>
+                              setGeneratedContentForm((current) => ({ ...current, [field]: value }))
+                            }
+                            onSave={() => handleSaveGeneratedContent(selectedLesson.id)}
+                            onCancel={() => setEditingGeneratedLessonId(null)}
+                          />
+                        ) : (
+                          <div className="section-stack">
+                            <div className="quick-actions" style={{ marginBottom: "12px" }}>
+                              <Button onClick={() => handleStartEditingGeneratedContent(selectedLesson.id)}>
+                                Chỉnh sửa nội dung AI
+                              </Button>
+                            </div>
+                            <LessonContentPreview content={generatedContentByLessonId[selectedLesson.id]} />
+                          </div>
+                        )
                       ) : (
-                        <>
-                          <p>{lesson.description}</p>
-                          {lesson.contentGenerationError ? (
-                            <p className="lesson-card__error">Lỗi generate: {lesson.contentGenerationError}</p>
-                          ) : null}
-                          {lesson.audioGenerationError ? (
-                            <p className="lesson-card__error">Lỗi audio: {lesson.audioGenerationError}</p>
-                          ) : null}
-                          {lesson.videoGenerationError ? (
-                            <p className="lesson-card__error">Lỗi video: {lesson.videoGenerationError}</p>
-                          ) : null}
-                          <pre className="text-preview text-preview--compact">{lesson.contentSeed}</pre>
-                          {audioByLessonId[lesson.id]?.audioUrl || lesson.audioUrl ? (
-                            <div className="audio-preview-card">
-                              <strong>Audio lesson</strong>
-                              <audio controls preload="none" src={audioByLessonId[lesson.id]?.audioUrl || lesson.audioUrl}>
-                                Trình duyệt không hỗ trợ audio preview.
-                              </audio>
-                            </div>
-                          ) : null}
-                          {videoByLessonId[lesson.id]?.videoUrl || lesson.videoUrl ? (
-                            <div className="video-preview-card">
-                              <strong>Video bài học</strong>
-                              <video controls preload="metadata" src={videoByLessonId[lesson.id]?.videoUrl || lesson.videoUrl}>
-                                Trình duyệt không hỗ trợ video preview.
-                              </video>
-                            </div>
-                          ) : null}
-                          {selectedGeneratedLessonId === lesson.id && generatedContentByLessonId[lesson.id] ? (
-                            editingGeneratedLessonId === lesson.id ? (
-                              <LessonContentEditor
-                                form={generatedContentForm}
-                                onChange={(field, value) =>
-                                  setGeneratedContentForm((current) => ({ ...current, [field]: value }))
-                                }
-                                onSave={() => handleSaveGeneratedContent(lesson.id)}
-                                onCancel={() => setEditingGeneratedLessonId(null)}
-                              />
-                            ) : (
-                              <LessonContentPreview content={generatedContentByLessonId[lesson.id]} />
-                            )
-                          ) : null}
-                        </>
+                        <div style={{ textAlign: "center", padding: "24px", opacity: 0.7 }}>
+                          <p>Nội dung AI của bài học này chưa được tải hoặc chưa được tạo.</p>
+                          <Button onClick={() => handleViewGeneratedContent(selectedLesson.id)} variant="ghost">
+                            Tải nội dung AI
+                          </Button>
+                        </div>
                       )}
                     </div>
-                  ))}
+                  )}
+
+                  {activeTab === "edit-details" && (
+                    <div>
+                      <div className="section-stack">
+                        {editingModuleId === selectedLesson.moduleId ? (
+                          <div className="inline-edit-card" style={{ background: "transparent", border: "none", padding: 0 }}>
+                            <FormField id={`module-title-${selectedLesson.moduleId}`} label="Tiêu đề module">
+                              <input
+                                className="ui-input"
+                                id={`module-title-${selectedLesson.moduleId}`}
+                                value={moduleForm.title}
+                                onChange={(event) => setModuleForm((current) => ({ ...current, title: event.target.value }))}
+                              />
+                            </FormField>
+                            <FormField id={`module-description-${selectedLesson.moduleId}`} label="Mô tả module">
+                              <textarea
+                                className="ui-input ui-textarea"
+                                id={`module-description-${selectedLesson.moduleId}`}
+                                rows="3"
+                                value={moduleForm.description}
+                                onChange={(event) => setModuleForm((current) => ({ ...current, description: event.target.value }))}
+                              />
+                            </FormField>
+                            <div className="quick-actions" style={{ marginTop: "12px" }}>
+                              <Button onClick={handleModuleSave}>Lưu module</Button>
+                              <Button onClick={() => setEditingModuleId(null)} variant="ghost">Hủy</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="section-stack">
+                            <div className="quick-actions" style={{ marginBottom: "12px" }}>
+                              <Button
+                                onClick={() => startEditModule({
+                                  id: selectedLesson.moduleId,
+                                  title: selectedLesson.moduleTitle,
+                                  description: selectedLesson.moduleDescription
+                                })}
+                              >
+                                Chỉnh sửa thông tin module
+                              </Button>
+                            </div>
+                            <FormField label="Tiêu đề module">
+                              <p>{selectedLesson.moduleTitle || `Module ${selectedLesson.moduleOrder}`}</p>
+                            </FormField>
+                            <FormField label="Mô tả module">
+                              <p>{selectedLesson.moduleDescription || "Chưa có mô tả."}</p>
+                            </FormField>
+                          </div>
+                        )}
+
+                        {editingLessonId === selectedLesson.id ? (
+                          <div className="inline-edit-card" style={{ background: "transparent", border: "none", padding: 0 }}>
+                            <FormField id={`lesson-title-${selectedLesson.id}`} label="Tiêu đề lesson">
+                              <input
+                                className="ui-input"
+                                id={`lesson-title-${selectedLesson.id}`}
+                                value={lessonForm.title}
+                                onChange={(event) => setLessonForm((current) => ({ ...current, title: event.target.value }))}
+                              />
+                            </FormField>
+                            <FormField id={`lesson-description-${selectedLesson.id}`} label="Mô tả lesson">
+                              <textarea
+                                className="ui-input ui-textarea"
+                                id={`lesson-description-${selectedLesson.id}`}
+                                rows="3"
+                                value={lessonForm.description}
+                                onChange={(event) => setLessonForm((current) => ({ ...current, description: event.target.value }))}
+                              />
+                            </FormField>
+                            <FormField id={`lesson-content-${selectedLesson.id}`} label="Content seed">
+                              <textarea
+                                className="ui-input ui-textarea"
+                                id={`lesson-content-${selectedLesson.id}`}
+                                rows="6"
+                                value={lessonForm.contentSeed}
+                                onChange={(event) => setLessonForm((current) => ({ ...current, contentSeed: event.target.value }))}
+                              />
+                            </FormField>
+                            <div className="quick-actions" style={{ marginTop: "12px" }}>
+                              <Button onClick={() => handleLessonSave(selectedLesson.moduleId)}>Lưu bài học</Button>
+                              <Button onClick={() => setEditingLessonId(null)} variant="ghost">Hủy</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="section-stack">
+                            <div className="quick-actions" style={{ marginBottom: "12px" }}>
+                              <Button onClick={() => startEditLesson(selectedLesson)}>
+                                Chỉnh sửa thông tin bài học
+                              </Button>
+                            </div>
+                            <FormField label="Mô tả bài học">
+                              <p>{selectedLesson.description || "Chưa có mô tả."}</p>
+                            </FormField>
+                            <FormField label="Content seed">
+                              <pre className="text-preview text-preview--compact">{selectedLesson.contentSeed || "Trống."}</pre>
+                            </FormField>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </Card>
-            ))}
-          </div>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(0, 0, 0, 0.5)" }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "12px", opacity: 0.5 }}><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></svg>
+                <p style={{ margin: 0, fontWeight: "600" }}>Chưa có bài học nào được chọn điều khiển</p>
+                <p style={{ margin: "4px 0 0", fontSize: "var(--text-body-sm)" }}>Vui lòng chọn từ danh sách dropdown ở trên hoặc bấm nút "Điều khiển" ở thẻ bài học bên dưới.</p>
+              </div>
+            )}
+          </Card>
+
         </div>
       )}
     </Section>

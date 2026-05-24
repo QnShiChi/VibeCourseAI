@@ -44,16 +44,17 @@ export function AuthProvider({ children }) {
     saveAuthSession(nextSession);
     setSession(nextSession);
     setUser(response.user);
+    return nextSession;
   }
 
   async function login(formData) {
     const response = await authService.login(formData);
-    await handleAuthSuccess(response);
+    return handleAuthSuccess(response);
   }
 
   async function register(formData) {
     const response = await authService.register(formData);
-    await handleAuthSuccess(response);
+    return handleAuthSuccess(response);
   }
 
   async function logout() {

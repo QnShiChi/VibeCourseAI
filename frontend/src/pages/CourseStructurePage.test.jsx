@@ -94,9 +94,24 @@ function renderPage() {
   );
 }
 
+async function selectCentralizedLesson(lessonId = "lesson-1") {
+  const lessonSelect = await screen.findByRole("combobox", { name: "Chọn bài học để điều khiển" });
+  fireEvent.change(lessonSelect, { target: { value: lessonId } });
+  return lessonSelect;
+}
+
 describe("CourseStructurePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, "scrollTo", {
+      configurable: true,
+      value: vi.fn()
+    });
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      writable: true,
+      value: 0
+    });
     mockGetGenerationJobs.mockResolvedValue([]);
     mockGetGenerationJobDetail.mockResolvedValue({
       id: "job-1",
@@ -111,14 +126,44 @@ describe("CourseStructurePage", () => {
     });
   });
 
-  it("renders generated modules and lessons", async () => {
-    mockGetCourseStructure.mockResolvedValue(baseCourse);
+  it("renders the page without module cards", async () => {
+    mockGetCourseStructure.mockResolvedValue({
+      ...baseCourse,
+      modules: [
+        {
+          ...baseCourse.modules[0],
+          lessons: [
+            {
+              ...baseCourse.modules[0].lessons[0],
+              title: "Bai 1"
+            },
+            {
+              ...baseCourse.modules[0].lessons[0],
+              id: "lesson-2",
+              orderIndex: 2,
+              title: "Bai 2"
+            }
+          ]
+        }
+      ]
+    });
 
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Cấu trúc khóa học" })).toBeInTheDocument();
-    expect(await screen.findByText("Chuong 1")).toBeInTheDocument();
-    expect(await screen.findByText("Bai 1")).toBeInTheDocument();
+    expect(await screen.findByText("Bảng điều khiển tác vụ Lesson tập trung")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Xem chi tiết module" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sửa module" })).not.toBeInTheDocument();
+  });
+
+  it("renders the course structure workspace with themed styling hooks", async () => {
+    mockGetCourseStructure.mockResolvedValue(baseCourse);
+
+    renderPage();
+
+    const heading = await screen.findByRole("heading", { name: "Cấu trúc khóa học" });
+    expect(heading.closest("section")).toHaveClass("course-structure-workspace");
+    expect(screen.getByText("Course draft").closest(".surface-card")).toHaveClass("course-structure-hero-card");
   });
 
   it("renders course thumbnail preview and selected category", async () => {
@@ -151,31 +196,15 @@ describe("CourseStructurePage", () => {
     await waitFor(() => expect(mockUploadCourseThumbnail).toHaveBeenCalledWith("course-1", file));
   });
 
-  it("updates a module inline", async () => {
-    mockGetCourseStructure.mockResolvedValue({
-      ...baseCourse,
-      modules: [{ ...baseCourse.modules[0], lessons: [] }]
-    });
-    mockUpdateModule.mockResolvedValue({
-      id: "module-1",
-      title: "Chuong 1 moi",
-      description: "Mo ta moi",
-      orderIndex: 1,
-      lessons: []
-    });
+  it("shows selected lesson details from the centralized panel", async () => {
+    mockGetCourseStructure.mockResolvedValue(baseCourse);
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sửa module" }));
-    fireEvent.change(screen.getByLabelText("Tiêu đề module"), { target: { value: "Chuong 1 moi" } });
-    fireEvent.change(screen.getByLabelText("Mô tả module"), { target: { value: "Mo ta moi" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu module" }));
+    await selectCentralizedLesson("lesson-1");
 
-    await waitFor(() => expect(mockUpdateModule).toHaveBeenCalledWith("module-1", {
-      title: "Chuong 1 moi",
-      description: "Mo ta moi"
-    }));
-    expect(await screen.findByText("Đã cập nhật module.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Bài 1: Bai 1" })).toBeInTheDocument();
+    expect(screen.getByText("Thuộc Module 1")).toBeInTheDocument();
   });
 
   it("shows progress for an active background generation job", async () => {
@@ -287,6 +316,7 @@ describe("CourseStructurePage", () => {
 
     renderPage();
 
+    await selectCentralizedLesson("lesson-1");
     fireEvent.click(await screen.findByRole("button", { name: "Generate lại lesson lỗi" }));
 
     await waitFor(() => expect(mockRegenerateLessonContent).toHaveBeenCalledWith("course-1", "lesson-1"));
@@ -329,10 +359,11 @@ describe("CourseStructurePage", () => {
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Xem nội dung AI" }));
+    await selectCentralizedLesson("lesson-1");
+    fireEvent.click(screen.getByRole("button", { name: "Nội dung AI" }));
     expect(await screen.findByText("Script goc")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Chỉnh nội dung AI" }));
+    fireEvent.click(screen.getByRole("button", { name: "Chỉnh sửa nội dung AI" }));
     fireEvent.change(screen.getByLabelText("Giọng điệu"), { target: { value: "Warm" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu nội dung AI" }));
 
@@ -341,6 +372,29 @@ describe("CourseStructurePage", () => {
       slideOutlineJson: '[{"slideNumber":1,"title":"S1","bulletPoints":["A"],"speakerNotes":"N"}]',
       voiceoverPlanJson:
         '{"estimatedDurationMinutes":8,"tone":"Warm","pacing":"Moderate","targetAudience":"Students","pronunciationNotes":"OOP"}'
+    }));
+  });
+
+  it("allows editing the parent module from the centralized panel", async () => {
+    mockGetCourseStructure.mockResolvedValue(baseCourse);
+    mockUpdateModule.mockResolvedValue({
+      ...baseCourse.modules[0],
+      title: "Chuong 1 da sua",
+      description: "Tong quan moi"
+    });
+
+    renderPage();
+
+    await selectCentralizedLesson("lesson-1");
+    fireEvent.click(screen.getByRole("button", { name: "Sửa thông tin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Chỉnh sửa thông tin module" }));
+    fireEvent.change(screen.getByLabelText("Tiêu đề module"), { target: { value: "Chuong 1 da sua" } });
+    fireEvent.change(screen.getByLabelText("Mô tả module"), { target: { value: "Tong quan moi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lưu module" }));
+
+    await waitFor(() => expect(mockUpdateModule).toHaveBeenCalledWith("module-1", {
+      title: "Chuong 1 da sua",
+      description: "Tong quan moi"
     }));
   });
 
@@ -371,8 +425,83 @@ describe("CourseStructurePage", () => {
 
     renderPage();
 
+    await selectCentralizedLesson("lesson-1");
     fireEvent.click(await screen.findByRole("button", { name: "Generate audio" }));
 
     await waitFor(() => expect(mockGenerateLessonAudio).toHaveBeenCalledWith("course-1", "lesson-1"));
+  });
+
+  it("selects a lesson from the centralized dropdown", async () => {
+    mockGetCourseStructure.mockResolvedValue({
+      ...baseCourse,
+      modules: [
+        {
+          ...baseCourse.modules[0],
+          lessons: [
+            {
+              ...baseCourse.modules[0].lessons[0],
+              title: "Bai 1"
+            },
+            {
+              ...baseCourse.modules[0].lessons[0],
+              id: "lesson-2",
+              orderIndex: 2,
+              title: "Bai 2"
+            }
+          ]
+        }
+      ]
+    });
+
+    renderPage();
+    await selectCentralizedLesson("lesson-2");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Bài 2: Bai 2" })).toBeInTheDocument();
+    });
+  });
+
+  it("updates the centralized dropdown selection when choosing a lesson", async () => {
+    mockGetCourseStructure.mockResolvedValue(baseCourse);
+
+    renderPage();
+    const lessonSelect = await selectCentralizedLesson("lesson-1");
+
+    expect(lessonSelect).toHaveValue("lesson-1");
+    expect(await screen.findByRole("heading", { name: "Bài 1: Bai 1" })).toBeInTheDocument();
+  });
+
+  it("keeps module cards hidden after selecting a lesson", async () => {
+    mockGetCourseStructure.mockResolvedValue({
+      ...baseCourse,
+      modules: [
+        {
+          ...baseCourse.modules[0],
+          lessons: [
+            {
+              ...baseCourse.modules[0].lessons[0],
+              title: "Bai 1"
+            },
+            {
+              ...baseCourse.modules[0].lessons[0],
+              id: "lesson-2",
+              orderIndex: 2,
+              title: "Bai 2"
+            }
+          ]
+        }
+      ]
+    });
+
+    renderPage();
+
+    await selectCentralizedLesson("lesson-2");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Bài 2: Bai 2" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: "Xem chi tiết module" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sửa module" })).not.toBeInTheDocument();
   });
 });

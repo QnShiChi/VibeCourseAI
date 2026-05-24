@@ -1,3 +1,57 @@
+.coursesPage {
+  --courses-surface-bg: linear-gradient(180deg, #fbfde9 0%, #f6f8dd 100%);
+  --courses-title-accent: #4c7d00;
+  --courses-copy-muted: rgba(0, 0, 0, 0.72);
+  --courses-search-bg: var(--color-canvas-white);
+  --courses-search-shadow: 6px 6px 0 var(--color-midnight-ink);
+  --courses-chip-bg: #fff4b9;
+  --courses-chip-alt-1: #d7f4df;
+  --courses-chip-alt-2: #ffeeb3;
+  --courses-chip-alt-3: #efd5fb;
+  --courses-chip-shadow: 4px 4px 0 var(--color-midnight-ink);
+  --courses-card-media-bg: rgba(255, 255, 255, 0.48);
+  --courses-card-label-bg: rgba(255, 255, 255, 0.92);
+  --courses-card-copy-muted: rgba(0, 0, 0, 0.72);
+  --courses-meta-pill-bg: rgba(255, 255, 255, 0.62);
+  --courses-meta-pill-border: rgba(23, 23, 23, 0.18);
+  --courses-category-bg: rgba(255, 255, 255, 0.88);
+  --courses-glow: rgba(255, 255, 255, 0.28);
+}
+
+.coursesPage[data-theme="dark"] {
+  --courses-surface-bg:
+    radial-gradient(circle at top center, rgba(163, 230, 53, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98) 0%, rgba(15, 23, 42, 0.98) 62%, rgba(17, 24, 39, 0.98) 100%);
+  --courses-title-accent: #a3e635;
+  --courses-copy-muted: rgba(226, 232, 240, 0.76);
+  --courses-search-bg: rgba(2, 6, 23, 0.92);
+  --courses-search-shadow: 0 18px 40px rgba(2, 6, 23, 0.34);
+  --courses-chip-bg: rgba(30, 41, 59, 0.94);
+  --courses-chip-alt-1: rgba(17, 94, 89, 0.42);
+  --courses-chip-alt-2: rgba(120, 53, 15, 0.4);
+  --courses-chip-alt-3: rgba(88, 28, 135, 0.38);
+  --courses-chip-shadow: 0 12px 24px rgba(2, 6, 23, 0.28);
+  --courses-card-media-bg: rgba(15, 23, 42, 0.76);
+  --courses-card-label-bg: rgba(2, 6, 23, 0.82);
+  --courses-card-copy-muted: rgba(226, 232, 240, 0.76);
+  --courses-meta-pill-bg: rgba(255, 255, 255, 0.06);
+  --courses-meta-pill-border: rgba(148, 163, 184, 0.18);
+  --courses-category-bg: rgba(255, 255, 255, 0.08);
+  --courses-glow: rgba(163, 230, 53, 0.12);
+}
+
+.coursesPage[data-theme="dark"] .tone0 {
+  background: linear-gradient(180deg, rgba(28, 38, 59, 0.98) 0%, rgba(21, 28, 44, 0.98) 100%);
+}
+
+.coursesPage[data-theme="dark"] .tone1 {
+  background: linear-gradient(180deg, rgba(14, 56, 52, 0.98) 0%, rgba(11, 39, 38, 0.98) 100%);
+}
+
+.coursesPage[data-theme="dark"] .tone2 {
+  background: linear-gradient(180deg, rgba(48, 31, 73, 0.98) 0%, rgba(31, 20, 49, 0.98) 100%);
+}
+
 .page {
   position: relative;
   padding: clamp(28px, 4vw, 56px) 0 72px;
@@ -12,7 +66,7 @@
   left: 50%;
   width: 100vw;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, #fbfde9 0%, #f6f8dd 100%);
+  background: var(--courses-surface-bg);
   z-index: -1;
 }
 
@@ -45,7 +99,7 @@
 }
 
 .title span {
-  color: #4c7d00;
+  color: var(--courses-title-accent);
 }
 
 .description {
@@ -53,7 +107,7 @@
   margin: 0;
   font-size: 1.1rem;
   line-height: 1.7;
-  color: rgba(0, 0, 0, 0.72);
+  color: var(--courses-copy-muted);
 }
 
 .searchBar {
@@ -64,20 +118,26 @@
   padding: 20px 24px;
   border: 2px solid var(--color-midnight-ink);
   border-radius: 24px;
-  background: var(--color-canvas-white);
-  box-shadow: 6px 6px 0 var(--color-midnight-ink);
+  background: var(--courses-search-bg);
+  box-shadow: var(--courses-search-shadow);
 }
 
 .searchBar input {
   width: 100%;
   border: 0;
   background: transparent;
+  color: var(--color-midnight-ink);
   font-size: 1.05rem;
   outline: none;
 }
 
+.searchBar input::placeholder {
+  color: var(--courses-copy-muted);
+}
+
 .searchIcon {
   font-size: 1.4rem;
+  color: var(--courses-copy-muted);
 }
 
 .srOnly {
@@ -103,27 +163,36 @@
   padding: 12px 22px;
   border: 2px solid var(--color-midnight-ink);
   border-radius: 999px;
-  background: #fff4b9;
-  box-shadow: 4px 4px 0 var(--color-midnight-ink);
+  background: var(--courses-chip-bg);
+  box-shadow: var(--courses-chip-shadow);
+  color: var(--color-midnight-ink);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
 .chip:nth-child(2) {
-  background: #d7f4df;
+  background: var(--courses-chip-alt-1);
 }
 
 .chip:nth-child(3) {
-  background: #ffeeb3;
+  background: var(--courses-chip-alt-2);
 }
 
 .chip:nth-child(4) {
-  background: #efd5fb;
+  background: var(--courses-chip-alt-3);
 }
 
 .chipActive {
   background: var(--color-accent-green);
+  color: var(--color-accent-ink);
+}
+
+.chip:hover,
+.chip:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
 }
 
 .grid {
@@ -163,7 +232,7 @@
   aspect-ratio: 16 / 10;
   border: 2px solid var(--color-midnight-ink);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.48);
+  background: var(--courses-card-media-bg);
   box-shadow: 1px 1px 0 var(--color-shadow-base);
 }
 
@@ -175,7 +244,7 @@
   padding: 5px 10px;
   border: 1.5px solid var(--color-midnight-ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--courses-card-label-bg);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -195,7 +264,7 @@
   width: 62%;
   height: 72%;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--courses-glow);
   filter: blur(12px);
   pointer-events: none;
 }
@@ -218,7 +287,7 @@
 
 .cardBody p {
   margin: 0;
-  color: rgba(0, 0, 0, 0.72);
+  color: var(--courses-card-copy-muted);
   font-size: 0.96rem;
   line-height: 1.55;
   display: -webkit-box;
@@ -241,16 +310,16 @@
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.72);
+  color: var(--courses-card-copy-muted);
 }
 
 .metaPill {
   display: inline-flex;
   align-items: center;
   padding: 5px 10px;
-  border: 1px solid rgba(23, 23, 23, 0.18);
+  border: 1px solid var(--courses-meta-pill-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--courses-meta-pill-bg);
   backdrop-filter: blur(4px);
 }
 
@@ -265,7 +334,7 @@
   padding: 7px 12px;
   border: 2px solid var(--color-midnight-ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--courses-category-bg);
   font-weight: 700;
   font-size: 0.92rem;
 }

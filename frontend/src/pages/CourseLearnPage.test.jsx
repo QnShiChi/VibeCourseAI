@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemeProvider } from "../theme/ThemeContext";
 import CourseLearnPage from "./CourseLearnPage";
 
 const mockGetCourseLearnPayload = vi.fn();
@@ -77,6 +78,7 @@ function buildLearnPayload() {
 
 describe("CourseLearnPage", () => {
   beforeEach(() => {
+    window.localStorage.setItem("app-theme", "light");
     mockUseAuth.mockReturnValue({ user: { role: "User" } });
     mockGetLessonComments.mockResolvedValue({
       items: [],
@@ -88,14 +90,34 @@ describe("CourseLearnPage", () => {
     });
   });
 
+  it("provides a themed learner workspace scope in dark mode", async () => {
+    window.localStorage.setItem("app-theme", "dark");
+    mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findAllByText("Tổng quan về AI");
+    expect(screen.getByTestId("course-learn-shell")).toHaveAttribute("data-theme", "dark");
+  });
+
   it("renders default selected lesson", async () => {
     mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -153,9 +175,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -203,9 +227,11 @@ describe("CourseLearnPage", () => {
 
     const { container } = render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -242,9 +268,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -256,9 +284,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -279,9 +309,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -321,9 +353,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 

@@ -85,4 +85,103 @@ describe("LessonComments", () => {
 
     expect((await screen.findAllByRole("button", { name: "Ẩn bình luận" })).length).toBeGreaterThan(0);
   });
+
+  it("shows only four comments by default and expands on demand", async () => {
+    mockGetLessonComments.mockResolvedValue({
+      items: [
+        {
+          comment: {
+            id: "comment-1",
+            userId: "user-1",
+            authorName: "Alice",
+            content: "Comment 1",
+            isHidden: false,
+            isDeleted: false,
+            canDelete: false,
+            canModerate: false,
+            createdAt: "2026-05-21T08:00:00Z",
+            reactions: []
+          },
+          replies: []
+        },
+        {
+          comment: {
+            id: "comment-2",
+            userId: "user-2",
+            authorName: "Bob",
+            content: "Comment 2",
+            isHidden: false,
+            isDeleted: false,
+            canDelete: false,
+            canModerate: false,
+            createdAt: "2026-05-21T08:01:00Z",
+            reactions: []
+          },
+          replies: []
+        },
+        {
+          comment: {
+            id: "comment-3",
+            userId: "user-3",
+            authorName: "Carol",
+            content: "Comment 3",
+            isHidden: false,
+            isDeleted: false,
+            canDelete: false,
+            canModerate: false,
+            createdAt: "2026-05-21T08:02:00Z",
+            reactions: []
+          },
+          replies: []
+        },
+        {
+          comment: {
+            id: "comment-4",
+            userId: "user-4",
+            authorName: "David",
+            content: "Comment 4",
+            isHidden: false,
+            isDeleted: false,
+            canDelete: false,
+            canModerate: false,
+            createdAt: "2026-05-21T08:03:00Z",
+            reactions: []
+          },
+          replies: []
+        },
+        {
+          comment: {
+            id: "comment-5",
+            userId: "user-5",
+            authorName: "Eve",
+            content: "Comment 5",
+            isHidden: false,
+            isDeleted: false,
+            canDelete: false,
+            canModerate: false,
+            createdAt: "2026-05-21T08:04:00Z",
+            reactions: []
+          },
+          replies: []
+        }
+      ],
+      page: 1,
+      pageSize: 10,
+      totalCount: 5,
+      hasMore: false,
+      sort: "newest"
+    });
+
+    render(<LessonComments lessonId="lesson-1" />);
+
+    expect(await screen.findByText("Comment 1")).toBeInTheDocument();
+    expect(screen.getByText("Comment 4")).toBeInTheDocument();
+    expect(screen.queryByText("Comment 5")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Xem thêm bình luận" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem thêm bình luận" }));
+
+    expect(await screen.findByText("Comment 5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ẩn bớt" })).toBeInTheDocument();
+  });
 });

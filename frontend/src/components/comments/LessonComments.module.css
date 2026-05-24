@@ -1,4 +1,12 @@
 .commentsSection {
+  --comment-surface: var(--app-surface-strong, #ffffff);
+  --comment-surface-muted: var(--app-surface-muted, rgba(255, 255, 255, 0.8));
+  --comment-text-muted: var(--app-text-muted, #4b5563);
+  --comment-border: var(--app-border-soft, rgba(17, 24, 39, 0.15));
+  --comment-button-bg: var(--app-surface-strong, #ffffff);
+  --comment-button-active-bg: var(--color-accent-green, #a3e635);
+  --comment-popup-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
+  --comment-reaction-active-shadow: 0 10px 24px rgba(163, 230, 53, 0.28);
   display: grid;
   gap: 20px;
 }
@@ -16,7 +24,7 @@
 
 .commentsHeader p {
   margin: 0;
-  color: var(--color-text-secondary, #4b5563);
+  color: var(--comment-text-muted);
 }
 
 .commentSortControl {
@@ -32,7 +40,8 @@
 .commentActionButton {
   border: 1px solid var(--color-border-strong, #111827);
   border-radius: 999px;
-  background: #fff;
+  background: var(--comment-button-bg);
+  color: var(--color-midnight-ink, #111827);
   padding: 10px 14px;
   font: inherit;
   cursor: pointer;
@@ -40,7 +49,8 @@
 
 .commentSortButtonActive,
 .commentPrimaryButton {
-  background: #a3e635;
+  background: var(--comment-button-active-bg);
+  color: var(--color-accent-ink, #000000);
 }
 
 .commentComposer {
@@ -54,8 +64,14 @@
   border: 1px solid var(--color-border-strong, #111827);
   border-radius: 16px;
   padding: 14px 16px;
+  background: var(--comment-surface);
+  color: var(--color-midnight-ink, #111827);
   font: inherit;
   resize: vertical;
+}
+
+.commentComposerInput::placeholder {
+  color: var(--comment-text-muted);
 }
 
 .commentComposerActions {
@@ -98,9 +114,9 @@
 .commentBody {
   display: grid;
   gap: 10px;
-  border: 1px solid rgba(17, 24, 39, 0.15);
+  border: 1px solid var(--comment-border);
   border-radius: 20px;
-  background: #fff;
+  background: var(--comment-surface);
   padding: 14px 16px;
 }
 
@@ -112,7 +128,7 @@
 }
 
 .commentMeta span {
-  color: var(--color-text-secondary, #4b5563);
+  color: var(--comment-text-muted);
   font-size: 14px;
 }
 
@@ -140,7 +156,7 @@
   padding: 20px;
   border: 1px dashed rgba(17, 24, 39, 0.25);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--comment-surface-muted);
 }
 
 .commentReactionShell {
@@ -160,7 +176,8 @@
 .commentReactionPrimaryActive {
   border: 1px solid var(--color-border-strong, #111827);
   border-radius: 999px;
-  background: #fff;
+  background: var(--comment-button-bg);
+  color: var(--color-midnight-ink, #111827);
   padding: 10px 16px;
   font: inherit;
   cursor: pointer;
@@ -176,8 +193,9 @@
 }
 
 .commentReactionPrimaryActive {
-  background: #a3e635;
-  box-shadow: 0 10px 24px rgba(163, 230, 53, 0.28);
+  background: var(--comment-button-active-bg);
+  color: var(--color-accent-ink, #000000);
+  box-shadow: var(--comment-reaction-active-shadow);
 }
 
 .commentReactionPrimaryIcon {
@@ -193,10 +211,10 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid rgba(17, 24, 39, 0.12);
+  border: 1px solid var(--comment-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
+  background: var(--comment-surface);
+  box-shadow: var(--comment-popup-shadow);
   opacity: 0;
   pointer-events: none;
   transform: translateY(8px) scale(0.92);
@@ -239,9 +257,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid rgba(17, 24, 39, 0.16);
+  border: 1px solid var(--comment-border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--comment-button-bg);
   padding: 8px 10px;
   min-width: 54px;
   justify-content: center;

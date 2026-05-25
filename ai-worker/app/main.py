@@ -35,6 +35,7 @@ async def generate_lesson_audio(request: LessonAudioJobRequest):
         )
 
         async def process_segment(segment):
+            print(f"Generating audio for slide {segment.slide_number}: '{segment.narration_text}'")
             path = build_segment_path(request.lesson_id, segment.slide_number)
             audio_bytes = await tts.synthesize_to_bytes(segment.narration_text)
             path.write_bytes(audio_bytes)
@@ -46,10 +47,14 @@ async def generate_lesson_audio(request: LessonAudioJobRequest):
                 duration_seconds=get_audio_duration_seconds(path),
             )
 
-        tasks = [process_segment(segment) for segment in narration_segments]
-        results = await asyncio.gather(*tasks)
+        # Process sequentially with a delay to avoid Edge-TTS rate limiting / connection drops
+        results = []
+        for segment in narration_segments:
+            result = await process_segment(segment)
+            results.append(result)
+            await asyncio.sleep(1.5)
 
-        results.sort(key=lambda r: r[1].slide_number)
+        results.sort(key=lambda r: r[1].slideNumber)
         
         segment_paths = [r[0] for r in results]
         segment_results = [r[1] for r in results]
@@ -64,4 +69,6 @@ async def generate_lesson_audio(request: LessonAudioJobRequest):
             error_message=None,
         )
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -11,6 +11,7 @@ public interface ICourseService
     Task<AdminCourseListItemResponse?> UnpublishAsync(Guid id);
     Task<CourseStructureResponse?> UpdateCategoryAsync(Guid id, string category);
     Task<CourseStructureResponse?> UploadThumbnailAsync(Guid id, IFormFile file, CancellationToken cancellationToken = default);
+    Task<GenerateFullCourseResponse> GenerateFullCourseAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default);
     Task<GenerateLessonContentResponse> GenerateLessonContentAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default);
     Task<GenerateLessonContentResponse> RegenerateLessonContentAsync(Guid courseId, Guid lessonId, Guid createdByUserId, CancellationToken cancellationToken = default);
     Task<GenerateLessonAudioResponse> GenerateLessonAudioAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default);

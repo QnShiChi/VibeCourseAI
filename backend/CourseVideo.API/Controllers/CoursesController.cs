@@ -132,6 +132,27 @@ public class CoursesController : ControllerBase
         }
     }
 
+    [HttpPost("{id:guid}/generate-full-course")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GenerateFullCourse(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
+            var response = await _courseService.GenerateFullCourseAsync(id, createdByUserId, cancellationToken);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
     [HttpPost("{courseId:guid}/lessons/{lessonId:guid}/regenerate-lesson-content")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> RegenerateLessonContent(Guid courseId, Guid lessonId, CancellationToken cancellationToken)

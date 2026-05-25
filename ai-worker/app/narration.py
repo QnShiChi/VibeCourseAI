@@ -24,8 +24,6 @@ def build_narration_segments(teaching_script: str, slide_outline_json: str, voic
                 parts.append(bullet_text)
             if notes:
                 parts.append(notes)
-            elif fallback_script:
-                parts.append(fallback_script)
             narration_text = " ".join(part for part in parts if part).strip()
 
         if not narration_text:

@@ -61,7 +61,7 @@ public class AppDbContext : DbContext
             entity.HasOne(course => course.Syllabus)
                 .WithMany(syllabus => syllabus.Courses)
                 .HasForeignKey(course => course.SyllabusId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Module>(entity =>
@@ -159,7 +159,7 @@ public class AppDbContext : DbContext
             entity.HasOne(job => job.Syllabus)
                 .WithMany(syllabus => syllabus.GenerationJobs)
                 .HasForeignKey(job => job.SyllabusId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(job => job.Course)
                 .WithMany(course => course.GenerationJobs)
                 .HasForeignKey(job => job.CourseId)

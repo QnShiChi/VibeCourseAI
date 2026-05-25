@@ -193,7 +193,7 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
 
             try
             {
-                await GenerateVideoForLessonAsync(lesson, cancellationToken);
+                await GenerateVideoForLessonInternalAsync(lesson, cancellationToken);
             }
             catch (Exception exception)
             {
@@ -245,7 +245,7 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
 
         try
         {
-            await GenerateVideoForLessonAsync(lesson, cancellationToken);
+            await GenerateVideoForLessonInternalAsync(lesson, cancellationToken);
             job.Status = "Completed";
             job.ProgressMessage = "Đã generate video lesson thành công.";
             job.ErrorMessage = null;
@@ -271,7 +271,7 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
         await _generationJobRepository.SaveChangesAsync();
     }
 
-    private async Task GenerateVideoForLessonAsync(Lesson lesson, CancellationToken cancellationToken)
+    public async Task GenerateVideoForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken)
     {
         LessonVideoValidation.ValidateReadyForVideo(lesson);
 

@@ -132,6 +132,7 @@ public static class DbInitializer
             BEGIN
                 ALTER TABLE [Courses] ADD [SyllabusId] uniqueidentifier NULL;
                 CREATE INDEX [IX_Courses_SyllabusId] ON [Courses] ([SyllabusId]);
+                ALTER TABLE [Courses] ADD CONSTRAINT [FK_Courses_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]) ON DELETE CASCADE;
             END
 
             IF COL_LENGTH('Courses', 'CreatedByUserId') IS NULL
@@ -180,7 +181,7 @@ public static class DbInitializer
                     [CreatedAt] datetime2 NOT NULL,
                     [UpdatedAt] datetime2 NULL,
                     CONSTRAINT [PK_GenerationJobs] PRIMARY KEY ([Id]),
-                    CONSTRAINT [FK_GenerationJobs_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]),
+                    CONSTRAINT [FK_GenerationJobs_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]) ON DELETE CASCADE,
                     CONSTRAINT [FK_GenerationJobs_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]),
                     CONSTRAINT [FK_GenerationJobs_Users_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [Users]([Id])
                 );

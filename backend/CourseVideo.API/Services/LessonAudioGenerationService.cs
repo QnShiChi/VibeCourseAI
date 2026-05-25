@@ -194,7 +194,7 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
 
             try
             {
-                await GenerateAudioForLessonAsync(lesson, cancellationToken);
+                await GenerateAudioForLessonInternalAsync(lesson, cancellationToken);
             }
             catch (Exception exception)
             {
@@ -246,7 +246,7 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
 
         try
         {
-            await GenerateAudioForLessonAsync(lesson, cancellationToken);
+            await GenerateAudioForLessonInternalAsync(lesson, cancellationToken);
             job.Status = "Completed";
             job.ProgressMessage = "Đã generate audio lesson thành công.";
             job.ErrorMessage = null;
@@ -272,7 +272,7 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
         await _generationJobRepository.SaveChangesAsync();
     }
 
-    private async Task GenerateAudioForLessonAsync(Lesson lesson, CancellationToken cancellationToken)
+    public async Task GenerateAudioForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken)
     {
         LessonAudioValidation.ValidateReadyForAudio(lesson);
 

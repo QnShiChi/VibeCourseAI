@@ -195,8 +195,7 @@ public class LessonContentGenerationService : ILessonContentGenerationService
 
             try
             {
-                var result = await _openRouterLessonContentService.GenerateAsync(course, module, lesson, cancellationToken);
-                ApplyResult(lesson, result);
+                await GenerateContentForLessonInternalAsync(course, module, lesson, cancellationToken);
             }
             catch (Exception exception) when (exception is LessonContentGenerationException or OpenRouterConfigurationException or OpenRouterValidationException or OpenRouterTechnicalException)
             {
@@ -250,8 +249,7 @@ public class LessonContentGenerationService : ILessonContentGenerationService
 
         try
         {
-            var result = await _openRouterLessonContentService.GenerateAsync(course, module, lesson, cancellationToken);
-            ApplyResult(lesson, result);
+            await GenerateContentForLessonInternalAsync(course, module, lesson, cancellationToken);
             job.Status = "Completed";
             job.ProgressMessage = "Đã generate lại lesson thành công.";
             job.ErrorMessage = null;
@@ -275,6 +273,12 @@ public class LessonContentGenerationService : ILessonContentGenerationService
         job.CompletedAt = DateTime.UtcNow;
         job.UpdatedAt = DateTime.UtcNow;
         await _generationJobRepository.SaveChangesAsync();
+    }
+
+    public async Task GenerateContentForLessonInternalAsync(Course course, Module module, Lesson lesson, CancellationToken cancellationToken)
+    {
+        var result = await _openRouterLessonContentService.GenerateAsync(course, module, lesson, cancellationToken);
+        ApplyResult(lesson, result);
     }
 
     private static IReadOnlyList<(Module module, Lesson lesson)> GetEligibleLessonPairs(Course course)

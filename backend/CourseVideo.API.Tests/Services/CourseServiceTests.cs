@@ -240,6 +240,7 @@ public class CourseServiceTests
             Mock.Of<ILessonContentGenerationService>(),
             Mock.Of<ILessonAudioGenerationService>(),
             Mock.Of<ILessonVideoGenerationService>(),
+            Mock.Of<IFullCourseGenerationService>(),
             environment.Object);
     }
 }

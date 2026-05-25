@@ -105,6 +105,14 @@ public class GenerationJobRepository : IGenerationJobRepository
             (job.Status == "Pending" || job.Status == "GeneratingLessonVideo"));
     }
 
+    public async Task<IReadOnlyList<GenerationJob>> GetByCourseIdAsync(Guid courseId)
+    {
+        return await _dbContext.GenerationJobs
+            .Where(job => job.CourseId == courseId)
+            .OrderByDescending(job => job.CreatedAt)
+            .ToListAsync();
+    }
+
     public Task SaveChangesAsync()
     {
         return _dbContext.SaveChangesAsync();

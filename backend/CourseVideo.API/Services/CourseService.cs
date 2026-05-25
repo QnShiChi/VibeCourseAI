@@ -18,6 +18,7 @@ public class CourseService : ICourseService
     private readonly ILessonContentGenerationService _lessonContentGenerationService;
     private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
     private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
+    private readonly IFullCourseGenerationService _fullCourseGenerationService;
     private readonly IWebHostEnvironment _environment;
 
     public CourseService(
@@ -25,12 +26,14 @@ public class CourseService : ICourseService
         ILessonContentGenerationService lessonContentGenerationService,
         ILessonAudioGenerationService lessonAudioGenerationService,
         ILessonVideoGenerationService lessonVideoGenerationService,
+        IFullCourseGenerationService fullCourseGenerationService,
         IWebHostEnvironment environment)
     {
         _courseRepository = courseRepository;
         _lessonContentGenerationService = lessonContentGenerationService;
         _lessonAudioGenerationService = lessonAudioGenerationService;
         _lessonVideoGenerationService = lessonVideoGenerationService;
+        _fullCourseGenerationService = fullCourseGenerationService;
         _environment = environment;
     }
 
@@ -141,6 +144,11 @@ public class CourseService : ICourseService
         course.UpdatedAt = DateTime.UtcNow;
         await _courseRepository.SaveChangesAsync();
         return await GetStructureAsync(id);
+    }
+
+    public async Task<GenerateFullCourseResponse> GenerateFullCourseAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        return await _fullCourseGenerationService.GenerateFullCourseAsync(courseId, createdByUserId, cancellationToken);
     }
 
     public Task<GenerateLessonContentResponse> GenerateLessonContentAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default)

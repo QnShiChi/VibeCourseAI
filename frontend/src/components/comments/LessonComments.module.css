@@ -135,6 +135,15 @@
   font-size: 14px;
 }
 
+.sentimentBadge {
+  background: var(--app-surface-muted, rgba(243, 244, 246, 1));
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px !important;
+  font-weight: 500;
+  border: 1px solid var(--comment-border);
+}
+
 .commentContent {
   margin: 0;
   line-height: 1.6;

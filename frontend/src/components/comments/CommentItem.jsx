@@ -24,6 +24,14 @@ export default function CommentItem({
       <div className={styles.commentBody}>
         <div className={styles.commentMeta}>
           <strong>{comment.authorName}</strong>
+          {isAdmin && comment.sentiment ? (
+            <span
+              className={styles.sentimentBadge}
+              title={`Phân tích bởi PhoBERT: ${comment.sentiment}`}
+            >
+              {comment.sentiment === "positive" ? "😊 Tích cực" : comment.sentiment === "negative" ? "😡 Tiêu cực" : "😐 Bình thường"}
+            </span>
+          ) : null}
           <span>{new Date(comment.createdAt).toLocaleString("vi-VN")}</span>
         </div>
 

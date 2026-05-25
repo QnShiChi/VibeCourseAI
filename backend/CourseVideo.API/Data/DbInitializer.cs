@@ -375,6 +375,11 @@ public static class DbInitializer
                 CREATE INDEX [IX_LessonComments_LessonId_CreatedAt] ON [LessonComments] ([LessonId], [CreatedAt]);
                 CREATE INDEX [IX_LessonComments_ParentCommentId] ON [LessonComments] ([ParentCommentId]);
             END
+
+            IF COL_LENGTH('LessonComments', 'Sentiment') IS NULL
+            BEGIN
+                ALTER TABLE [LessonComments] ADD [Sentiment] nvarchar(50) NULL;
+            END
             """);
     }
 

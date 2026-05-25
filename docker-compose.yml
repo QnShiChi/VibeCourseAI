@@ -58,6 +58,7 @@ services:
       - sqlserver
     volumes:
       - ./storage:/app/storage
+      - ./ai-worker/app/phobert_dataset2_model:/app/app/phobert_dataset2_model:ro
 
   video-worker:
     build:

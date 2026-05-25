@@ -9,6 +9,7 @@ public class LessonCommentItemResponse
     public Guid? ReplyToUserId { get; set; }
     public string? ReplyToUserName { get; set; }
     public string Content { get; set; } = string.Empty;
+    public string? Sentiment { get; set; }
     public bool IsHidden { get; set; }
     public bool IsDeleted { get; set; }
     public bool CanDelete { get; set; }

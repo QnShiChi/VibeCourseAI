@@ -42,7 +42,9 @@
   border-radius: 999px;
   background: var(--comment-button-bg);
   color: var(--color-midnight-ink, #111827);
-  padding: 10px 14px;
+  padding: 7px 11px;
+  font-size: 0.92rem;
+  line-height: 1.2;
   font: inherit;
   cursor: pointer;
 }
@@ -118,6 +120,7 @@
   border-radius: 20px;
   background: var(--comment-surface);
   padding: 14px 16px;
+  max-width: 760px;
 }
 
 .commentMeta {
@@ -142,7 +145,6 @@
 .commentsFooter {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .commentReplies {
@@ -163,7 +165,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .commentReactionPickerAnchor {
@@ -178,12 +181,13 @@
   border-radius: 999px;
   background: var(--comment-button-bg);
   color: var(--color-midnight-ink, #111827);
-  padding: 10px 16px;
+  padding: 7px 12px;
+  font-size: 0.92rem;
   font: inherit;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -199,7 +203,7 @@
 }
 
 .commentReactionPrimaryIcon {
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
 }
 
@@ -250,23 +254,56 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .commentReactionSummaryPill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid var(--comment-border);
   border-radius: 999px;
   background: var(--comment-button-bg);
-  padding: 8px 10px;
-  min-width: 54px;
+  padding: 6px 9px;
+  min-width: 46px;
   justify-content: center;
 }
 
 .commentReactionSummaryPill strong {
-  font-size: 14px;
+  font-size: 12px;
+}
+
+.commentActionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.commentActionRow::-webkit-scrollbar,
+.commentReactionShell::-webkit-scrollbar {
+  height: 6px;
+}
+
+.commentActionRow::-webkit-scrollbar-thumb,
+.commentReactionShell::-webkit-scrollbar-thumb {
+  background: rgba(107, 114, 128, 0.28);
+  border-radius: 999px;
+}
+
+.commentActions {
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.commentActions .commentActionButton,
+.commentReactionPrimary,
+.commentReactionPrimaryActive,
+.commentReactionSummaryPill {
+  white-space: nowrap;
 }
 
 @media (max-width: 767px) {

@@ -34,35 +34,37 @@ export default function CommentItem({
           {comment.content}
         </p>
 
-        <div className={styles.commentActions}>
-          {!comment.isDeleted ? (
-            <button className={styles.commentActionButton} onClick={() => onStartReply(comment)} type="button">
-              Reply
-            </button>
-          ) : null}
-          {comment.canDelete ? (
-            <button className={styles.commentActionButton} onClick={() => onDelete(comment.id)} type="button">
-              Xóa
-            </button>
-          ) : null}
-          {isAdmin && !comment.isDeleted ? (
-            comment.isHidden ? (
-              <button className={styles.commentActionButton} onClick={() => onUnhide(comment.id)} type="button">
-                Bỏ ẩn bình luận
+        <div className={styles.commentActionRow}>
+          <div className={styles.commentActions}>
+            {!comment.isDeleted ? (
+              <button className={styles.commentActionButton} onClick={() => onStartReply(comment)} type="button">
+                Reply
               </button>
-            ) : (
-              <button className={styles.commentActionButton} onClick={() => onHide(comment.id)} type="button">
-                Ẩn bình luận
+            ) : null}
+            {comment.canDelete ? (
+              <button className={styles.commentActionButton} onClick={() => onDelete(comment.id)} type="button">
+                Xóa
               </button>
-            )
-          ) : null}
-        </div>
+            ) : null}
+            {isAdmin && !comment.isDeleted ? (
+              comment.isHidden ? (
+                <button className={styles.commentActionButton} onClick={() => onUnhide(comment.id)} type="button">
+                  Bỏ ẩn bình luận
+                </button>
+              ) : (
+                <button className={styles.commentActionButton} onClick={() => onHide(comment.id)} type="button">
+                  Ẩn bình luận
+                </button>
+              )
+            ) : null}
+          </div>
 
-        <CommentReactionBar
-          commentId={comment.id}
-          onSelectReaction={onToggleReaction}
-          reactions={comment.reactions}
-        />
+          <CommentReactionBar
+            commentId={comment.id}
+            onSelectReaction={onToggleReaction}
+            reactions={comment.reactions}
+          />
+        </div>
 
         {replyComposer ? (
           <CommentComposer

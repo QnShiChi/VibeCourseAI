@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
@@ -42,6 +42,57 @@ function buildSingleExpandedState(modules, moduleId, shouldExpand = true) {
     next[module.moduleId] = shouldExpand && module.moduleId === moduleId;
   });
   return next;
+}
+
+function getLessonStage(lesson, selectedLessonId, flatLessons) {
+  const lessonIndex = flatLessons.findIndex((item) => item.lessonId === lesson.lessonId);
+  const activeIndex = flatLessons.findIndex((item) => item.lessonId === selectedLessonId);
+
+  if (lesson.lessonId === selectedLessonId) {
+    return "active";
+  }
+
+  if (lessonIndex !== -1 && activeIndex !== -1 && lessonIndex < activeIndex) {
+    return "complete";
+  }
+
+  return "upcoming";
+}
+
+function getLessonStageLabel(stage) {
+  if (stage === "complete") {
+    return "Da hoc";
+  }
+
+  if (stage === "active") {
+    return "Dang hoc";
+  }
+
+  return "Sap hoc";
+}
+
+function getLessonActionLabel(stage) {
+  if (stage === "complete") {
+    return "✓";
+  }
+
+  if (stage === "active") {
+    return "▶";
+  }
+
+  return "•";
+}
+
+function getVideoStatusLabel(selectedLesson) {
+  if (selectedLesson.videoUrl) {
+    return "San sang hoc ngay";
+  }
+
+  if (selectedLesson.videoGenerationStatus === "Failed") {
+    return "Video dang gap loi";
+  }
+
+  return "Dang chuan bi video";
 }
 
 export default function CourseLearnPage() {
@@ -107,6 +158,7 @@ export default function CourseLearnPage() {
   const totalLessons = flatLessons.length;
   const progressPercent =
     currentLessonIndex >= 0 && totalLessons ? Math.round(((currentLessonIndex + 1) / totalLessons) * 100) : 0;
+  const completedLessons = currentLessonIndex >= 0 ? currentLessonIndex + 1 : 0;
   const previousLesson = currentLessonIndex > 0 ? flatLessons[currentLessonIndex - 1] : null;
   const nextLesson =
     currentLessonIndex >= 0 && currentLessonIndex < totalLessons - 1 ? flatLessons[currentLessonIndex + 1] : null;
@@ -127,45 +179,79 @@ export default function CourseLearnPage() {
           </Card>
         ) : (
           <div className="learn-shell">
+            <div className="learn-topbar">
+              <Link className="learn-topbar__back" to="/courses">
+                <span aria-hidden="true">←</span>
+                <span>Quay lại khóa học</span>
+              </Link>
+              <div className="learn-topbar__brand">
+                <span className="learn-topbar__brand-mark">VibeCourseAI</span>
+                <span className="learn-topbar__brand-meta">Trang học tập</span>
+              </div>
+            </div>
+
             <div className="learn-layout">
               <div className="learn-layout__main">
-                <section className="learn-hero">
-                  <p className="learn-hero__eyebrow">Đang học</p>
-                  <h1>{course.courseTitle}</h1>
-                  <p>{course.courseDescription}</p>
-                </section>
+                <article className="learn-stage-card learn-stage-card--hero">
+                  <div className="learn-stage-card__hero-copy">
+                    <section className="learn-hero">
+                      <p className="learn-hero__eyebrow">Khóa học AI nâng cao</p>
+                      <h1>{course.courseTitle}</h1>
+                    </section>
 
-                <article className="learn-stage-card">
-                  <div className="learn-stage-card__media">
-                    <span className="learn-stage-card__badge">
-                      {selectedModule
-                        ? `${selectedModule.orderIndex}.${selectedLesson.orderIndex}`
-                        : `Bài ${currentLessonIndex + 1}`}
-                    </span>
-                    {selectedLesson.videoUrl ? (
-                      <video controls preload="metadata" src={selectedLesson.videoUrl}>
-                        Trình duyệt của bạn không hỗ trợ phát video.
-                      </video>
-                    ) : (
-                      <div className="learn-stage-card__placeholder">
-                        <strong>{selectedLesson.lessonTitle}</strong>
-                        <span>
-                          {selectedLesson.videoGenerationStatus === "Failed"
-                            ? "Video lesson đang lỗi, vui lòng thử lại sau."
-                            : "Bài học đang được chuẩn bị video."}
-                        </span>
-                      </div>
-                    )}
+                    <div className="learn-stage-card__meta-row">
+                      <span className="learn-stat-pill">Giảng viên: Dr. Vibe</span>
+                      <span className="learn-stat-pill">{totalLessons} bài học</span>
+                      <span className="learn-stat-pill">4.9 ★</span>
+                    </div>
+                  </div>
+
+                  <div className="learn-stage-card__media-panel">
+                    <div className="learn-stage-card__media">
+                      <span className="learn-stage-card__badge">
+                        {selectedModule
+                          ? `Module ${selectedModule.orderIndex} • Bài ${selectedLesson.orderIndex}`
+                          : `Bài ${currentLessonIndex + 1}`}
+                      </span>
+                      {selectedLesson.videoUrl ? (
+                        <video controls preload="metadata" src={selectedLesson.videoUrl}>
+                          Trình duyệt của bạn không hỗ trợ phát video.
+                        </video>
+                      ) : (
+                        <div className="learn-stage-card__placeholder">
+                          <strong>{selectedLesson.lessonTitle}</strong>
+                          <span>
+                            {selectedLesson.videoGenerationStatus === "Failed"
+                              ? "Video lesson đang lỗi, vui lòng thử lại sau."
+                              : "Bài học đang được chuẩn bị video."}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="learn-stage-card__video-meta">
+                      <span>{getVideoStatusLabel(selectedLesson)}</span>
+                      <span>{selectedModule ? selectedModule.moduleTitle : "Dang cap nhat module"}</span>
+                      <span>{completedLessons}/{totalLessons} bài học</span>
+                    </div>
                   </div>
 
                   <div className="learn-stage-card__summary">
+                    <p className="learn-stage-card__summary-label">Đang học</p>
                     <h2>{selectedLesson.lessonTitle}</h2>
-                    <p>{selectedLesson.description}</p>
+                    <p>{selectedLesson.description || course.courseDescription}</p>
                   </div>
                 </article>
 
                 <Card className="learn-reading-card" variant="shadowed">
-                  <h2>Nội dung bài học</h2>
+                  <div className="learn-section-heading">
+                    <div>
+                      <p>Nội dung bài học</p>
+                      <h2>{selectedLesson.lessonTitle}</h2>
+                    </div>
+                    <span className="learn-section-heading__meta">
+                      {selectedModule ? `Module ${selectedModule.orderIndex}` : "Lesson hiện tại"}
+                    </span>
+                  </div>
                   <pre className="text-preview learn-content-preview">{selectedLesson.contentSeed}</pre>
                 </Card>
 
@@ -175,13 +261,18 @@ export default function CourseLearnPage() {
 
                 <div className="learn-footer-nav">
                   <button disabled={!previousLesson} onClick={() => handleNavigateLesson(previousLesson)} type="button">
-                    Bài trước
+                    ← Bài trước
                   </button>
                   <p>
                     <span>Đang học:</span> {selectedLesson.lessonTitle}
                   </p>
-                  <button disabled={!nextLesson} onClick={() => handleNavigateLesson(nextLesson)} type="button">
-                    Tiếp tục bài học
+                  <button
+                    aria-label="Tiếp tục bài học"
+                    disabled={!nextLesson}
+                    onClick={() => handleNavigateLesson(nextLesson)}
+                    type="button"
+                  >
+                    Tiếp tục học →
                   </button>
                 </div>
               </div>
@@ -189,7 +280,11 @@ export default function CourseLearnPage() {
               <aside className="learn-sidebar-panel">
                 <div className="learn-sidebar-panel__inner">
                   <div className="learn-sidebar-panel__header">
+                    <div className="learn-sidebar-panel__eyebrow">Lộ trình học</div>
                     <h2>Nội dung khóa học</h2>
+                    <p>
+                      {selectedModule ? `Đang ở ${selectedModule.moduleTitle}` : "Theo dõi toàn bộ lesson của khóa học."}
+                    </p>
                     <div className="learn-progress">
                       <div aria-hidden="true" className="learn-progress__track">
                         <span className="learn-progress__value" style={{ width: `${progressPercent}%` }} />
@@ -204,33 +299,48 @@ export default function CourseLearnPage() {
                       return (
                         <div className="learn-module" key={module.moduleId}>
                           <button
+                            aria-label={`${module.orderIndex}. ${module.moduleTitle}`}
                             aria-expanded={isExpanded}
                             className={`learn-module__header${isExpanded ? " learn-module__header--expanded" : ""}`}
                             onClick={() => handleToggleModule(module.moduleId)}
                             type="button"
                           >
-                            <div>
-                              <strong>{module.orderIndex}. {module.moduleTitle}</strong>
-                              <span>{module.lessons.length} bài học</span>
+                            <div className="learn-module__header-copy">
+                              <span className="learn-module__index">{module.orderIndex}</span>
+                              <div>
+                                <p>Module {String(module.orderIndex).padStart(2, "0")}</p>
+                                <strong>{module.moduleTitle}</strong>
+                                <span>{module.lessons.length} bài học</span>
+                              </div>
                             </div>
                             <span>{isExpanded ? "⌃" : "⌄"}</span>
                           </button>
 
                           {isExpanded ? (
                             <div className="learn-module__lessons">
-                              {sortByOrder(module.lessons).map((lesson) => (
-                                <button
-                                  className={`learn-lesson-button${selectedLessonId === lesson.lessonId ? " learn-lesson-button--active" : ""}`}
-                                  key={lesson.lessonId}
-                                  onClick={() => handleSelectLesson(module.moduleId, lesson.lessonId)}
-                                  type="button"
-                                >
-                                  <span className="learn-lesson-button__index">
-                                    {String(lesson.orderIndex).padStart(2, "0")}
-                                  </span>
-                                  <strong>{lesson.lessonTitle}</strong>
-                                </button>
-                              ))}
+                              {sortByOrder(module.lessons).map((lesson) => {
+                                const stage = getLessonStage(lesson, selectedLessonId, flatLessons);
+                                return (
+                                  <button
+                                    className={`learn-lesson-button${selectedLessonId === lesson.lessonId ? " learn-lesson-button--active" : ""}`}
+                                    key={lesson.lessonId}
+                                    onClick={() => handleSelectLesson(module.moduleId, lesson.lessonId)}
+                                    type="button"
+                                  >
+                                    <span className={`learn-lesson-button__index learn-lesson-button__index--${stage}`}>
+                                      {getLessonActionLabel(stage)}
+                                    </span>
+                                    <span className="learn-lesson-button__body">
+                                      <span className="learn-lesson-button__title">
+                                        {module.orderIndex}.{lesson.orderIndex} {lesson.lessonTitle}
+                                      </span>
+                                      <span className="learn-lesson-button__meta">
+                                        {getLessonStageLabel(stage)}
+                                      </span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           ) : null}
                         </div>

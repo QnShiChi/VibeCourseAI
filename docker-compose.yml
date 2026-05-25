@@ -1,6 +1,7 @@
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    user: root
     container_name: course_sqlserver
     restart: unless-stopped
     env_file:

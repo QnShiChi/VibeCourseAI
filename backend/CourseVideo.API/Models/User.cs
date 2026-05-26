@@ -12,4 +12,6 @@ public class User : BaseEntity
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<Syllabus> Syllabuses { get; set; } = new List<Syllabus>();
     public ICollection<GenerationJob> CreatedGenerationJobs { get; set; } = new List<GenerationJob>();
+    public string? ResetPasswordToken { get; set; }
+    public DateTime? ResetPasswordTokenExpiry { get; set; }
 }

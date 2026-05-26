@@ -13,17 +13,20 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenService _tokenService;
     private readonly PasswordHasher<User> _passwordHasher;
+    private readonly IEmailService _emailService;
 
     public AuthService(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         ITokenService tokenService,
-        PasswordHasher<User> passwordHasher)
+        PasswordHasher<User> passwordHasher,
+        IEmailService emailService)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _tokenService = tokenService;
         _passwordHasher = passwordHasher;
+        _emailService = emailService;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, string? ipAddress)
@@ -171,6 +174,60 @@ public class AuthService : IAuthService
         user.UpdatedAt = DateTime.UtcNow;
         await _userRepository.SaveChangesAsync();
         await RevokeAllUserSessionsAsync(user.Id, ipAddress);
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request, string originUrl, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+        if (user is null || !user.IsActive)
+        {
+            // Do not reveal that the user does not exist or is not active
+            return;
+        }
+
+        var tokenBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        user.ResetPasswordToken = Convert.ToBase64String(tokenBytes);
+        user.ResetPasswordTokenExpiry = DateTime.UtcNow.AddMinutes(15);
+        
+        await _userRepository.SaveChangesAsync();
+
+        var encodedToken = Uri.EscapeDataString(user.ResetPasswordToken);
+        var encodedEmail = Uri.EscapeDataString(user.Email);
+        var resetLink = $"{originUrl}?token={encodedToken}&email={encodedEmail}";
+
+        var htmlBody = $@"
+            <h2>Khôi phục mật khẩu</h2>
+            <p>Xin chào {user.FullName},</p>
+            <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản VibeCourse AI của bạn.</p>
+            <p>Vui lòng click vào đường link bên dưới để đặt lại mật khẩu. Link này sẽ hết hạn trong vòng 15 phút:</p>
+            <p><a href='{resetLink}'>{resetLink}</a></p>
+            <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
+            <br/>
+            <p>Trân trọng,<br/>VibeCourse AI Team</p>";
+
+        await _emailService.SendEmailAsync(user.Email, "Khôi phục mật khẩu - VibeCourse AI", htmlBody, cancellationToken);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+        if (user is null || !user.IsActive)
+        {
+            throw new InvalidOperationException("Yêu cầu không hợp lệ.");
+        }
+
+        if (user.ResetPasswordToken != request.Token || user.ResetPasswordTokenExpiry < DateTime.UtcNow)
+        {
+            throw new InvalidOperationException("Link khôi phục không hợp lệ hoặc đã hết hạn.");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+        user.ResetPasswordToken = null;
+        user.ResetPasswordTokenExpiry = null;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _userRepository.SaveChangesAsync();
+        await RevokeAllUserSessionsAsync(user.Id, null);
     }
 
     private async Task<AuthResponse> CreateAuthResponseAsync(User user, string? ipAddress, string? fallbackRoleName = null)

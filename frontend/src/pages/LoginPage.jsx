@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import AuthShell, { AuthField, LockIcon, MailIcon } from "../components/auth/AuthShell";
 import Button from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
@@ -99,9 +99,9 @@ export default function LoginPage() {
           onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
           placeholder="••••••••"
           trailingAction={
-            <button className={styles.fieldAction} type="button">
+            <Link className={styles.fieldAction} to="/forgot-password">
               Quên mật khẩu?
-            </button>
+            </Link>
           }
           type="password"
           value={formData.password}

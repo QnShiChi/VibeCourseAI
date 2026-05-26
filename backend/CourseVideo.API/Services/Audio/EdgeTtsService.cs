@@ -11,7 +11,7 @@ public class EdgeTtsService : IEdgeTtsService
     public EdgeTtsService(IConfiguration configuration, ILogger<EdgeTtsService> logger)
     {
         _logger = logger;
-        _defaultVoice = configuration["OPENAI_TTS_VOICE"] ?? "vi-VN-HoaiMyNeural";
+        _defaultVoice = configuration["EDGE_TTS_VOICE"] ?? "vi-VN-HoaiMyNeural";
     }
 
     public async Task<byte[]> SynthesizeToBytesAsync(string text, CancellationToken cancellationToken = default)

@@ -36,6 +36,7 @@ public static class DbInitializer
                 EnsureGenerationJobsTableExists(dbContext);
                 EnsureLessonGeneratedContentColumnsExist(dbContext);
                 EnsureGenerationJobColumnsExist(dbContext);
+                EnsureUserColumnsExist(dbContext);
                 Seed(dbContext, adminSeedOptions.Value);
                 return;
             }
@@ -481,6 +482,27 @@ public static class DbInitializer
 
                 CREATE INDEX [IX_RefreshTokens_UserId] ON [RefreshTokens] ([UserId]);
                 CREATE UNIQUE INDEX [IX_RefreshTokens_TokenHash] ON [RefreshTokens] ([TokenHash]);
+            END
+            """);
+    }
+
+    private static void EnsureUserColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('Users', 'ResetPasswordToken') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [ResetPasswordToken] nvarchar(500) NULL;
+            END
+
+            IF COL_LENGTH('Users', 'ResetPasswordTokenExpiry') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [ResetPasswordTokenExpiry] datetime2 NULL;
             END
             """);
     }

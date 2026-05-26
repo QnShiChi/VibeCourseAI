@@ -44,16 +44,13 @@ function buildSingleExpandedState(modules, moduleId, shouldExpand = true) {
   return next;
 }
 
-function getLessonStage(lesson, selectedLessonId, flatLessons) {
-  const lessonIndex = flatLessons.findIndex((item) => item.lessonId === lesson.lessonId);
-  const activeIndex = flatLessons.findIndex((item) => item.lessonId === selectedLessonId);
+function getLessonStage(lesson, selectedLessonId, completedLessonIds) {
+  if (completedLessonIds.includes(lesson.lessonId)) {
+    return "complete";
+  }
 
   if (lesson.lessonId === selectedLessonId) {
     return "active";
-  }
-
-  if (lessonIndex !== -1 && activeIndex !== -1 && lessonIndex < activeIndex) {
-    return "complete";
   }
 
   return "upcoming";
@@ -104,6 +101,21 @@ export default function CourseLearnPage() {
   const [expandedModules, setExpandedModules] = useState({});
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [completedLessonIds, setCompletedLessonIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`course_progress_${courseId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (courseId) {
+      localStorage.setItem(`course_progress_${courseId}`, JSON.stringify(completedLessonIds));
+    }
+  }, [completedLessonIds, courseId]);
 
   useEffect(() => {
     if (courseId) {
@@ -146,6 +158,17 @@ export default function CourseLearnPage() {
     setExpandedModules(buildSingleExpandedState(modules, targetLesson.moduleId, true));
   }
 
+  function handleTimeUpdate(e) {
+    const video = e.target;
+    if (!video.duration) return;
+    
+    if (video.currentTime >= Math.max(0, video.duration - 5)) {
+      if (selectedLessonId && !completedLessonIds.includes(selectedLessonId)) {
+        setCompletedLessonIds((prev) => [...prev, selectedLessonId]);
+      }
+    }
+  }
+
   const modules = sortByOrder(course?.modules ?? []);
   const flatLessons = flattenLessons(modules);
   const selectedLesson =
@@ -156,9 +179,10 @@ export default function CourseLearnPage() {
     null;
   const currentLessonIndex = flatLessons.findIndex((lesson) => lesson.lessonId === selectedLessonId);
   const totalLessons = flatLessons.length;
-  const progressPercent =
-    currentLessonIndex >= 0 && totalLessons ? Math.round(((currentLessonIndex + 1) / totalLessons) * 100) : 0;
-  const completedLessons = currentLessonIndex >= 0 ? currentLessonIndex + 1 : 0;
+  
+  const validCompletedLessons = completedLessonIds.filter(id => flatLessons.some(l => l.lessonId === id));
+  const progressPercent = totalLessons ? Math.round((validCompletedLessons.length / totalLessons) * 100) : 0;
+  const completedLessons = validCompletedLessons.length;
   const previousLesson = currentLessonIndex > 0 ? flatLessons[currentLessonIndex - 1] : null;
   const nextLesson =
     currentLessonIndex >= 0 && currentLessonIndex < totalLessons - 1 ? flatLessons[currentLessonIndex + 1] : null;
@@ -214,7 +238,7 @@ export default function CourseLearnPage() {
                           : `Bài ${currentLessonIndex + 1}`}
                       </span>
                       {selectedLesson.videoUrl ? (
-                        <video controls preload="metadata" src={selectedLesson.videoUrl}>
+                        <video controls preload="metadata" src={selectedLesson.videoUrl} onTimeUpdate={handleTimeUpdate}>
                           Trình duyệt của bạn không hỗ trợ phát video.
                         </video>
                       ) : (
@@ -319,7 +343,7 @@ export default function CourseLearnPage() {
                           {isExpanded ? (
                             <div className="learn-module__lessons">
                               {sortByOrder(module.lessons).map((lesson) => {
-                                const stage = getLessonStage(lesson, selectedLessonId, flatLessons);
+                                const stage = getLessonStage(lesson, selectedLessonId, completedLessonIds);
                                 return (
                                   <button
                                     className={`learn-lesson-button${selectedLessonId === lesson.lessonId ? " learn-lesson-button--active" : ""}`}

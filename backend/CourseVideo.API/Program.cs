@@ -71,6 +71,7 @@ builder.Services.AddSingleton<IGenerationJobQueue, GenerationJobQueue>();
 builder.Services.AddSingleton<ILessonAudioJobQueue, LessonAudioJobQueue>();
 builder.Services.AddSingleton<ILessonVideoJobQueue, LessonVideoJobQueue>();
 builder.Services.AddSingleton<IFullCourseJobQueue, FullCourseJobQueue>();
+builder.Services.AddSingleton<IJobCancellationTracker, JobCancellationTracker>();
 builder.Services.AddHostedService<LessonContentGenerationWorker>();
 builder.Services.AddHostedService<LessonAudioGenerationWorker>();
 builder.Services.AddHostedService<LessonVideoGenerationWorker>();

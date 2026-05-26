@@ -20,6 +20,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         var syllabus = new Syllabus
         {
             Id = Guid.NewGuid(),
@@ -82,7 +83,8 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
 
         var result = await service.GenerateFromSyllabusAsync(syllabus.Id, Guid.NewGuid(), "Admin User");
 
@@ -138,6 +140,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         var syllabusId = Guid.NewGuid();
 
         syllabusRepository.Setup(x => x.GetEntityByIdAsync(syllabusId)).ReturnsAsync((Syllabus?)null);
@@ -149,7 +152,8 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
         var action = async () => await service.GenerateFromSyllabusAsync(syllabusId, Guid.NewGuid(), "Admin User");
 
         await action.Should().ThrowAsync<KeyNotFoundException>()
@@ -166,6 +170,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         var syllabus = new Syllabus
         {
             Id = Guid.NewGuid(),
@@ -217,7 +222,8 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
         var action = async () => await service.GenerateFromSyllabusAsync(syllabus.Id, Guid.NewGuid(), "Admin User");
 
         await action.Should().ThrowAsync<InvalidOperationException>()
@@ -238,6 +244,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         var syllabus = new Syllabus
         {
             Id = Guid.NewGuid(),
@@ -290,7 +297,8 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
 
         var result = await service.GenerateFromSyllabusAsync(syllabus.Id, Guid.NewGuid(), "Admin User");
 
@@ -310,6 +318,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         var syllabus = new Syllabus
         {
             Id = Guid.NewGuid(),
@@ -336,7 +345,8 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
         var action = async () => await service.GenerateFromSyllabusAsync(syllabus.Id, Guid.NewGuid(), "Admin User");
 
         await action.Should().ThrowAsync<InvalidOperationException>()
@@ -357,6 +367,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         var syllabus = new Syllabus
         {
             Id = Guid.NewGuid(),
@@ -380,7 +391,8 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
         var action = async () => await service.GenerateFromSyllabusAsync(syllabus.Id, Guid.NewGuid(), "Admin User");
 
         await action.Should().ThrowAsync<InvalidOperationException>()
@@ -400,6 +412,7 @@ public class CourseGenerationServiceTests
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
         var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
         syllabus = new Syllabus
         {
             Id = Guid.NewGuid(),
@@ -418,6 +431,7 @@ public class CourseGenerationServiceTests
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
-            parser.Object);
+            parser.Object,
+            cancellationTracker.Object);
     }
 }

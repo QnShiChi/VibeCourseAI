@@ -185,6 +185,7 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
                     - slideOutline[]
                       - slideNumber
                       - title
+                      - imageKeyword
                       - bulletPoints[]
                       - speakerNotes
                     - voiceoverPlan
@@ -196,6 +197,7 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
 
                     Quy tac:
                     - giu tieng Viet sach, de giang
+                    - imageKeyword: BẮT BUỘC PHẢI CÓ. 1 cụm từ tìm kiếm tiếng Anh (vd: "students studying", "modern technology", "teamwork", "business presentation") thật trực quan và chính xác với nội dung slide để tìm ảnh trên Unsplash.
                     - slide bullet points ngan gon
                     - speakerNotes phai bo sung dien giai cho slide
                     - teachingScript phai doc duoc thanh tieng noi
@@ -226,11 +228,12 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
                                 {
                                     type = "object",
                                     additionalProperties = false,
-                                    required = new[] { "slideNumber", "title", "bulletPoints", "speakerNotes" },
+                                    required = new[] { "slideNumber", "title", "imageKeyword", "bulletPoints", "speakerNotes" },
                                     properties = new
                                     {
                                         slideNumber = new { type = "integer" },
                                         title = new { type = "string" },
+                                        imageKeyword = new { type = "string" },
                                         bulletPoints = new
                                         {
                                             type = "array",

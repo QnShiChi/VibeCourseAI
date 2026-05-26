@@ -40,6 +40,7 @@ def generate_lesson_video(request: VideoWorkerLessonRequest):
                 slide_number=int(slide["slide_number"]),
                 title=str(slide["title"]),
                 bullet_points=list(slide["bullet_points"]),
+                image_keyword=str(slide.get("image_keyword") or ""),
             )
             slide_paths.append(slide_path)
             durations.append(float(item["duration_seconds"]))

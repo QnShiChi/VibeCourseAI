@@ -20,7 +20,7 @@ import {
   regenerateLessonContent,
   updateLessonGeneratedContent
 } from "../api/lessonContentService";
-import { getGenerationJobDetail, getGenerationJobs } from "../api/generationJobService";
+import { cancelGenerationJob, getGenerationJobDetail, getGenerationJobs } from "../api/generationJobService";
 import Button from "../components/ui/Button";
 import LessonContentEditor from "../components/course/LessonContentEditor";
 import LessonContentPreview from "../components/course/LessonContentPreview";
@@ -199,6 +199,20 @@ export default function CourseStructurePage() {
         setErrorMessage("Không thể tải tiến độ job generate.");
       }
       return null;
+    }
+  }
+
+  async function handleCancelJob() {
+    if (!activeJobId) return;
+    try {
+      await cancelGenerationJob(activeJobId);
+      setMessage("Đã gửi yêu cầu hủy tiến trình.");
+      setActiveJob(null);
+      setActiveJobId(null);
+      setIsGeneratingContent(false);
+      await loadCourse();
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message || "Không thể hủy tiến trình.");
     }
   }
 
@@ -807,11 +821,16 @@ export default function CourseStructurePage() {
                 <div className="generation-progress__bar" aria-hidden="true">
                   <div className="generation-progress__fill" style={{ width: `${progressPercent}%` }} />
                 </div>
-                <div className="course-card__stats">
+                <div className="course-card__stats" style={{ alignItems: "center" }}>
                   <span>{processedItems}/{totalItems || 0} {processedLabel}</span>
                   <span>{successfulItems} thành công</span>
                   <span>{failedItems} {activeJob?.jobType === "GenerateFullCourse" ? "lesson lỗi" : "lỗi"}</span>
                   <span>Trạng thái: {resolveJobStatusLabel(activeJob.status)}</span>
+                  <div style={{ marginLeft: "auto" }}>
+                    <Button onClick={handleCancelJob} variant="danger" size="small">
+                      Hủy tiến trình
+                    </Button>
+                  </div>
                 </div>
                 {activeJob.errorMessage ? <p className="generation-progress__error">{activeJob.errorMessage}</p> : null}
               </div>

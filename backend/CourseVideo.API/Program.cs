@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using CourseVideo.API.Configuration;
 using CourseVideo.API.Data;
+using CourseVideo.API.Services.Video;
 using CourseVideo.API.Models;
 using CourseVideo.API.Repositories;
 using CourseVideo.API.Repositories.Interfaces;
@@ -29,8 +30,23 @@ var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing JWT configuration.");
 
 builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Video Worker Services
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IStorageService, StorageService>();
+builder.Services.AddSingleton<ITimelineService, TimelineService>();
+builder.Services.AddTransient<IImageProvider, ImageProvider>();
+builder.Services.AddTransient<IRenderService, RenderService>();
+builder.Services.AddTransient<IFFmpegService, FFmpegService>();
+
+// Audio Worker Services
+builder.Services.AddSingleton<CourseVideo.API.Services.Audio.INarrationService, CourseVideo.API.Services.Audio.NarrationService>();
+builder.Services.AddSingleton<CourseVideo.API.Services.Audio.IEdgeTtsService, CourseVideo.API.Services.Audio.EdgeTtsService>();
+builder.Services.AddSingleton<CourseVideo.API.Services.Audio.IAudioPipelineService, CourseVideo.API.Services.Audio.AudioPipelineService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -96,7 +112,8 @@ builder.Services.AddHttpClient<IOpenRouterLessonContentService, OpenRouterLesson
 });
 builder.Services.AddHttpClient("AiWorker", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["AI_WORKER_BASE_URL"] ?? "http://ai-worker:8000");
+    // The lesson audio generation endpoint is now merged into the backend at localhost:8080
+    client.BaseAddress = new Uri(builder.Configuration["AI_WORKER_BASE_URL"] ?? "http://localhost:8080");
     client.Timeout = TimeSpan.FromMinutes(10);
 });
 builder.Services.AddHttpClient("VideoWorker", client =>

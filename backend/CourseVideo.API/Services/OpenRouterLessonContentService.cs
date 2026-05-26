@@ -197,7 +197,7 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
 
                     Quy tac:
                     - giu tieng Viet sach, de giang
-                    - imageKeyword: BẮT BUỘC PHẢI CÓ. 1 cụm từ tìm kiếm tiếng Anh (vd: "students studying", "modern technology", "teamwork", "business presentation") thật trực quan và chính xác với nội dung slide để tìm ảnh trên Unsplash.
+                    - imageKeyword: BẮT BUỘC PHẢI CÓ. 1 câu lệnh (prompt) bằng tiếng Anh miêu tả bức tranh minh họa cho slide. QUAN TRỌNG: AI vẽ tranh không biết viết chữ, nên bạn TUYỆT ĐỐI KHÔNG miêu tả các vật thể có chữ (như: code snippets, screens with text, labeled diagrams, charts, books with text). Hãy miêu tả bằng ẨN DỤ THỊ GIÁC TRỪU TƯỢNG (Abstract visual metaphors). Phải có các từ khóa: "Flat vector illustration, minimalist corporate style, completely abstract, purely visual, NO TEXT, NO NUMBERS, NO WORDS". Ví dụ ĐÚNG: "Flat vector illustration, minimalist corporate style, a glowing evolution path showing interconnected digital nodes, clean aesthetics, NO TEXT, NO NUMBERS, NO WORDS"
                     - slide bullet points ngan gon
                     - speakerNotes phai bo sung dien giai cho slide
                     - teachingScript phai doc duoc thanh tieng noi

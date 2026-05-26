@@ -286,17 +286,17 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
         };
 
         using var response = await client.PostAsJsonAsync("/jobs/generate-lesson-video", payload, cancellationToken);
-        var workerResponse = await response.Content.ReadFromJsonAsync<VideoWorkerLessonResponse>(cancellationToken: cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
             var rawContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            var message = workerResponse?.ErrorMessage
-                ?? ExtractWorkerErrorMessage(rawContent)
+            var message = ExtractWorkerErrorMessage(rawContent)
                 ?? rawContent
                 ?? "Video worker không thể render video cho lesson.";
             throw new InvalidOperationException(message);
         }
+
+        var workerResponse = await response.Content.ReadFromJsonAsync<VideoWorkerLessonResponse>(cancellationToken: cancellationToken);
 
         if (workerResponse is null)
         {

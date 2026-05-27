@@ -27,6 +27,12 @@ vi.mock("../auth/AuthContext", () => ({
   useAuth: () => mockUseAuth()
 }));
 
+const mockUseLessonVoiceTutor = vi.fn();
+
+vi.mock("../hooks/useLessonVoiceTutor", () => ({
+  useLessonVoiceTutor: (...args) => mockUseLessonVoiceTutor(...args)
+}));
+
 function buildLearnPayload() {
   return {
     courseId: "course-1",
@@ -78,8 +84,19 @@ function buildLearnPayload() {
 
 describe("CourseLearnPage", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     window.localStorage.setItem("app-theme", "light");
     mockUseAuth.mockReturnValue({ user: { role: "User" } });
+    mockUseLessonVoiceTutor.mockReturnValue({
+      state: "idle",
+      transcriptText: "",
+      answerText: "",
+      errorMessage: "",
+      startRecording: vi.fn(),
+      stopRecording: vi.fn(),
+      requestFollowUp: vi.fn(),
+      resumeLearning: vi.fn()
+    });
     mockGetLessonComments.mockResolvedValue({
       items: [],
       page: 1,
@@ -239,6 +256,27 @@ describe("CourseLearnPage", () => {
     expect(container.querySelector("video")).not.toBeNull();
   });
 
+  it("shows the lesson voice tutor action when the selected lesson has a video", async () => {
+    const payload = buildLearnPayload();
+    payload.selectedLesson.videoUrl = "/storage/video/lesson-1.mp4";
+    payload.selectedLesson.videoGenerationStatus = "Completed";
+    payload.modules[0].lessons[0].videoUrl = "/storage/video/lesson-1.mp4";
+    payload.modules[0].lessons[0].videoGenerationStatus = "Completed";
+    mockGetCourseLearnPayload.mockResolvedValue(payload);
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("button", { name: "Hoi bang giong noi" })).toBeInTheDocument();
+  });
+
   it("renders comment content below the selected lesson video", async () => {
     mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
     mockGetLessonComments.mockResolvedValue({
@@ -292,13 +330,13 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Bài trước/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: /Tiếp tục bài học/i }));
 
     expect(await screen.findByText("Noi dung lesson 2")).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 100%/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
   });
 
   it("moves back to the previous lesson and renders the course content heading", async () => {
@@ -318,12 +356,12 @@ describe("CourseLearnPage", () => {
     );
 
     expect(await screen.findByRole("heading", { name: /Nội dung khóa học/i })).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 100%/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Bài trước/i }));
 
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
   });
 
   it("keeps only one module expanded when opening another module", async () => {

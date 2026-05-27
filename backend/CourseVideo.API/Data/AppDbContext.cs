@@ -19,6 +19,9 @@ public class AppDbContext : DbContext
     public DbSet<Syllabus> Syllabuses => Set<Syllabus>();
     public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<LessonVoiceSession> LessonVoiceSessions => Set<LessonVoiceSession>();
+    public DbSet<LessonVoiceTurn> LessonVoiceTurns => Set<LessonVoiceTurn>();
+    public DbSet<LessonVoiceMessage> LessonVoiceMessages => Set<LessonVoiceMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -86,6 +89,7 @@ public class AppDbContext : DbContext
             entity.Property(lesson => lesson.ContentGenerationError).HasMaxLength(2000);
             entity.Property(lesson => lesson.VideoUrl).HasMaxLength(1000);
             entity.Property(lesson => lesson.AudioUrl).HasMaxLength(1000);
+            entity.Property(lesson => lesson.NarrationVoiceKey).HasMaxLength(200);
             entity.HasIndex(lesson => new { lesson.ModuleId, lesson.OrderIndex });
             entity.HasOne(lesson => lesson.Module)
                 .WithMany(module => module.Lessons)
@@ -182,6 +186,50 @@ public class AppDbContext : DbContext
             entity.HasOne(token => token.User)
                 .WithMany(user => user.RefreshTokens)
                 .HasForeignKey(token => token.UserId);
+        });
+
+        modelBuilder.Entity<LessonVoiceSession>(entity =>
+        {
+            entity.HasKey(session => session.Id);
+            entity.Property(session => session.Status).HasMaxLength(50).IsRequired();
+            entity.Property(session => session.VoiceProfileKey).HasMaxLength(200).IsRequired();
+            entity.Property(session => session.ContextScope).HasMaxLength(100).IsRequired();
+            entity.HasIndex(session => new { session.LessonId, session.UserId, session.Status });
+            entity.HasOne(session => session.Lesson)
+                .WithMany()
+                .HasForeignKey(session => session.LessonId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(session => session.User)
+                .WithMany()
+                .HasForeignKey(session => session.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<LessonVoiceTurn>(entity =>
+        {
+            entity.HasKey(turn => turn.Id);
+            entity.Property(turn => turn.Status).HasMaxLength(50).IsRequired();
+            entity.Property(turn => turn.UserAudioUrl).HasMaxLength(1000);
+            entity.Property(turn => turn.ErrorCode).HasMaxLength(100);
+            entity.Property(turn => turn.ErrorMessage).HasMaxLength(2000);
+            entity.HasIndex(turn => new { turn.SessionId, turn.TurnNumber });
+            entity.HasOne(turn => turn.Session)
+                .WithMany(session => session.Turns)
+                .HasForeignKey(turn => turn.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LessonVoiceMessage>(entity =>
+        {
+            entity.HasKey(message => message.Id);
+            entity.Property(message => message.Role).HasMaxLength(30).IsRequired();
+            entity.Property(message => message.ContentSourceType).HasMaxLength(50).IsRequired();
+            entity.Property(message => message.AudioUrl).HasMaxLength(1000);
+            entity.HasIndex(message => new { message.SessionId, message.TurnNumber, message.SequenceIndex });
+            entity.HasOne(message => message.Session)
+                .WithMany(session => session.Messages)
+                .HasForeignKey(message => message.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

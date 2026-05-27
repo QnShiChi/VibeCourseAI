@@ -35,6 +35,8 @@ public static class DbInitializer
                 EnsureLessonCommentReactionsTableExists(dbContext);
                 EnsureGenerationJobsTableExists(dbContext);
                 EnsureLessonGeneratedContentColumnsExist(dbContext);
+                EnsureLessonVoiceTutorColumnsExist(dbContext);
+                EnsureLessonVoiceTutorTablesExist(dbContext);
                 EnsureGenerationJobColumnsExist(dbContext);
                 EnsureUserColumnsExist(dbContext);
                 Seed(dbContext, adminSeedOptions.Value);
@@ -191,6 +193,116 @@ public static class DbInitializer
                 CREATE INDEX [IX_GenerationJobs_SyllabusId] ON [GenerationJobs] ([SyllabusId]);
                 CREATE INDEX [IX_GenerationJobs_CourseId] ON [GenerationJobs] ([CourseId]);
                 CREATE INDEX [IX_GenerationJobs_CreatedByUserId] ON [GenerationJobs] ([CreatedByUserId]);
+            END
+            """);
+    }
+
+    private static void EnsureLessonVoiceTutorColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('Lessons', 'NarrationVoiceKey') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [NarrationVoiceKey] nvarchar(200) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'TranscriptText') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [TranscriptText] nvarchar(max) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'VoiceTutorEnabled') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [VoiceTutorEnabled] bit NOT NULL CONSTRAINT [DF_Lessons_VoiceTutorEnabled] DEFAULT 1;
+            END
+            """);
+    }
+
+    private static void EnsureLessonVoiceTutorTablesExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[LessonVoiceSessions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonVoiceSessions] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [LessonId] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [StartedAt] datetime2 NOT NULL,
+                    [LastActivityAt] datetime2 NOT NULL,
+                    [EndedAt] datetime2 NULL,
+                    [LastPausedVideoTimeSeconds] float NULL,
+                    [VoiceProfileKey] nvarchar(200) NOT NULL,
+                    [ContextScope] nvarchar(100) NOT NULL,
+                    [ConversationSummary] nvarchar(max) NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonVoiceSessions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonVoiceSessions_Lessons_LessonId] FOREIGN KEY ([LessonId]) REFERENCES [Lessons]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_LessonVoiceSessions_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id])
+                );
+
+                CREATE INDEX [IX_LessonVoiceSessions_LessonId_UserId_Status] ON [LessonVoiceSessions] ([LessonId], [UserId], [Status]);
+            END
+
+            IF OBJECT_ID(N'[LessonVoiceTurns]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonVoiceTurns] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SessionId] uniqueidentifier NOT NULL,
+                    [TurnNumber] int NOT NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [PlaybackPausedAtSeconds] float NULL,
+                    [UserAudioUrl] nvarchar(1000) NULL,
+                    [TranscriptionText] nvarchar(max) NULL,
+                    [TranscriptionConfidence] decimal(18, 2) NULL,
+                    [AnswerText] nvarchar(max) NULL,
+                    [AnswerSourceSummary] nvarchar(max) NULL,
+                    [ErrorCode] nvarchar(100) NULL,
+                    [ErrorMessage] nvarchar(2000) NULL,
+                    [StartedAt] datetime2 NOT NULL,
+                    [CompletedAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonVoiceTurns] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonVoiceTurns_LessonVoiceSessions_SessionId] FOREIGN KEY ([SessionId]) REFERENCES [LessonVoiceSessions]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_LessonVoiceTurns_SessionId_TurnNumber] ON [LessonVoiceTurns] ([SessionId], [TurnNumber]);
+            END
+
+            IF OBJECT_ID(N'[LessonVoiceMessages]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonVoiceMessages] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SessionId] uniqueidentifier NOT NULL,
+                    [TurnNumber] int NOT NULL,
+                    [Role] nvarchar(30) NOT NULL,
+                    [ContentText] nvarchar(max) NOT NULL,
+                    [ContentSourceType] nvarchar(50) NOT NULL,
+                    [AudioUrl] nvarchar(1000) NULL,
+                    [AudioDurationSeconds] float NULL,
+                    [SequenceIndex] int NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonVoiceMessages] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonVoiceMessages_LessonVoiceSessions_SessionId] FOREIGN KEY ([SessionId]) REFERENCES [LessonVoiceSessions]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_LessonVoiceMessages_SessionId_TurnNumber_SequenceIndex]
+                    ON [LessonVoiceMessages] ([SessionId], [TurnNumber], [SequenceIndex]);
             END
             """);
     }

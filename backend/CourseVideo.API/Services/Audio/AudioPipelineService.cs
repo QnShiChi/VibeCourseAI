@@ -32,7 +32,7 @@ public class AudioPipelineService : IAudioPipelineService
         foreach (var segment in narrationSegments)
         {
             _logger.LogInformation($"Generating audio for slide {segment.SlideNumber}: '{segment.NarrationText}'");
-            var audioBytes = await _edgeTtsService.SynthesizeToBytesAsync(segment.NarrationText, cancellationToken);
+            var audioBytes = await _edgeTtsService.SynthesizeToBytesAsync(segment.NarrationText, cancellationToken: cancellationToken);
             
             var fileName = $"{lessonId}-slide-{segment.SlideNumber}.mp3";
             var filePath = Path.Combine(audioDir, fileName);

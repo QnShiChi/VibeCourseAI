@@ -14,7 +14,7 @@ public class EdgeTtsService : IEdgeTtsService
         _defaultVoice = configuration["EDGE_TTS_VOICE"] ?? "vi-VN-HoaiMyNeural";
     }
 
-    public async Task<byte[]> SynthesizeToBytesAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<byte[]> SynthesizeToBytesAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
     {
         var normalizedText = NormalizeText(text);
         if (string.IsNullOrWhiteSpace(normalizedText))
@@ -24,7 +24,7 @@ public class EdgeTtsService : IEdgeTtsService
 
         try
         {
-            return await SynthesizeWithRetriesAsync(normalizedText, cancellationToken);
+            return await SynthesizeWithRetriesAsync(normalizedText, voice, cancellationToken);
         }
         catch (Exception)
         {
@@ -37,7 +37,7 @@ public class EdgeTtsService : IEdgeTtsService
             var audioParts = new List<byte[]>();
             foreach (var chunk in chunks)
             {
-                audioParts.Add(await SynthesizeWithRetriesAsync(chunk, cancellationToken));
+                audioParts.Add(await SynthesizeWithRetriesAsync(chunk, voice, cancellationToken));
                 await Task.Delay(1500, cancellationToken);
             }
 
@@ -45,10 +45,10 @@ public class EdgeTtsService : IEdgeTtsService
         }
     }
 
-    private async Task<byte[]> SynthesizeWithRetriesAsync(string text, CancellationToken cancellationToken, int attemptsPerVoice = 2)
+    private async Task<byte[]> SynthesizeWithRetriesAsync(string text, string? overrideVoice, CancellationToken cancellationToken, int attemptsPerVoice = 2)
     {
         Exception? lastException = null;
-        var voices = GetVoiceCandidates();
+        var voices = GetVoiceCandidates(overrideVoice);
 
         foreach (var voice in voices)
         {
@@ -117,7 +117,7 @@ public class EdgeTtsService : IEdgeTtsService
         }
     }
 
-    private List<string> GetVoiceCandidates()
+    private List<string> GetVoiceCandidates(string? overrideVoice)
     {
         var fallbackMap = new Dictionary<string, string>
         {
@@ -125,8 +125,9 @@ public class EdgeTtsService : IEdgeTtsService
             { "vi-VN-NamMinhNeural", "vi-VN-HoaiMyNeural" }
         };
 
-        var voices = new List<string> { _defaultVoice };
-        if (fallbackMap.TryGetValue(_defaultVoice, out var fallbackVoice) && !voices.Contains(fallbackVoice))
+        var preferredVoice = string.IsNullOrWhiteSpace(overrideVoice) ? _defaultVoice : overrideVoice.Trim();
+        var voices = new List<string> { preferredVoice };
+        if (fallbackMap.TryGetValue(preferredVoice, out var fallbackVoice) && !voices.Contains(fallbackVoice))
         {
             voices.Add(fallbackVoice);
         }

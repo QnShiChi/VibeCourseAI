@@ -20,8 +20,11 @@ public class Lesson : BaseEntity
     public string? AudioUrl { get; set; }
     public int? Duration { get; set; }
     public string? AudioSegmentsJson { get; set; }
+    public string? NarrationVoiceKey { get; set; }
+    public string? TranscriptText { get; set; }
     public string AudioGenerationStatus { get; set; } = "NotGenerated";
     public string? AudioGenerationError { get; set; }
     public DateTime? AudioGeneratedAt { get; set; }
+    public bool VoiceTutorEnabled { get; set; } = true;
     public Module? Module { get; set; }
 }

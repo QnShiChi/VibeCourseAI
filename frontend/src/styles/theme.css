@@ -1669,6 +1669,63 @@ img {
   font-weight: 600;
 }
 
+.voice-tutor-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid rgba(180, 255, 68, 0.35);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(16, 27, 33, 0.96), rgba(23, 38, 39, 0.92));
+  color: #f6ffe8;
+}
+
+.voice-tutor-panel__eyebrow,
+.voice-tutor-panel__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b4ff44;
+}
+
+.voice-tutor-panel__status,
+.voice-tutor-panel__transcript,
+.voice-tutor-panel__answer {
+  margin: 0;
+}
+
+.voice-tutor-panel__block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.voice-tutor-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.voice-tutor-panel__primary,
+.voice-tutor-panel__secondary {
+  border: 1px solid rgba(180, 255, 68, 0.45);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.voice-tutor-panel__primary {
+  background: #b4ff44;
+  color: #10211b;
+}
+
+.voice-tutor-panel__secondary {
+  background: transparent;
+  color: #f6ffe8;
+}
+
 .learn-stage-card__badge {
   position: absolute;
   top: 20px;

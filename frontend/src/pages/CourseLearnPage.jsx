@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
+import LessonVoiceTutorPanel from "../components/course/LessonVoiceTutorPanel";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
+import { useLessonVoiceTutor } from "../hooks/useLessonVoiceTutor";
 import { useTheme } from "../theme/ThemeContext";
 
 function sortByOrder(items) {
@@ -101,6 +103,8 @@ export default function CourseLearnPage() {
   const [expandedModules, setExpandedModules] = useState({});
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const videoRef = useRef(null);
+  const pausedTimeRef = useRef(0);
   
   const [completedLessonIds, setCompletedLessonIds] = useState(() => {
     try {
@@ -187,6 +191,23 @@ export default function CourseLearnPage() {
   const nextLesson =
     currentLessonIndex >= 0 && currentLessonIndex < totalLessons - 1 ? flatLessons[currentLessonIndex + 1] : null;
   const isAdmin = user?.role === "Admin";
+  const tutor = useLessonVoiceTutor({
+    lessonId: selectedLesson?.lessonId ?? "",
+    enabled: Boolean(selectedLesson?.videoUrl),
+    onPauseVideo(playbackTimeSeconds) {
+      pausedTimeRef.current = playbackTimeSeconds;
+      videoRef.current?.pause();
+    },
+    onResumeVideo() {
+      if (videoRef.current) {
+        videoRef.current.currentTime = pausedTimeRef.current;
+        const playPromise = videoRef.current.play?.();
+        if (playPromise?.catch) {
+          playPromise.catch(() => {});
+        }
+      }
+    }
+  });
 
   return (
     <div className="learn-workspace" data-testid="course-learn-shell" data-theme={theme}>
@@ -238,7 +259,12 @@ export default function CourseLearnPage() {
                           : `Bài ${currentLessonIndex + 1}`}
                       </span>
                       {selectedLesson.videoUrl ? (
-                        <video controls preload="metadata" src={selectedLesson.videoUrl} onTimeUpdate={handleTimeUpdate}>
+                        <video
+                          ref={videoRef}
+                          controls
+                          preload="metadata"
+                          src={selectedLesson.videoUrl}
+                          onTimeUpdate={handleTimeUpdate}>
                           Trình duyệt của bạn không hỗ trợ phát video.
                         </video>
                       ) : (
@@ -257,6 +283,18 @@ export default function CourseLearnPage() {
                       <span>{selectedModule ? selectedModule.moduleTitle : "Dang cap nhat module"}</span>
                       <span>{completedLessons}/{totalLessons} bài học</span>
                     </div>
+                    {selectedLesson.videoUrl ? (
+                      <LessonVoiceTutorPanel
+                        state={tutor.state}
+                        transcriptText={tutor.transcriptText}
+                        answerText={tutor.answerText}
+                        errorMessage={tutor.errorMessage}
+                        onStartRecording={() => tutor.startRecording(videoRef.current?.currentTime ?? 0)}
+                        onStopRecording={tutor.stopRecording}
+                        onFollowUp={tutor.requestFollowUp}
+                        onResume={tutor.resumeLearning}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="learn-stage-card__summary">

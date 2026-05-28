@@ -247,6 +247,60 @@ public class CourseServiceTests
         quizGenerationService.Verify(x => x.GenerateLessonQuizAsync(courseId, lessonId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task GetLearnPayloadAsync_MapsQuizFlags_ForLessonAndFinalQuiz()
+    {
+        var repository = new Mock<ICourseRepository>();
+        var courseId = Guid.NewGuid();
+        var lessonId = Guid.NewGuid();
+        var lessonQuizId = Guid.NewGuid();
+        var finalQuizId = Guid.NewGuid();
+
+        repository.Setup(x => x.GetByIdWithStructureAsync(courseId)).ReturnsAsync(new Course
+        {
+            Id = courseId,
+            Title = "AI",
+            Description = "Desc",
+            IsPublished = true,
+            Modules =
+            [
+                new Module
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Module",
+                    Description = "Desc",
+                    OrderIndex = 1,
+                    Lessons =
+                    [
+                        new Lesson
+                        {
+                            Id = lessonId,
+                            Title = "Lesson",
+                            Description = "Desc",
+                            ContentSeed = "Noi dung",
+                            OrderIndex = 1
+                        }
+                    ]
+                }
+            ],
+            Quizzes =
+            [
+                new Quiz { Id = lessonQuizId, LessonId = lessonId, CourseId = courseId, Type = "Lesson", Status = "Ready", QuestionCount = 5 },
+                new Quiz { Id = finalQuizId, CourseId = courseId, Type = "Final", Status = "Ready", QuestionCount = 10 }
+            ]
+        });
+
+        var service = CreateCourseService(repository);
+
+        var result = await service.GetLearnPayloadAsync(courseId, true);
+
+        result.Should().NotBeNull();
+        result!.HasFinalQuiz.Should().BeTrue();
+        result.FinalQuizId.Should().Be(finalQuizId);
+        result.Modules[0].Lessons[0].QuizId.Should().Be(lessonQuizId);
+        result.Modules[0].Lessons[0].QuizStatus.Should().Be("Ready");
+    }
+
     private static CourseService CreateCourseService(Mock<ICourseRepository> repository, Mock<IQuizGenerationService>? quizGenerationService = null)
     {
         var environment = new Mock<IWebHostEnvironment>();

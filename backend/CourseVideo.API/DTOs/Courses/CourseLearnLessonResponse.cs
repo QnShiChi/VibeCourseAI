@@ -11,4 +11,7 @@ public class CourseLearnLessonResponse
     public string VideoGenerationStatus { get; set; } = string.Empty;
     public string VideoGenerationError { get; set; } = string.Empty;
     public int? Duration { get; set; }
+    public Guid? QuizId { get; set; }
+    public string QuizStatus { get; set; } = string.Empty;
+    public int QuizQuestionCount { get; set; }
 }

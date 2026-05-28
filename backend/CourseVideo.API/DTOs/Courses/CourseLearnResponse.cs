@@ -8,5 +8,9 @@ public class CourseLearnResponse
     public bool IsPublished { get; set; }
     public Guid? SelectedLessonId { get; set; }
     public CourseLearnLessonResponse? SelectedLesson { get; set; }
+    public Guid? FinalQuizId { get; set; }
+    public bool HasFinalQuiz { get; set; }
+    public string FinalQuizStatus { get; set; } = string.Empty;
+    public int FinalQuizQuestionCount { get; set; }
     public IReadOnlyList<CourseLearnModuleResponse> Modules { get; set; } = [];
 }

@@ -55,6 +55,8 @@ public class CourseRepository : ICourseRepository
         return _dbContext.Courses
             .Include(course => course.Modules.OrderBy(module => module.OrderIndex))
             .ThenInclude(module => module.Lessons.OrderBy(lesson => lesson.OrderIndex))
+            .Include(course => course.Quizzes)
+            .ThenInclude(quiz => quiz.Questions)
             .FirstOrDefaultAsync(course => course.Id == id);
     }
 

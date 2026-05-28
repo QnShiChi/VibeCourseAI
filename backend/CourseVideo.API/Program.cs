@@ -124,6 +124,7 @@ builder.Services.AddHostedService<LessonVideoGenerationWorker>();
 builder.Services.AddHostedService<FullCourseGenerationWorker>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IQuizGenerationService, QuizGenerationService>();
+builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<ILessonContentGenerationService, LessonContentGenerationService>();
 builder.Services.AddScoped<ILessonAudioGenerationService, LessonAudioGenerationService>();
 builder.Services.AddScoped<ILessonVideoGenerationService, LessonVideoGenerationService>();

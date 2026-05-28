@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
-import LessonVoiceTutorPanel from "../components/course/LessonVoiceTutorPanel";
+import LessonVoiceTutorFab from "../components/course/LessonVoiceTutorFab";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
 import { useLessonVoiceTutor } from "../hooks/useLessonVoiceTutor";
@@ -277,24 +277,22 @@ export default function CourseLearnPage() {
                           </span>
                         </div>
                       )}
+                      {selectedLesson.videoUrl ? (
+                        <LessonVoiceTutorFab
+                          state={tutor.state}
+                          errorMessage={tutor.errorMessage}
+                          onStartRecording={() => tutor.startRecording(videoRef.current?.currentTime ?? 0)}
+                          onStopRecording={tutor.stopRecording}
+                          onRequestFollowUp={tutor.requestFollowUp}
+                          onResumeLearning={tutor.resumeLearning}
+                        />
+                      ) : null}
                     </div>
                     <div className="learn-stage-card__video-meta">
                       <span>{getVideoStatusLabel(selectedLesson)}</span>
                       <span>{selectedModule ? selectedModule.moduleTitle : "Dang cap nhat module"}</span>
                       <span>{completedLessons}/{totalLessons} bài học</span>
                     </div>
-                    {selectedLesson.videoUrl ? (
-                      <LessonVoiceTutorPanel
-                        state={tutor.state}
-                        transcriptText={tutor.transcriptText}
-                        answerText={tutor.answerText}
-                        errorMessage={tutor.errorMessage}
-                        onStartRecording={() => tutor.startRecording(videoRef.current?.currentTime ?? 0)}
-                        onStopRecording={tutor.stopRecording}
-                        onFollowUp={tutor.requestFollowUp}
-                        onResume={tutor.resumeLearning}
-                      />
-                    ) : null}
                   </div>
 
                   <div className="learn-stage-card__summary">

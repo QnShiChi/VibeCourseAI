@@ -89,8 +89,6 @@ describe("CourseLearnPage", () => {
     mockUseAuth.mockReturnValue({ user: { role: "User" } });
     mockUseLessonVoiceTutor.mockReturnValue({
       state: "idle",
-      transcriptText: "",
-      answerText: "",
       errorMessage: "",
       startRecording: vi.fn(),
       stopRecording: vi.fn(),
@@ -256,7 +254,7 @@ describe("CourseLearnPage", () => {
     expect(container.querySelector("video")).not.toBeNull();
   });
 
-  it("shows the lesson voice tutor action when the selected lesson has a video", async () => {
+  it("shows the floating lesson voice tutor action when the selected lesson has a video", async () => {
     const payload = buildLearnPayload();
     payload.selectedLesson.videoUrl = "/storage/video/lesson-1.mp4";
     payload.selectedLesson.videoGenerationStatus = "Completed";
@@ -274,7 +272,7 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("button", { name: "Hoi bang giong noi" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Hoi ngay" })).toBeInTheDocument();
   });
 
   it("renders comment content below the selected lesson video", async () => {

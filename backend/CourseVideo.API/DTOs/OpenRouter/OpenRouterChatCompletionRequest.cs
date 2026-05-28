@@ -13,6 +13,9 @@ public class OpenRouterChatCompletionRequest
     [JsonPropertyName("temperature")]
     public double Temperature { get; set; }
 
+    [JsonPropertyName("stream")]
+    public bool Stream { get; set; }
+
     [JsonPropertyName("response_format")]
     public OpenRouterResponseFormat? ResponseFormat { get; set; }
 }

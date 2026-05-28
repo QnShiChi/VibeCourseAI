@@ -159,6 +159,11 @@ builder.Services.AddHttpClient<ILessonTutorAnswerService, OpenRouterLessonTutorA
     var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
 });
+builder.Services.AddHttpClient<ILessonTutorResponseStreamService, OpenRouterLessonTutorResponseStreamService>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
+});
 builder.Services.AddScoped<IModuleService, ModuleService>();
 builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddScoped<ILessonVoiceTutorSessionService, LessonVoiceTutorSessionService>();

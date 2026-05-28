@@ -7,6 +7,7 @@ public interface ILessonVoiceTutorService
         Guid userId,
         double playbackTimeSeconds,
         byte[] audioBytes,
+        Func<LessonTutorAudioSegment, Task>? onSegmentReady,
         CancellationToken cancellationToken);
 }
 

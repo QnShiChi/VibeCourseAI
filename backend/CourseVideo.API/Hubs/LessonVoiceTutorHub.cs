@@ -41,22 +41,16 @@ public class LessonVoiceTutorHub : Hub
                 userId,
                 playbackTimeSeconds,
                 audioPayload,
-                cancellationToken);
-
-            await Clients.Caller.SendAsync("TranscriptionCompleted", result.TranscriptionText, cancellationToken);
-            await Clients.Caller.SendAsync("AnswerCompleted", result.AnswerText, result.SourceType, cancellationToken);
-
-            foreach (var segment in result.AudioSegments)
-            {
-                await Clients.Caller.SendAsync(
-                    "AnswerAudioSegment",
+                segment => Clients.Caller.SendAsync(
+                    "AssistantSpeechSegmentReady",
                     segment.SequenceIndex,
-                    segment.Text,
                     segment.AudioUrl,
                     segment.DurationSeconds,
-                    cancellationToken);
-            }
+                    cancellationToken),
+                cancellationToken);
 
+            await Clients.Caller.SendAsync("TranscriptionCompleted", cancellationToken);
+            await Clients.Caller.SendAsync("AssistantSpeechCompleted", sessionId, cancellationToken);
             await Clients.Caller.SendAsync("AwaitingFollowUpDecision", sessionId, cancellationToken);
         }
         catch (Exception exception)

@@ -9,20 +9,23 @@ public class LessonVoiceTutorService : ILessonVoiceTutorService
     private readonly ILessonVoiceSessionRepository _sessionRepository;
     private readonly ILessonContextBuilder _contextBuilder;
     private readonly ITranscriptionService _transcriptionService;
-    private readonly ILessonTutorAnswerService _answerService;
+    private readonly ILessonTutorResponseStreamService _responseStreamService;
+    private readonly ILessonTutorSegmenter _segmenter;
     private readonly ILessonTutorSpeechService _speechService;
 
     public LessonVoiceTutorService(
         ILessonVoiceSessionRepository sessionRepository,
         ILessonContextBuilder contextBuilder,
         ITranscriptionService transcriptionService,
-        ILessonTutorAnswerService answerService,
+        ILessonTutorResponseStreamService responseStreamService,
+        ILessonTutorSegmenter segmenter,
         ILessonTutorSpeechService speechService)
     {
         _sessionRepository = sessionRepository;
         _contextBuilder = contextBuilder;
         _transcriptionService = transcriptionService;
-        _answerService = answerService;
+        _responseStreamService = responseStreamService;
+        _segmenter = segmenter;
         _speechService = speechService;
     }
 
@@ -31,6 +34,7 @@ public class LessonVoiceTutorService : ILessonVoiceTutorService
         Guid userId,
         double playbackTimeSeconds,
         byte[] audioBytes,
+        Func<LessonTutorAudioSegment, Task>? onSegmentReady,
         CancellationToken cancellationToken)
     {
         var session = await _sessionRepository.GetByIdAsync(sessionId, cancellationToken)
@@ -42,21 +46,63 @@ public class LessonVoiceTutorService : ILessonVoiceTutorService
         }
 
         var turnNumber = session.Turns.Count + 1;
-        await _sessionRepository.AddTurnAsync(new LessonVoiceTurn
+        var turn = new LessonVoiceTurn
         {
             Id = Guid.NewGuid(),
             SessionId = session.Id,
             TurnNumber = turnNumber,
             Status = "Processing",
             PlaybackPausedAtSeconds = playbackTimeSeconds
-        }, cancellationToken);
+        };
+        await _sessionRepository.AddTurnAsync(turn, cancellationToken);
 
         var context = await _contextBuilder.BuildAsync(session.LessonId, playbackTimeSeconds, cancellationToken);
         var transcription = await _transcriptionService.TranscribeAsync(audioBytes, cancellationToken);
-        var answer = await _answerService.GenerateAnswerAsync(
-            new LessonTutorAnswerRequest(context, transcription.Text, session.ConversationSummary),
-            cancellationToken);
-        var audioSegments = await _speechService.SynthesizeAsync(session.VoiceProfileKey, answer.AnswerText, cancellationToken);
+        var request = new LessonTutorAnswerRequest(context, transcription.Text, session.ConversationSummary);
+        var audioSegments = new List<LessonTutorAudioSegment>();
+        var answerParts = new List<string>();
+        var sequenceIndex = 0;
+
+        await foreach (var chunk in _responseStreamService.StreamAnswerAsync(request, cancellationToken))
+        {
+            foreach (var segment in _segmenter.PushText(chunk))
+            {
+                answerParts.Add(segment);
+                var audioSegment = await _speechService.SynthesizeSegmentAsync(
+                    session.VoiceProfileKey,
+                    segment,
+                    sequenceIndex++,
+                    cancellationToken);
+                audioSegments.Add(audioSegment);
+                if (onSegmentReady is not null)
+                {
+                    await onSegmentReady(audioSegment);
+                }
+            }
+        }
+
+        foreach (var tail in _segmenter.FlushRemaining())
+        {
+            answerParts.Add(tail);
+            var audioSegment = await _speechService.SynthesizeSegmentAsync(
+                session.VoiceProfileKey,
+                tail,
+                sequenceIndex++,
+                cancellationToken);
+            audioSegments.Add(audioSegment);
+            if (onSegmentReady is not null)
+            {
+                await onSegmentReady(audioSegment);
+            }
+        }
+
+        var answerText = string.Join(" ", answerParts).Trim();
+        turn.Status = "Completed";
+        turn.TranscriptionText = transcription.Text;
+        turn.TranscriptionConfidence = transcription.Confidence;
+        turn.AnswerText = answerText;
+        turn.AnswerSourceSummary = "Mixed";
+        turn.CompletedAt = DateTime.UtcNow;
 
         await _sessionRepository.AddMessageAsync(new LessonVoiceMessage
         {
@@ -75,8 +121,8 @@ public class LessonVoiceTutorService : ILessonVoiceTutorService
             SessionId = session.Id,
             TurnNumber = turnNumber,
             Role = "Assistant",
-            ContentText = answer.AnswerText,
-            ContentSourceType = answer.SourceType,
+            ContentText = answerText,
+            ContentSourceType = "Mixed",
             AudioUrl = audioSegments.FirstOrDefault()?.AudioUrl,
             AudioDurationSeconds = audioSegments.Sum(segment => segment.DurationSeconds),
             SequenceIndex = 1
@@ -89,8 +135,8 @@ public class LessonVoiceTutorService : ILessonVoiceTutorService
         return new LessonVoiceTurnResult(
             "AwaitingFollowUpDecision",
             transcription.Text,
-            answer.AnswerText,
-            answer.SourceType,
+            answerText,
+            "Mixed",
             audioSegments);
     }
 }

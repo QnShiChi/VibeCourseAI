@@ -5,14 +5,17 @@ import {
   createLessonVoiceTutorConnection
 } from "../api/lessonVoiceTutorService";
 
-function playQueuedAudio(queueRef, isPlayingRef) {
+function playQueuedAudio(queueRef, isPlayingRef, onQueueEmpty) {
   if (isPlayingRef.current || queueRef.current.length === 0 || typeof Audio === "undefined") {
+    if (!isPlayingRef.current && queueRef.current.length === 0 && typeof onQueueEmpty === "function") {
+      onQueueEmpty();
+    }
     return;
   }
 
   const next = queueRef.current.shift();
   if (!next?.audioUrl) {
-    playQueuedAudio(queueRef, isPlayingRef);
+    playQueuedAudio(queueRef, isPlayingRef, onQueueEmpty);
     return;
   }
 
@@ -20,28 +23,30 @@ function playQueuedAudio(queueRef, isPlayingRef) {
   isPlayingRef.current = true;
   audio.onended = () => {
     isPlayingRef.current = false;
-    playQueuedAudio(queueRef, isPlayingRef);
+    playQueuedAudio(queueRef, isPlayingRef, onQueueEmpty);
   };
   audio.onerror = () => {
     isPlayingRef.current = false;
-    playQueuedAudio(queueRef, isPlayingRef);
+    playQueuedAudio(queueRef, isPlayingRef, onQueueEmpty);
   };
   void audio.play().catch(() => {
     isPlayingRef.current = false;
+    if (typeof onQueueEmpty === "function" && queueRef.current.length === 0) {
+      onQueueEmpty();
+    }
   });
 }
 
 export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeVideo }) {
   const [state, setState] = useState("idle");
   const [session, setSession] = useState(null);
-  const [transcriptText, setTranscriptText] = useState("");
-  const [answerText, setAnswerText] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const connectionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const mediaChunksRef = useRef([]);
   const queueRef = useRef([]);
   const isPlayingRef = useRef(false);
+  const assistantCompletedRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !lessonId) {
@@ -55,24 +60,37 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
       setState("uploading");
     });
 
-    connection.on("TranscriptionCompleted", (text) => {
-      setTranscriptText(text);
+    connection.on("TranscriptionCompleted", () => {
       setState("thinking");
     });
 
-    connection.on("AnswerCompleted", (text) => {
-      setAnswerText(text);
-    });
-
-    connection.on("AnswerAudioSegment", (sequenceIndex, text, audioUrl, durationSeconds) => {
-      queueRef.current.push({ sequenceIndex, text, audioUrl, durationSeconds });
+    connection.on("AssistantSpeechSegmentReady", (sequenceIndex, audioUrl, durationSeconds) => {
+      queueRef.current.push({ sequenceIndex, audioUrl, durationSeconds });
       queueRef.current.sort((left, right) => left.sequenceIndex - right.sequenceIndex);
       setState("speaking");
-      playQueuedAudio(queueRef, isPlayingRef);
+      playQueuedAudio(queueRef, isPlayingRef, () => {
+        if (assistantCompletedRef.current && queueRef.current.length === 0) {
+          setState("awaitingDecision");
+        }
+      });
+    });
+
+    connection.on("AssistantSpeechCompleted", () => {
+      assistantCompletedRef.current = true;
+      if (!isPlayingRef.current && queueRef.current.length === 0) {
+        setState("awaitingDecision");
+      }
     });
 
     connection.on("AwaitingFollowUpDecision", () => {
-      setState("awaitingDecision");
+      if (!isPlayingRef.current && queueRef.current.length === 0) {
+        setState("awaitingDecision");
+      }
+    });
+
+    connection.on("TutorFailed", (message) => {
+      setErrorMessage(message || "Tro giang hien chua the tra loi.");
+      setState("error");
     });
 
     connection.start().catch((error) => {
@@ -95,8 +113,7 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
       setErrorMessage("");
       const currentSession = session ?? await createLessonVoiceSession(lessonId);
       setSession(currentSession);
-      setTranscriptText("");
-      setAnswerText("");
+      assistantCompletedRef.current = false;
       queueRef.current = [];
       onPauseVideo(playbackTimeSeconds);
 
@@ -152,8 +169,7 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
   }
 
   function requestFollowUp() {
-    setTranscriptText("");
-    setAnswerText("");
+    assistantCompletedRef.current = false;
     queueRef.current = [];
     setState("idle");
   }
@@ -165,8 +181,6 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
 
   return {
     state,
-    transcriptText,
-    answerText,
     errorMessage,
     startRecording,
     stopRecording,

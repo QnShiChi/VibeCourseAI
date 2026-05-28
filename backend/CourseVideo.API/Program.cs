@@ -139,6 +139,11 @@ builder.Services.AddHttpClient<IOpenRouterLessonContentService, OpenRouterLesson
     var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
 });
+builder.Services.AddHttpClient<IOpenRouterQuizGenerationService, OpenRouterQuizGenerationService>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 30);
+});
 builder.Services.AddHttpClient("AiWorker", client =>
 {
     // The lesson audio generation endpoint is now merged into the backend at localhost:8080

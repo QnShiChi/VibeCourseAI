@@ -8,13 +8,16 @@ namespace CourseVideo.API.Hubs;
 [Authorize]
 public class LessonVoiceTutorHub : Hub
 {
+    private readonly ILessonTutorAudioCleanupService _audioCleanupService;
     private readonly ILessonVoiceTutorService _voiceTutorService;
     private readonly ILogger<LessonVoiceTutorHub> _logger;
 
     public LessonVoiceTutorHub(
+        ILessonTutorAudioCleanupService audioCleanupService,
         ILessonVoiceTutorService voiceTutorService,
         ILogger<LessonVoiceTutorHub> logger)
     {
+        _audioCleanupService = audioCleanupService;
         _voiceTutorService = voiceTutorService;
         _logger = logger;
     }
@@ -63,6 +66,18 @@ public class LessonVoiceTutorHub : Hub
                 audioBytes?.Length ?? 0);
 
             throw new HubException(exception.Message);
+        }
+    }
+
+    public async Task CleanupAssistantAudio(string[] audioUrls)
+    {
+        try
+        {
+            await _audioCleanupService.DeleteAssistantAudioAsync(audioUrls, Context.ConnectionAborted);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to clean up assistant audio files.");
         }
     }
 }

@@ -283,7 +283,7 @@ export default function CourseLearnPage() {
                           errorMessage={tutor.errorMessage}
                           onStartRecording={() => tutor.startRecording(videoRef.current?.currentTime ?? 0)}
                           onStopRecording={tutor.stopRecording}
-                          onRequestFollowUp={tutor.requestFollowUp}
+                          onRequestFollowUp={() => tutor.requestFollowUp(pausedTimeRef.current)}
                           onResumeLearning={tutor.resumeLearning}
                         />
                       ) : null}

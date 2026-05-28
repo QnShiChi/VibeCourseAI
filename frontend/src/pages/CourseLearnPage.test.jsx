@@ -272,7 +272,7 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("button", { name: "Hoi ngay" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Hỏi ngay" })).toBeInTheDocument();
   });
 
   it("renders comment content below the selected lesson video", async () => {

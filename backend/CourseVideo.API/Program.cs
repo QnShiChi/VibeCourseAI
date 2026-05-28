@@ -169,6 +169,7 @@ builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddScoped<ILessonVoiceTutorSessionService, LessonVoiceTutorSessionService>();
 builder.Services.AddScoped<ILessonContextBuilder, LessonContextBuilder>();
 builder.Services.AddScoped<ILessonTutorSegmenter, LessonTutorSegmenter>();
+builder.Services.AddScoped<ILessonTutorAudioCleanupService, LessonTutorAudioCleanupService>();
 builder.Services.AddScoped<LessonNarrationVoiceResolver>();
 builder.Services.AddScoped<ILessonTutorSpeechService, SegmentedLessonTutorSpeechService>();
 builder.Services.AddScoped<ILessonVoiceTutorService, LessonVoiceTutorService>();

@@ -15,8 +15,8 @@ describe("LessonVoiceTutorFab", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: /hoi ngay/i })).toBeInTheDocument();
-    expect(screen.getByText("Hoi ngay")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /hỏi ngay/i })).toBeInTheDocument();
+    expect(screen.getByText("Hỏi ngay")).toBeInTheDocument();
   });
 
   it("shows follow-up actions after speech completes", () => {
@@ -31,7 +31,7 @@ describe("LessonVoiceTutorFab", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Hoi tiep" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tiep tuc hoc" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hỏi tiếp" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tiếp tục học" })).toBeInTheDocument();
   });
 });

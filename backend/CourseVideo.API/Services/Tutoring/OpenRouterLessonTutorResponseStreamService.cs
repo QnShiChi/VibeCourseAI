@@ -12,6 +12,11 @@ namespace CourseVideo.API.Services.Tutoring;
 public class OpenRouterLessonTutorResponseStreamService : ILessonTutorResponseStreamService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private const int MaxTeachingScriptChars = 900;
+    private const int MaxTranscriptChars = 900;
+    private const int MaxSlideOutlineChars = 450;
+    private const int MaxVoiceoverPlanChars = 450;
+    private const int MaxConversationSummaryChars = 280;
     private readonly HttpClient _httpClient;
     private readonly OpenRouterOptions _options;
 
@@ -38,7 +43,8 @@ public class OpenRouterLessonTutorResponseStreamService : ILessonTutorResponseSt
         var payload = new OpenRouterChatCompletionRequest
         {
             Model = _options.Model,
-            Temperature = 0.2,
+            Temperature = 0.1,
+            MaxTokens = 110,
             Stream = true,
             Messages =
             [
@@ -46,9 +52,12 @@ public class OpenRouterLessonTutorResponseStreamService : ILessonTutorResponseSt
                 {
                     Role = "system",
                     Content = """
-                    Ban la tro giang giong noi cho mot bai hoc video bang tieng Viet.
-                    Tra loi ngan gon, tu nhien, de doc thanh giong noi.
-                    Neu can, hay giai thich theo lesson hien tai truoc.
+                    Ban la giang vien dang giai thich truc tiep cho nguoi hoc bang tieng Viet.
+                    Tra loi suc tich, tu nhien, de nghe nhu mot giang vien that.
+                    Mac dinh chi tra loi trong 2 den 4 cau ngan.
+                    Khong liet ke dang bullet, khong mo dau kieu chatbot, khong lap lai cau hoi.
+                    Uu tien dinh nghia ngan gon, de hieu, neu can thi cho toi da 1 vi du rat ngan.
+                    Neu lesson hien tai da du thong tin, khong mo rong them khong can thiet.
                     """
                 },
                 new OpenRouterMessage
@@ -62,22 +71,24 @@ public class OpenRouterLessonTutorResponseStreamService : ILessonTutorResponseSt
                     Playback second: {request.Context.PlaybackTimeSeconds}
 
                     Teaching script:
-                    {request.Context.TeachingScript}
+                    {TrimForPrompt(request.Context.TeachingScript, MaxTeachingScriptChars)}
 
                     Slide outline:
-                    {request.Context.SlideOutlineJson}
+                    {TrimForPrompt(request.Context.SlideOutlineJson, MaxSlideOutlineChars)}
 
                     Voiceover plan:
-                    {request.Context.VoiceoverPlanJson}
+                    {TrimForPrompt(request.Context.VoiceoverPlanJson, MaxVoiceoverPlanChars)}
 
                     Transcript:
-                    {request.Context.TranscriptText}
+                    {TrimForPrompt(request.Context.TranscriptText, MaxTranscriptChars)}
 
                     Conversation summary:
-                    {request.ConversationSummary ?? string.Empty}
+                    {TrimForPrompt(request.ConversationSummary ?? string.Empty, MaxConversationSummaryChars)}
 
                     Learner question:
                     {request.QuestionText}
+
+                    Hay tra loi that ngan, ro, va giong nhu dang noi truc tiep voi sinh vien.
                     """
                 }
             ]
@@ -132,5 +143,21 @@ public class OpenRouterLessonTutorResponseStreamService : ILessonTutorResponseSt
                 yield return content;
             }
         }
+    }
+
+    private static string TrimForPrompt(string? value, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (normalized.Length <= maxChars)
+        {
+            return normalized;
+        }
+
+        return $"{normalized[..maxChars].Trim()}...";
     }
 }

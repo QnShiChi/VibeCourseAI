@@ -123,7 +123,7 @@ public class LessonVoiceTutorService : ILessonVoiceTutorService
             Role = "Assistant",
             ContentText = answerText,
             ContentSourceType = "Mixed",
-            AudioUrl = audioSegments.FirstOrDefault()?.AudioUrl,
+            AudioUrl = null,
             AudioDurationSeconds = audioSegments.Sum(segment => segment.DurationSeconds),
             SequenceIndex = 1
         }, cancellationToken);

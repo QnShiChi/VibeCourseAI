@@ -47,6 +47,22 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
   const queueRef = useRef([]);
   const isPlayingRef = useRef(false);
   const assistantCompletedRef = useRef(false);
+  const receivedAudioUrlsRef = useRef([]);
+
+  async function cleanupAssistantAudio() {
+    const urls = receivedAudioUrlsRef.current.filter(Boolean);
+    receivedAudioUrlsRef.current = [];
+
+    if (urls.length === 0) {
+      return;
+    }
+
+    try {
+      await connectionRef.current?.invoke("CleanupAssistantAudio", urls);
+    } catch (error) {
+      console.error("Lesson voice tutor cleanup failed:", error);
+    }
+  }
 
   useEffect(() => {
     if (!enabled || !lessonId) {
@@ -66,10 +82,14 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
 
     connection.on("AssistantSpeechSegmentReady", (sequenceIndex, audioUrl, durationSeconds) => {
       queueRef.current.push({ sequenceIndex, audioUrl, durationSeconds });
+      if (audioUrl) {
+        receivedAudioUrlsRef.current.push(audioUrl);
+      }
       queueRef.current.sort((left, right) => left.sequenceIndex - right.sequenceIndex);
       setState("speaking");
-      playQueuedAudio(queueRef, isPlayingRef, () => {
+      playQueuedAudio(queueRef, isPlayingRef, async () => {
         if (assistantCompletedRef.current && queueRef.current.length === 0) {
+          await cleanupAssistantAudio();
           setState("awaitingDecision");
         }
       });
@@ -101,6 +121,7 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
     });
 
     return () => {
+      void cleanupAssistantAudio();
       if (session?.sessionId) {
         void closeLessonVoiceSession(session.sessionId).catch(() => {});
       }
@@ -115,6 +136,7 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
       setSession(currentSession);
       assistantCompletedRef.current = false;
       queueRef.current = [];
+      receivedAudioUrlsRef.current = [];
       onPauseVideo(playbackTimeSeconds);
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -168,13 +190,16 @@ export function useLessonVoiceTutor({ lessonId, enabled, onPauseVideo, onResumeV
     mediaRecorderRef.current.stop();
   }
 
-  function requestFollowUp() {
+  async function requestFollowUp(playbackTimeSeconds) {
+    await cleanupAssistantAudio();
     assistantCompletedRef.current = false;
     queueRef.current = [];
     setState("idle");
+    await startRecording(playbackTimeSeconds);
   }
 
-  function resumeLearning() {
+  async function resumeLearning() {
+    await cleanupAssistantAudio();
     setState("idle");
     onResumeVideo();
   }

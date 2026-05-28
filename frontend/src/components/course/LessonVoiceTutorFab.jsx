@@ -34,10 +34,10 @@ export default function LessonVoiceTutorFab({
   const showDecision = state === "awaitingDecision";
 
   const label = isRecording
-    ? "Dang nghe"
+    ? "Đang nghe"
     : isBusy
-      ? "Dang tra loi"
-      : "Hoi ngay";
+      ? "Đang trả lời"
+      : "Hỏi ngay";
 
   return (
     <div className={`lesson-voice-fab${isRecording ? " lesson-voice-fab--recording" : ""}`}>
@@ -57,10 +57,10 @@ export default function LessonVoiceTutorFab({
       {showDecision ? (
         <div className="lesson-voice-fab__actions">
           <button type="button" onClick={onRequestFollowUp}>
-            Hoi tiep
+            Hỏi tiếp
           </button>
           <button type="button" onClick={onResumeLearning}>
-            Tiep tuc hoc
+            Tiếp tục học
           </button>
         </div>
       ) : null}

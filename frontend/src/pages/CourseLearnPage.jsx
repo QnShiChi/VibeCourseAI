@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
+import { getLessonQuiz, startQuizAttempt, submitQuizAttempt } from "../api/quizService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
+import FinalQuizCard from "../components/course/FinalQuizCard";
+import LessonQuizPanel from "../components/course/LessonQuizPanel";
 import LessonVoiceTutorFab from "../components/course/LessonVoiceTutorFab";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
@@ -315,6 +318,14 @@ export default function CourseLearnPage() {
                   <pre className="text-preview learn-content-preview">{selectedLesson.contentSeed}</pre>
                 </Card>
 
+                <LessonQuizPanel
+                  initialStatus={selectedLesson.quizStatus}
+                  lessonId={selectedLesson.lessonId}
+                  onLoadQuiz={getLessonQuiz}
+                  onStartAttempt={startQuizAttempt}
+                  onSubmitAttempt={submitQuizAttempt}
+                />
+
                 <Card className="learn-comments-card" variant="shadowed">
                   <LessonComments isAdmin={isAdmin} lessonId={selectedLesson.lessonId} />
                 </Card>
@@ -351,6 +362,14 @@ export default function CourseLearnPage() {
                       </div>
                       <p>Tiến độ: {progressPercent}%</p>
                     </div>
+                    {course.hasFinalQuiz ? (
+                      <FinalQuizCard
+                        courseId={course.courseId}
+                        questionCount={course.finalQuizQuestionCount}
+                        quizId={course.finalQuizId}
+                        status={course.finalQuizStatus}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="learn-sidebar-panel__modules">

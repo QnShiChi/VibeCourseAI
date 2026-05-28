@@ -58,6 +58,11 @@ public class QuizService : IQuizService
         var attempt = quiz.Attempts.FirstOrDefault(item => item.Id == attemptId && item.UserId == userId)
             ?? throw new KeyNotFoundException("Khong tim thay luot lam quiz.");
 
+        if (attempt.SubmittedAt.HasValue)
+        {
+            throw new InvalidOperationException("Luot lam quiz nay da duoc nop. Hay bat dau luot moi.");
+        }
+
         var answerResults = quiz.Questions.Select(question =>
         {
             var submitted = request.Answers.FirstOrDefault(item => item.QuestionId == question.Id)
@@ -75,7 +80,7 @@ public class QuizService : IQuizService
             };
         }).ToList();
 
-        attempt.Answers = answerResults.Select(result => new Models.QuizAttemptAnswer
+        var attemptAnswers = answerResults.Select(result => new Models.QuizAttemptAnswer
         {
             Id = Guid.NewGuid(),
             QuizAttemptId = attempt.Id,
@@ -84,6 +89,7 @@ public class QuizService : IQuizService
             IsCorrect = result.IsCorrect,
             CreatedAt = DateTime.UtcNow
         }).ToList();
+        await _quizRepository.AddAttemptAnswersAsync(attemptAnswers, cancellationToken);
         attempt.SubmittedAt = DateTime.UtcNow;
         attempt.CorrectCount = answerResults.Count(item => item.IsCorrect);
         attempt.TotalQuestions = quiz.Questions.Count;

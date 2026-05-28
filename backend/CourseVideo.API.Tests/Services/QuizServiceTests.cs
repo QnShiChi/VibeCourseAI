@@ -107,6 +107,8 @@ public class QuizServiceTests
                     }
                 ]
             });
+        repository.Setup(x => x.AddAttemptAnswersAsync(It.IsAny<IReadOnlyCollection<QuizAttemptAnswer>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         repository.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var service = new QuizService(repository.Object);
@@ -130,5 +132,12 @@ public class QuizServiceTests
         submitted.Score.Should().Be(100);
         submitted.CorrectCount.Should().Be(1);
         submitted.Answers.Should().ContainSingle(x => x.IsCorrect);
+        repository.Verify(x => x.AddAttemptAnswersAsync(
+            It.Is<IReadOnlyCollection<QuizAttemptAnswer>>(answers =>
+                answers.Count == 1 &&
+                answers.Single().QuizAttemptId == attemptId &&
+                answers.Single().QuizQuestionId == questionId &&
+                answers.Single().SelectedOptionId == correctOptionId),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }

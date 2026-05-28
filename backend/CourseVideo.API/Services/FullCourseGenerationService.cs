@@ -15,6 +15,7 @@ public class FullCourseGenerationService : IFullCourseGenerationService
     private readonly ILessonContentGenerationService _lessonContentService;
     private readonly ILessonAudioGenerationService _lessonAudioService;
     private readonly ILessonVideoGenerationService _lessonVideoService;
+    private readonly IQuizGenerationService _quizGenerationService;
 
     public FullCourseGenerationService(
         ICourseRepository courseRepository,
@@ -23,7 +24,8 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         IFullCourseJobQueue fullCourseJobQueue,
         ILessonContentGenerationService lessonContentService,
         ILessonAudioGenerationService lessonAudioService,
-        ILessonVideoGenerationService lessonVideoService)
+        ILessonVideoGenerationService lessonVideoService,
+        IQuizGenerationService quizGenerationService)
     {
         _courseRepository = courseRepository;
         _lessonRepository = lessonRepository;
@@ -32,6 +34,7 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         _lessonContentService = lessonContentService;
         _lessonAudioService = lessonAudioService;
         _lessonVideoService = lessonVideoService;
+        _quizGenerationService = quizGenerationService;
     }
 
     public async Task<GenerateFullCourseResponse> GenerateFullCourseAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
@@ -97,6 +100,10 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         try
         {
             await ProcessCourseJobAsync(job, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
@@ -177,6 +184,12 @@ public class FullCourseGenerationService : IFullCourseGenerationService
             await _generationJobRepository.SaveChangesAsync();
         }
 
+        var generatedFinalQuiz = false;
+        if (course.Modules.SelectMany(module => module.Lessons).All(lesson => lesson.ContentGenerationStatus == "Completed"))
+        {
+            generatedFinalQuiz = await TryGenerateFinalQuizAsync(course.Id, cancellationToken);
+        }
+
         var status = failed switch
         {
             0 => "Completed",
@@ -188,8 +201,8 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         job.CompletedAt = DateTime.UtcNow;
         job.ProgressMessage = status switch
         {
-            "Completed" => "Đã hoàn tất quá trình generate tự động A->Z.",
-            "CompletedWithWarnings" => "Đã hoàn tất generate A->Z nhưng có bài học lỗi.",
+            "Completed" => generatedFinalQuiz ? "Đã hoàn tất quá trình generate tự động A->Z và tạo quiz tổng kết." : "Đã hoàn tất quá trình generate tự động A->Z.",
+            "CompletedWithWarnings" => generatedFinalQuiz ? "Đã hoàn tất generate A->Z, có bài học lỗi, nhưng đã tạo quiz tổng kết." : "Đã hoàn tất generate A->Z nhưng có bài học lỗi.",
             _ => "Không thể generate A->Z cho các lesson."
         };
         job.ErrorMessage = failed > 0 ? $"Có {failed} lesson gặp lỗi trong quá trình generate." : null;
@@ -237,6 +250,11 @@ public class FullCourseGenerationService : IFullCourseGenerationService
             }
         }
 
+        if (lesson.ContentGenerationStatus == "Completed")
+        {
+            await TryGenerateLessonQuizAsync(course.Id, lesson.Id, cancellationToken);
+        }
+
         // STEP 2: Audio
         if (lesson.AudioGenerationStatus != "Completed")
         {
@@ -278,6 +296,15 @@ public class FullCourseGenerationService : IFullCourseGenerationService
                 processedSteps++;
                 await UpdateStepCompletionProgressAsync(job, lessonNumber, totalLessons, "video", processedStepsBeforeLesson + processedSteps, failedLessonsBeforeLesson, totalPendingSteps);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                lesson.VideoGenerationStatus = "NotGenerated";
+                lesson.VideoGenerationError = "Tiến trình tạo video đã bị hủy.";
+                lesson.VideoGeneratedAt = null;
+                lesson.UpdatedAt = DateTime.UtcNow;
+                await _lessonRepository.SaveChangesAsync();
+                throw;
+            }
             catch (Exception ex)
             {
                 lesson.VideoGenerationStatus = "Failed";
@@ -290,6 +317,31 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         }
 
         return new LessonStepProgressResult(true, processedSteps, null);
+    }
+
+    private async Task TryGenerateLessonQuizAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _quizGenerationService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken);
+        }
+        catch
+        {
+            // Quiz generation is best-effort and should not interrupt full-course processing.
+        }
+    }
+
+    private async Task<bool> TryGenerateFinalQuizAsync(Guid courseId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _quizGenerationService.GenerateFinalQuizAsync(courseId, cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async Task UpdateStepStartProgressAsync(GenerationJob job, int lessonNumber, int totalLessons, string stepLabel, int processedSteps)

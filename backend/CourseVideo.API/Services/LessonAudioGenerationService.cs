@@ -1,10 +1,10 @@
-using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CourseVideo.API.DTOs.Courses;
+using CourseVideo.API.DTOs.AudioWorker;
 using CourseVideo.API.DTOs.Lessons;
 using CourseVideo.API.Models;
 using CourseVideo.API.Repositories.Interfaces;
+using CourseVideo.API.Services.Audio;
 using CourseVideo.API.Services.Interfaces;
 
 namespace CourseVideo.API.Services;
@@ -17,20 +17,23 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
     private readonly ILessonRepository _lessonRepository;
     private readonly IGenerationJobRepository _generationJobRepository;
     private readonly ILessonAudioJobQueue _lessonAudioJobQueue;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly INarrationService _narrationService;
+    private readonly IAudioPipelineService _audioPipelineService;
 
     public LessonAudioGenerationService(
         ICourseRepository courseRepository,
         ILessonRepository lessonRepository,
         IGenerationJobRepository generationJobRepository,
         ILessonAudioJobQueue lessonAudioJobQueue,
-        IHttpClientFactory httpClientFactory)
+        INarrationService narrationService,
+        IAudioPipelineService audioPipelineService)
     {
         _courseRepository = courseRepository;
         _lessonRepository = lessonRepository;
         _generationJobRepository = generationJobRepository;
         _lessonAudioJobQueue = lessonAudioJobQueue;
-        _httpClientFactory = httpClientFactory;
+        _narrationService = narrationService;
+        _audioPipelineService = audioPipelineService;
     }
 
     public async Task<GenerateLessonAudioResponse> GenerateCourseAudioAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
@@ -276,32 +279,21 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
     {
         LessonAudioValidation.ValidateReadyForAudio(lesson);
 
-        var client = _httpClientFactory.CreateClient("AiWorker");
-        var payload = new AiWorkerLessonAudioRequest
-        {
-            LessonId = lesson.Id,
-            LessonTitle = lesson.Title,
-            TeachingScript = lesson.TeachingScript ?? string.Empty,
-            SlideOutlineJson = lesson.SlideOutlineJson ?? string.Empty,
-            VoiceoverPlanJson = lesson.VoiceoverPlanJson ?? string.Empty
-        };
+        var narrationSegments = _narrationService.BuildNarrationSegments(
+            lesson.TeachingScript ?? string.Empty,
+            lesson.SlideOutlineJson ?? string.Empty,
+            lesson.VoiceoverPlanJson ?? string.Empty);
 
-        using var response = await client.PostAsJsonAsync("/jobs/generate-lesson-audio", payload, cancellationToken);
-        var workerResponse = await response.Content.ReadFromJsonAsync<AiWorkerLessonAudioResponse>(cancellationToken: cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        if (narrationSegments.Count == 0)
         {
-            var rawContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            var message = workerResponse?.ErrorMessage
-                ?? ExtractWorkerErrorMessage(rawContent)
-                ?? rawContent
-                ?? "AI worker không thể generate audio cho lesson.";
-            throw new InvalidOperationException(message);
+            throw new InvalidOperationException("Lesson phải có ít nhất một slide để render audio.");
         }
+
+        var workerResponse = await _audioPipelineService.GenerateLessonAudioAsync(lesson.Id, narrationSegments, cancellationToken);
 
         if (workerResponse is null)
         {
-            throw new InvalidOperationException("AI worker trả về dữ liệu audio rỗng.");
+            throw new InvalidOperationException("Audio pipeline trả về dữ liệu audio rỗng.");
         }
 
         lesson.AudioUrl = workerResponse.AudioUrl;
@@ -391,81 +383,5 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
         };
         job.ErrorMessage = failed > 0 ? $"Có {failed} lesson generate audio lỗi." : null;
         job.UpdatedAt = DateTime.UtcNow;
-    }
-
-    private static string? ExtractWorkerErrorMessage(string? rawContent)
-    {
-        if (string.IsNullOrWhiteSpace(rawContent))
-        {
-            return null;
-        }
-
-        try
-        {
-            var payload = JsonSerializer.Deserialize<JsonElement>(rawContent);
-            if (payload.ValueKind == JsonValueKind.Object &&
-                payload.TryGetProperty("detail", out var detail) &&
-                detail.ValueKind == JsonValueKind.String)
-            {
-                return detail.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-
-        return null;
-    }
-
-    private sealed class AiWorkerLessonAudioRequest
-    {
-        [JsonPropertyName("lesson_id")]
-        public Guid LessonId { get; set; }
-
-        [JsonPropertyName("lesson_title")]
-        public string LessonTitle { get; set; } = string.Empty;
-
-        [JsonPropertyName("teaching_script")]
-        public string TeachingScript { get; set; } = string.Empty;
-
-        [JsonPropertyName("slide_outline_json")]
-        public string SlideOutlineJson { get; set; } = string.Empty;
-
-        [JsonPropertyName("voiceover_plan_json")]
-        public string VoiceoverPlanJson { get; set; } = string.Empty;
-    }
-
-    private sealed class AiWorkerLessonAudioResponse
-    {
-        [JsonPropertyName("audio_url")]
-        public string AudioUrl { get; set; } = string.Empty;
-
-        [JsonPropertyName("duration_seconds")]
-        public double DurationSeconds { get; set; }
-
-        [JsonPropertyName("error_message")]
-        public string? ErrorMessage { get; set; }
-
-        [JsonPropertyName("segments")]
-        public List<AiWorkerLessonAudioSegmentResponse> Segments { get; set; } = [];
-    }
-
-    private sealed class AiWorkerLessonAudioSegmentResponse
-    {
-        [JsonPropertyName("slide_number")]
-        public int SlideNumber { get; set; }
-
-        [JsonPropertyName("title")]
-        public string Title { get; set; } = string.Empty;
-
-        [JsonPropertyName("narration_text")]
-        public string NarrationText { get; set; } = string.Empty;
-
-        [JsonPropertyName("audio_url")]
-        public string AudioUrl { get; set; } = string.Empty;
-
-        [JsonPropertyName("duration_seconds")]
-        public double DurationSeconds { get; set; }
     }
 }

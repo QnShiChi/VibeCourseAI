@@ -46,75 +46,126 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
 
-        HttpResponseMessage response;
+        var timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds > 0 ? _options.TimeoutSeconds : 30);
 
         try
         {
-            response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await ExecuteWithTimeoutAsync(
+                token => _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token),
+                timeout,
+                cancellationToken,
+                () => new LessonContentGenerationException("OpenRouter request timeout."));
+
+            var payload = await ExecuteWithTimeoutAsync(
+                token => response.Content.ReadAsStringAsync(token),
+                timeout,
+                cancellationToken,
+                () => new LessonContentGenerationException("OpenRouter request timeout."));
+
+            OpenRouterChatCompletionResponse? envelope;
+
+            try
+            {
+                envelope = JsonSerializer.Deserialize<OpenRouterChatCompletionResponse>(payload, JsonOptions);
+            }
+            catch (JsonException exception)
+            {
+                throw new LessonContentGenerationException("OpenRouter trả về payload lesson content không hợp lệ.", exception);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = string.IsNullOrWhiteSpace(envelope?.Error?.Message)
+                    ? $"OpenRouter trả về lỗi HTTP {(int)response.StatusCode}."
+                    : envelope!.Error!.Message!.Trim();
+
+                throw response.StatusCode switch
+                {
+                    HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new OpenRouterConfigurationException(message),
+                    _ => new LessonContentGenerationException(message)
+                };
+            }
+
+            var content = envelope?.Choices.FirstOrDefault()?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                throw new LessonContentGenerationException("OpenRouter không trả về nội dung lesson content.");
+            }
+
+            var normalizedContent = NormalizeLessonContentJson(content, lesson.Id);
+            OpenRouterLessonContentResult? result;
+
+            try
+            {
+                result = JsonSerializer.Deserialize<OpenRouterLessonContentResult>(normalizedContent, JsonOptions);
+            }
+            catch (JsonException exception)
+            {
+                _logger.LogWarning(exception, "Failed to deserialize lesson content JSON for lesson {LessonId}. Raw content: {RawContent}", lesson.Id, TruncateForLog(content));
+                throw new LessonContentGenerationException("JSON lesson content từ OpenRouter không hợp lệ.", exception);
+            }
+
+            try
+            {
+                ValidateResult(lesson.Id, result);
+            }
+            catch (LessonContentGenerationException exception)
+            {
+                _logger.LogWarning(exception, "Lesson content schema validation failed for lesson {LessonId}. Raw content: {RawContent}", lesson.Id, TruncateForLog(content));
+                throw;
+            }
+            return result!;
         }
-        catch (TaskCanceledException exception)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            throw new LessonContentGenerationException("OpenRouter request timeout.", exception);
+            throw;
+        }
+        catch (LessonContentGenerationException)
+        {
+            throw;
         }
         catch (Exception exception)
         {
             throw new LessonContentGenerationException("Không thể kết nối đến OpenRouter để sinh nội dung lesson.", exception);
         }
+    }
 
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
-        OpenRouterChatCompletionResponse? envelope;
+    private static async Task<T> ExecuteWithTimeoutAsync<T>(
+        Func<CancellationToken, Task<T>> operationFactory,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        Func<Exception> timeoutExceptionFactory)
+    {
+        using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var operationTask = operationFactory(operationCancellation.Token);
+        var timeoutTask = Task.Delay(timeout);
+        var cancellationTask = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        var completedTask = await Task.WhenAny(operationTask, timeoutTask, cancellationTask);
 
-        try
+        if (completedTask == operationTask)
         {
-            envelope = JsonSerializer.Deserialize<OpenRouterChatCompletionResponse>(payload, JsonOptions);
-        }
-        catch (JsonException exception)
-        {
-            throw new LessonContentGenerationException("OpenRouter trả về payload lesson content không hợp lệ.", exception);
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var message = string.IsNullOrWhiteSpace(envelope?.Error?.Message)
-                ? $"OpenRouter trả về lỗi HTTP {(int)response.StatusCode}."
-                : envelope!.Error!.Message!.Trim();
-
-            throw response.StatusCode switch
+            try
             {
-                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new OpenRouterConfigurationException(message),
-                _ => new LessonContentGenerationException(message)
-            };
+                return await operationTask;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                throw timeoutExceptionFactory();
+            }
         }
 
-        var content = envelope?.Choices.FirstOrDefault()?.Message?.Content;
-        if (string.IsNullOrWhiteSpace(content))
+        operationCancellation.Cancel();
+
+        if (completedTask == cancellationTask)
         {
-            throw new LessonContentGenerationException("OpenRouter không trả về nội dung lesson content.");
+            throw new OperationCanceledException(cancellationToken);
         }
 
-        var normalizedContent = NormalizeLessonContentJson(content, lesson.Id);
-        OpenRouterLessonContentResult? result;
-
-        try
-        {
-            result = JsonSerializer.Deserialize<OpenRouterLessonContentResult>(normalizedContent, JsonOptions);
-        }
-        catch (JsonException exception)
-        {
-            _logger.LogWarning(exception, "Failed to deserialize lesson content JSON for lesson {LessonId}. Raw content: {RawContent}", lesson.Id, TruncateForLog(content));
-            throw new LessonContentGenerationException("JSON lesson content từ OpenRouter không hợp lệ.", exception);
-        }
-
-        try
-        {
-            ValidateResult(lesson.Id, result);
-        }
-        catch (LessonContentGenerationException exception)
-        {
-            _logger.LogWarning(exception, "Lesson content schema validation failed for lesson {LessonId}. Raw content: {RawContent}", lesson.Id, TruncateForLog(content));
-            throw;
-        }
-        return result!;
+        throw timeoutExceptionFactory();
     }
 
     private static void ValidateResult(Guid lessonId, OpenRouterLessonContentResult? result)

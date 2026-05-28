@@ -39,6 +39,9 @@ public class QuizRepository : IQuizRepository
     public Task AddAttemptAsync(QuizAttempt attempt, CancellationToken cancellationToken = default) =>
         _dbContext.QuizAttempts.AddAsync(attempt, cancellationToken).AsTask();
 
+    public Task AddAttemptAnswersAsync(IReadOnlyCollection<QuizAttemptAnswer> answers, CancellationToken cancellationToken = default) =>
+        _dbContext.QuizAttemptAnswers.AddRangeAsync(answers, cancellationToken);
+
     public async Task<IReadOnlyList<QuizAttempt>> GetAttemptsAsync(Guid quizId, Guid userId, CancellationToken cancellationToken = default) =>
         await _dbContext.QuizAttempts
             .Include(x => x.Answers)

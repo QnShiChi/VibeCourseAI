@@ -12,9 +12,9 @@ public class RenderService : IRenderService
         _imageProvider = imageProvider;
     }
 
-    public async Task RenderSlidePngAsync(string outputPath, SlideItem slide)
+    public async Task RenderSlidePngAsync(string outputPath, SlideItem slide, CancellationToken cancellationToken = default)
     {
-        var imageBytes = await _imageProvider.FetchImageForSlideAsync(slide.ImageKeyword);
+        var imageBytes = await _imageProvider.FetchImageForSlideAsync(slide.ImageKeyword, cancellationToken);
         SKBitmap? illustration = null;
         if (imageBytes != null)
         {
@@ -161,6 +161,10 @@ public class RenderService : IRenderService
             canvas.DrawRoundRect(imgX, imgY, targetW, targetH, 24, 24, imgPaint);
             illustration.Dispose();
         }
+        else
+        {
+            DrawProceduralIllustration(canvas, slide);
+        }
 
         using var image = surface.Snapshot();
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
@@ -173,6 +177,102 @@ public class RenderService : IRenderService
         
         using var stream = File.OpenWrite(outputPath);
         data.SaveTo(stream);
+    }
+
+    private static void DrawProceduralIllustration(SKCanvas canvas, SlideItem slide)
+    {
+        const int targetW = 480;
+        const int targetH = 520;
+        const int panelMargin = 56;
+        var imgX = 1280 - panelMargin - targetW - 40;
+        var imgY = (720 - targetH) / 2;
+
+        var seed = Math.Abs((slide.ImageKeyword ?? slide.Title ?? "lesson").GetHashCode());
+        var baseHue = seed % 360;
+        var accentColor = SKColor.FromHsl(baseHue, 75, 60);
+        var secondaryColor = SKColor.FromHsl((baseHue + 35) % 360, 70, 45);
+        var tertiaryColor = SKColor.FromHsl((baseHue + 320) % 360, 55, 70);
+
+        using var clipPath = new SKPath();
+        clipPath.AddRoundRect(new SKRect(imgX, imgY, imgX + targetW, imgY + targetH), 24, 24);
+        canvas.Save();
+        canvas.ClipPath(clipPath, antialias: true);
+
+        using var gradient = SKShader.CreateLinearGradient(
+            new SKPoint(imgX, imgY),
+            new SKPoint(imgX + targetW, imgY + targetH),
+            new[] { new SKColor(33, 36, 58), new SKColor(20, 24, 40) },
+            null,
+            SKShaderTileMode.Clamp);
+        using var backgroundPaint = new SKPaint { Shader = gradient, IsAntialias = true };
+        canvas.DrawRect(new SKRect(imgX, imgY, imgX + targetW, imgY + targetH), backgroundPaint);
+
+        using var glowPaint = new SKPaint
+        {
+            Color = accentColor.WithAlpha(70),
+            IsAntialias = true,
+            MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 36)
+        };
+        canvas.DrawCircle(imgX + 120, imgY + 120, 88, glowPaint);
+        canvas.DrawCircle(imgX + 360, imgY + 180, 104, glowPaint);
+
+        using var linePaint = new SKPaint
+        {
+            Color = tertiaryColor.WithAlpha(130),
+            StrokeWidth = 3,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke
+        };
+        using var nodePaint = new SKPaint
+        {
+            Color = accentColor,
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill
+        };
+        using var secondaryNodePaint = new SKPaint
+        {
+            Color = secondaryColor,
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill
+        };
+
+        var points = new[]
+        {
+            new SKPoint(imgX + 96, imgY + 140),
+            new SKPoint(imgX + 210, imgY + 96),
+            new SKPoint(imgX + 334, imgY + 150),
+            new SKPoint(imgX + 388, imgY + 276),
+            new SKPoint(imgX + 284, imgY + 388),
+            new SKPoint(imgX + 144, imgY + 356)
+        };
+
+        for (var i = 0; i < points.Length; i++)
+        {
+            var next = points[(i + 1) % points.Length];
+            canvas.DrawLine(points[i], next, linePaint);
+            canvas.DrawCircle(points[i], 14 + (i % 3) * 3, i % 2 == 0 ? nodePaint : secondaryNodePaint);
+        }
+
+        using var ringPaint = new SKPaint
+        {
+            Color = tertiaryColor.WithAlpha(180),
+            StrokeWidth = 10,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke
+        };
+        canvas.DrawCircle(imgX + 240, imgY + 256, 86, ringPaint);
+        canvas.DrawCircle(imgX + 240, imgY + 256, 42, linePaint);
+
+        canvas.Restore();
+
+        using var borderPaint = new SKPaint
+        {
+            Color = tertiaryColor.WithAlpha(120),
+            StrokeWidth = 2,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke
+        };
+        canvas.DrawRoundRect(imgX, imgY, targetW, targetH, 24, 24, borderPaint);
     }
 
     private List<string> WrapText(string text, int maxChars)

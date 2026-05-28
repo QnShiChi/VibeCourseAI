@@ -246,7 +246,7 @@ public class AppDbContext : DbContext
             entity.Property(quiz => quiz.SourceContentVersion).HasMaxLength(100);
             entity.Property(quiz => quiz.GenerationError).HasMaxLength(2000);
             entity.HasIndex(quiz => quiz.LessonId).IsUnique().HasFilter("[LessonId] IS NOT NULL");
-            entity.HasIndex(quiz => quiz.CourseId).IsUnique().HasFilter("[CourseId] IS NOT NULL");
+            entity.HasIndex(quiz => quiz.CourseId).IsUnique().HasFilter("[CourseId] IS NOT NULL AND [Type] = 'Final'");
             entity.HasOne(quiz => quiz.Lesson)
                 .WithMany()
                 .HasForeignKey(quiz => quiz.LessonId)
@@ -254,7 +254,7 @@ public class AppDbContext : DbContext
             entity.HasOne(quiz => quiz.Course)
                 .WithMany(course => course.Quizzes)
                 .HasForeignKey(quiz => quiz.CourseId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<QuizQuestion>(entity =>

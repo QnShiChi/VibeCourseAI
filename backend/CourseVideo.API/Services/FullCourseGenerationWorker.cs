@@ -79,11 +79,37 @@ public class FullCourseGenerationWorker : BackgroundService
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Full course generation background job {JobId} failed unexpectedly.", jobId);
+                await TryMarkJobAsFailedAsync(jobId, exception);
             }
             finally
             {
                 _cancellationTracker.UnregisterJob(jobId);
             }
+        }
+    }
+
+    private async Task TryMarkJobAsFailedAsync(Guid jobId, Exception exception)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var generationJobRepository = scope.ServiceProvider.GetRequiredService<IGenerationJobRepository>();
+            var job = await generationJobRepository.GetByIdAsync(jobId);
+            if (job is null)
+            {
+                return;
+            }
+
+            job.Status = "Failed";
+            job.ErrorMessage = exception.Message;
+            job.ProgressMessage = "Job generate full course kết thúc với lỗi hệ thống.";
+            job.CompletedAt = DateTime.UtcNow;
+            job.UpdatedAt = DateTime.UtcNow;
+            await generationJobRepository.SaveChangesAsync();
+        }
+        catch (Exception saveException)
+        {
+            _logger.LogError(saveException, "Failed to persist failed status for full-course generation job {JobId}.", jobId);
         }
     }
 }

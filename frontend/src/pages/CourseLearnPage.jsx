@@ -321,6 +321,7 @@ export default function CourseLearnPage() {
                 <LessonQuizPanel
                   initialStatus={selectedLesson.quizStatus}
                   lessonId={selectedLesson.lessonId}
+                  quizId={selectedLesson.quizId}
                   onLoadQuiz={getLessonQuiz}
                   onStartAttempt={startQuizAttempt}
                   onSubmitAttempt={submitQuizAttempt}

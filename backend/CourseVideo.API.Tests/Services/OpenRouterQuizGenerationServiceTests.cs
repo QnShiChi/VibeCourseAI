@@ -72,15 +72,59 @@ public class OpenRouterQuizGenerationServiceTests
             .WithMessage("*tiếng Việt có dấu*");
     }
 
-    private static OpenRouterQuizGenerationService CreateService(HttpMessageHandler handler)
+    [Fact]
+    public async Task GenerateLessonQuizAsync_ThrowsTimeout_WhenResponseBodyNeverCompletes()
     {
-        var client = new HttpClient(handler);
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NeverEndingStream())
+        });
+
+        var service = CreateService(handler, timeoutSeconds: 1);
+
+        var action = () => service.GenerateLessonQuizAsync(
+            new Course { Id = Guid.NewGuid(), Title = "AI", Description = "Desc" },
+            new Module { Id = Guid.NewGuid(), Title = "M1", Description = "Desc" },
+            new Lesson { Id = Guid.NewGuid(), Title = "L1", Description = "Desc", ContentSeed = "Noi dung bai hoc ve khai niem AI" });
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await action().WaitAsync(TimeSpan.FromSeconds(2)));
+
+        exception.Message.Should().Be("OpenRouter quiz request timeout.");
+    }
+
+    [Fact]
+    public async Task GenerateLessonQuizAsync_ThrowsTimeout_WhenResponseBodyIgnoresCancellation()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NonCooperativeNeverEndingStream())
+        });
+
+        var service = CreateService(handler, timeoutSeconds: 1);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await service.GenerateLessonQuizAsync(
+                    new Course { Id = Guid.NewGuid(), Title = "AI", Description = "Desc" },
+                    new Module { Id = Guid.NewGuid(), Title = "M1", Description = "Desc" },
+                    new Lesson { Id = Guid.NewGuid(), Title = "L1", Description = "Desc", ContentSeed = "Noi dung bai hoc ve khai niem AI" })
+                .WaitAsync(TimeSpan.FromSeconds(2)));
+
+        exception.Message.Should().Be("OpenRouter quiz request timeout.");
+    }
+
+    private static OpenRouterQuizGenerationService CreateService(HttpMessageHandler handler, int timeoutSeconds = 30)
+    {
+        var client = new HttpClient(handler)
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
         var options = Options.Create(new OpenRouterOptions
         {
             ApiKey = "test-key",
             Model = "test-model",
             BaseUrl = "https://openrouter.ai/api/v1",
-            TimeoutSeconds = 30
+            TimeoutSeconds = timeoutSeconds
         });
 
         return new OpenRouterQuizGenerationService(client, options, NullLogger<OpenRouterQuizGenerationService>.Instance);
@@ -98,6 +142,62 @@ public class OpenRouterQuizGenerationServiceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             return Task.FromResult(_responseFactory(request));
+        }
+    }
+
+    private sealed class NeverEndingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return 0;
+        }
+    }
+
+    private sealed class NonCooperativeNeverEndingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            while (true)
+            {
+                await Task.Delay(100);
+            }
         }
     }
 }

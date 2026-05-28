@@ -44,6 +44,7 @@ describe("LessonQuizPanel", () => {
       <LessonQuizPanel
         lessonId="lesson-1"
         initialStatus="Ready"
+        quizId="quiz-1"
         onLoadQuiz={onLoadQuiz}
         onStartAttempt={onStartAttempt}
         onSubmitAttempt={onSubmitAttempt}
@@ -56,5 +57,39 @@ describe("LessonQuizPanel", () => {
 
     expect(await screen.findByText("Diem: 100")).toBeInTheDocument();
     expect(screen.getByText("AI mo phong tri tue con nguoi.")).toBeInTheDocument();
+  });
+
+  it("shows a friendly message when quiz is not found", async () => {
+    const onLoadQuiz = vi.fn().mockRejectedValue({ response: { status: 404 } });
+
+    render(
+      <LessonQuizPanel
+        lessonId="lesson-1"
+        initialStatus="Ready"
+        quizId="quiz-1"
+        onLoadQuiz={onLoadQuiz}
+        onStartAttempt={vi.fn()}
+        onSubmitAttempt={vi.fn()}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Lam quiz" }));
+
+    expect(await screen.findByText("Quiz cho bài học này chưa sẵn sàng. Vui lòng thử lại sau.")).toBeInTheDocument();
+  });
+
+  it("does not render when the lesson has no quiz metadata", () => {
+    const { container } = render(
+      <LessonQuizPanel
+        lessonId="lesson-1"
+        initialStatus=""
+        quizId=""
+        onLoadQuiz={vi.fn()}
+        onStartAttempt={vi.fn()}
+        onSubmitAttempt={vi.fn()}
+      />
+    );
+
+    expect(container).toBeEmptyDOMElement();
   });
 });

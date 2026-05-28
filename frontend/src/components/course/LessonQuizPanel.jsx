@@ -1,15 +1,17 @@
 import { useState } from "react";
 import QuizAttemptResult from "./QuizAttemptResult";
 
-export default function LessonQuizPanel({ lessonId, initialStatus, onLoadQuiz, onStartAttempt, onSubmitAttempt }) {
+export default function LessonQuizPanel({ lessonId, quizId, initialStatus, onLoadQuiz, onStartAttempt, onSubmitAttempt }) {
   const [quiz, setQuiz] = useState(null);
   const [attemptId, setAttemptId] = useState("");
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleStart() {
     setIsLoading(true);
+    setErrorMessage("");
     try {
       const loadedQuiz = await onLoadQuiz(lessonId);
       const startedAttempt = await onStartAttempt(loadedQuiz.quizId);
@@ -17,6 +19,12 @@ export default function LessonQuizPanel({ lessonId, initialStatus, onLoadQuiz, o
       setAttemptId(startedAttempt.attemptId);
       setAnswers({});
       setResult(null);
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        setErrorMessage("Quiz cho bài học này chưa sẵn sàng. Vui lòng thử lại sau.");
+      } else {
+        setErrorMessage("Không thể tải quiz lúc này. Vui lòng thử lại sau.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -31,6 +39,10 @@ export default function LessonQuizPanel({ lessonId, initialStatus, onLoadQuiz, o
     };
     const submittedResult = await onSubmitAttempt(quiz.quizId, attemptId, payload);
     setResult(submittedResult);
+  }
+
+  if (!quizId && !initialStatus) {
+    return null;
   }
 
   if (initialStatus && initialStatus !== "Ready") {
@@ -49,6 +61,7 @@ export default function LessonQuizPanel({ lessonId, initialStatus, onLoadQuiz, o
       <div className="lesson-quiz-panel__header">
         <h3>Kiem tra nhanh sau bai hoc</h3>
       </div>
+      {errorMessage ? <p>{errorMessage}</p> : null}
       {!quiz ? (
         <button disabled={isLoading} onClick={handleStart} type="button">
           Lam quiz

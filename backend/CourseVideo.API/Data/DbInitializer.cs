@@ -54,16 +54,6 @@ public static class DbInitializer
 
     public static void Seed(AppDbContext dbContext, AdminSeedOptions adminSeed)
     {
-        if (!dbContext.Courses.Any())
-        {
-            dbContext.Courses.Add(new Course
-            {
-                Title = "Sample Course",
-                Description = "Skeleton course created during initial project setup.",
-                IsPublished = false
-            });
-        }
-
         var hasAdminSeed = !string.IsNullOrWhiteSpace(adminSeed.Email)
             && !string.IsNullOrWhiteSpace(adminSeed.Password)
             && !string.IsNullOrWhiteSpace(adminSeed.FullName);
@@ -334,11 +324,36 @@ public static class DbInitializer
                     [UpdatedAt] datetime2 NULL,
                     CONSTRAINT [PK_Quizzes] PRIMARY KEY ([Id]),
                     CONSTRAINT [FK_Quizzes_Lessons_LessonId] FOREIGN KEY ([LessonId]) REFERENCES [Lessons]([Id]) ON DELETE CASCADE,
-                    CONSTRAINT [FK_Quizzes_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]) ON DELETE CASCADE
+                    CONSTRAINT [FK_Quizzes_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id])
                 );
 
                 CREATE UNIQUE INDEX [IX_Quizzes_LessonId] ON [Quizzes]([LessonId]) WHERE [LessonId] IS NOT NULL;
-                CREATE UNIQUE INDEX [IX_Quizzes_CourseId] ON [Quizzes]([CourseId]) WHERE [CourseId] IS NOT NULL;
+                CREATE UNIQUE INDEX [IX_Quizzes_CourseId] ON [Quizzes]([CourseId]) WHERE [CourseId] IS NOT NULL AND [Type] = 'Final';
+            END
+
+            IF OBJECT_ID(N'[Quizzes]', N'U') IS NOT NULL
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'[Quizzes]')
+                      AND name = N'IX_Quizzes_LessonId'
+                )
+                BEGIN
+                    CREATE UNIQUE INDEX [IX_Quizzes_LessonId] ON [Quizzes]([LessonId]) WHERE [LessonId] IS NOT NULL;
+                END
+
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'[Quizzes]')
+                      AND name = N'IX_Quizzes_CourseId'
+                )
+                BEGIN
+                    DROP INDEX [IX_Quizzes_CourseId] ON [Quizzes];
+                END
+
+                CREATE UNIQUE INDEX [IX_Quizzes_CourseId] ON [Quizzes]([CourseId]) WHERE [CourseId] IS NOT NULL AND [Type] = 'Final';
             END
 
             IF OBJECT_ID(N'[QuizQuestions]', N'U') IS NULL

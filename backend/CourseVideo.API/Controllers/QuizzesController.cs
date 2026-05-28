@@ -39,15 +39,33 @@ public class QuizzesController : ControllerBase
     [HttpPost("quizzes/{quizId:guid}/attempts")]
     public async Task<ActionResult<CreateQuizAttemptResponse>> StartAttempt(Guid quizId, CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        return Ok(await _quizService.StartAttemptAsync(quizId, userId, cancellationToken));
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Ok(await _quizService.StartAttemptAsync(quizId, userId, cancellationToken));
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
     }
 
     [HttpPost("quizzes/{quizId:guid}/attempts/{attemptId:guid}/submit")]
     public async Task<ActionResult<SubmitQuizAttemptResponse>> SubmitAttempt(Guid quizId, Guid attemptId, [FromBody] SubmitQuizAttemptRequest request, CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        return Ok(await _quizService.SubmitAttemptAsync(quizId, attemptId, userId, request, cancellationToken));
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Ok(await _quizService.SubmitAttemptAsync(quizId, attemptId, userId, request, cancellationToken));
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpGet("quizzes/{quizId:guid}/attempts")]

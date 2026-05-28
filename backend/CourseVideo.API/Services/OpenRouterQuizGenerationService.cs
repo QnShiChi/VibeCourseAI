@@ -127,66 +127,117 @@ public class OpenRouterQuizGenerationService : IOpenRouterQuizGenerationService
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
 
-        HttpResponseMessage response;
+        var timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds > 0 ? _options.TimeoutSeconds : 30);
 
         try
         {
-            response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await ExecuteWithTimeoutAsync(
+                token => _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token),
+                timeout,
+                cancellationToken,
+                () => new InvalidOperationException("OpenRouter quiz request timeout."));
+
+            var payload = await ExecuteWithTimeoutAsync(
+                token => response.Content.ReadAsStringAsync(token),
+                timeout,
+                cancellationToken,
+                () => new InvalidOperationException("OpenRouter quiz request timeout."));
+
+            OpenRouterChatCompletionResponse? envelope;
+
+            try
+            {
+                envelope = JsonSerializer.Deserialize<OpenRouterChatCompletionResponse>(payload, JsonOptions);
+            }
+            catch (JsonException exception)
+            {
+                throw new InvalidOperationException("OpenRouter quiz payload không hợp lệ.", exception);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = string.IsNullOrWhiteSpace(envelope?.Error?.Message)
+                    ? $"OpenRouter quiz generation failed with HTTP {(int)response.StatusCode}."
+                    : envelope.Error.Message.Trim();
+
+                throw response.StatusCode switch
+                {
+                    HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new InvalidOperationException(message),
+                    _ => new InvalidOperationException(message)
+                };
+            }
+
+            var content = envelope?.Choices.FirstOrDefault()?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                throw new InvalidOperationException("OpenRouter không trả về nội dung quiz.");
+            }
+
+            OpenRouterQuizGenerationResult? result;
+
+            try
+            {
+                result = JsonSerializer.Deserialize<OpenRouterQuizGenerationResult>(content, JsonOptions);
+            }
+            catch (JsonException exception)
+            {
+                _logger.LogWarning(exception, "OpenRouter quiz JSON invalid. Raw content: {Content}", content);
+                throw new InvalidOperationException("OpenRouter quiz JSON không hợp lệ.", exception);
+            }
+
+            ValidateResult(result);
+            return result!;
         }
-        catch (TaskCanceledException exception)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            throw new InvalidOperationException("OpenRouter quiz request timeout.", exception);
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
         }
         catch (Exception exception)
         {
             throw new InvalidOperationException("Không thể kết nối đến OpenRouter để sinh quiz.", exception);
         }
+    }
 
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
-        OpenRouterChatCompletionResponse? envelope;
+    private static async Task<T> ExecuteWithTimeoutAsync<T>(
+        Func<CancellationToken, Task<T>> operationFactory,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        Func<Exception> timeoutExceptionFactory)
+    {
+        using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var operationTask = operationFactory(operationCancellation.Token);
+        var timeoutTask = Task.Delay(timeout);
+        var cancellationTask = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        var completedTask = await Task.WhenAny(operationTask, timeoutTask, cancellationTask);
 
-        try
+        if (completedTask == operationTask)
         {
-            envelope = JsonSerializer.Deserialize<OpenRouterChatCompletionResponse>(payload, JsonOptions);
-        }
-        catch (JsonException exception)
-        {
-            throw new InvalidOperationException("OpenRouter quiz payload không hợp lệ.", exception);
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var message = string.IsNullOrWhiteSpace(envelope?.Error?.Message)
-                ? $"OpenRouter quiz generation failed with HTTP {(int)response.StatusCode}."
-                : envelope.Error.Message.Trim();
-
-            throw response.StatusCode switch
+            try
             {
-                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new InvalidOperationException(message),
-                _ => new InvalidOperationException(message)
-            };
+                return await operationTask;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                throw timeoutExceptionFactory();
+            }
         }
 
-        var content = envelope?.Choices.FirstOrDefault()?.Message?.Content;
-        if (string.IsNullOrWhiteSpace(content))
+        operationCancellation.Cancel();
+
+        if (completedTask == cancellationTask)
         {
-            throw new InvalidOperationException("OpenRouter không trả về nội dung quiz.");
+            throw new OperationCanceledException(cancellationToken);
         }
 
-        OpenRouterQuizGenerationResult? result;
-
-        try
-        {
-            result = JsonSerializer.Deserialize<OpenRouterQuizGenerationResult>(content, JsonOptions);
-        }
-        catch (JsonException exception)
-        {
-            _logger.LogWarning(exception, "OpenRouter quiz JSON invalid. Raw content: {Content}", content);
-            throw new InvalidOperationException("OpenRouter quiz JSON không hợp lệ.", exception);
-        }
-
-        ValidateResult(result);
-        return result!;
+        throw timeoutExceptionFactory();
     }
 
     private static void ValidateResult(OpenRouterQuizGenerationResult? result)

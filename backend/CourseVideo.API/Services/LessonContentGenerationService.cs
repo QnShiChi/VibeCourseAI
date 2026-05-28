@@ -16,19 +16,22 @@ public class LessonContentGenerationService : ILessonContentGenerationService
     private readonly IGenerationJobRepository _generationJobRepository;
     private readonly IOpenRouterLessonContentService _openRouterLessonContentService;
     private readonly IGenerationJobQueue _generationJobQueue;
+    private readonly IQuizGenerationService _quizGenerationService;
 
     public LessonContentGenerationService(
         ICourseRepository courseRepository,
         ILessonRepository lessonRepository,
         IGenerationJobRepository generationJobRepository,
         IOpenRouterLessonContentService openRouterLessonContentService,
-        IGenerationJobQueue generationJobQueue)
+        IGenerationJobQueue generationJobQueue,
+        IQuizGenerationService quizGenerationService)
     {
         _courseRepository = courseRepository;
         _lessonRepository = lessonRepository;
         _generationJobRepository = generationJobRepository;
         _openRouterLessonContentService = openRouterLessonContentService;
         _generationJobQueue = generationJobQueue;
+        _quizGenerationService = quizGenerationService;
     }
 
     public async Task<GenerateLessonContentResponse> GenerateCourseContentAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
@@ -196,6 +199,7 @@ public class LessonContentGenerationService : ILessonContentGenerationService
             try
             {
                 await GenerateContentForLessonInternalAsync(course, module, lesson, cancellationToken);
+                await TryGenerateLessonQuizAsync(course.Id, lesson.Id, cancellationToken);
             }
             catch (Exception exception) when (exception is LessonContentGenerationException or OpenRouterConfigurationException or OpenRouterValidationException or OpenRouterTechnicalException)
             {
@@ -250,6 +254,7 @@ public class LessonContentGenerationService : ILessonContentGenerationService
         try
         {
             await GenerateContentForLessonInternalAsync(course, module, lesson, cancellationToken);
+            await TryGenerateLessonQuizAsync(course.Id, lesson.Id, cancellationToken);
             job.Status = "Completed";
             job.ProgressMessage = "Đã generate lại lesson thành công.";
             job.ErrorMessage = null;
@@ -312,6 +317,18 @@ public class LessonContentGenerationService : ILessonContentGenerationService
             FailedLessons = 0,
             Message = job.ProgressMessage ?? string.Empty
         };
+    }
+
+    private async Task TryGenerateLessonQuizAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _quizGenerationService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken);
+        }
+        catch
+        {
+            // Quiz generation is best-effort and should not invalidate generated lesson content.
+        }
     }
 
     private static void FinalizeCourseJob(GenerationJob job, int totalLessons, int failed)

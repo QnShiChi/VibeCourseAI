@@ -106,6 +106,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IModuleRepository, ModuleRepository>();
 builder.Services.AddScoped<ILessonRepository, LessonRepository>();
+builder.Services.AddScoped<IQuizRepository, QuizRepository>();
 builder.Services.AddScoped<ILessonVoiceSessionRepository, LessonVoiceSessionRepository>();
 builder.Services.AddScoped<ILessonCommentRepository, LessonCommentRepository>();
 builder.Services.AddScoped<IGenerationJobRepository, GenerationJobRepository>();
@@ -122,6 +123,7 @@ builder.Services.AddHostedService<LessonAudioGenerationWorker>();
 builder.Services.AddHostedService<LessonVideoGenerationWorker>();
 builder.Services.AddHostedService<FullCourseGenerationWorker>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IQuizGenerationService, QuizGenerationService>();
 builder.Services.AddScoped<ILessonContentGenerationService, LessonContentGenerationService>();
 builder.Services.AddScoped<ILessonAudioGenerationService, LessonAudioGenerationService>();
 builder.Services.AddScoped<ILessonVideoGenerationService, LessonVideoGenerationService>();

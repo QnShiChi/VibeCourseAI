@@ -19,6 +19,7 @@ public class CourseService : ICourseService
     private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
     private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
     private readonly IFullCourseGenerationService _fullCourseGenerationService;
+    private readonly IQuizGenerationService _quizGenerationService;
     private readonly IWebHostEnvironment _environment;
 
     public CourseService(
@@ -27,6 +28,7 @@ public class CourseService : ICourseService
         ILessonAudioGenerationService lessonAudioGenerationService,
         ILessonVideoGenerationService lessonVideoGenerationService,
         IFullCourseGenerationService fullCourseGenerationService,
+        IQuizGenerationService quizGenerationService,
         IWebHostEnvironment environment)
     {
         _courseRepository = courseRepository;
@@ -34,6 +36,7 @@ public class CourseService : ICourseService
         _lessonAudioGenerationService = lessonAudioGenerationService;
         _lessonVideoGenerationService = lessonVideoGenerationService;
         _fullCourseGenerationService = fullCourseGenerationService;
+        _quizGenerationService = quizGenerationService;
         _environment = environment;
     }
 
@@ -179,6 +182,16 @@ public class CourseService : ICourseService
     public Task<GenerateLessonVideoResponse> RegenerateLessonVideoAsync(Guid courseId, Guid lessonId, Guid createdByUserId, CancellationToken cancellationToken = default)
     {
         return _lessonVideoGenerationService.GenerateLessonVideoAsync(courseId, lessonId, createdByUserId, cancellationToken);
+    }
+
+    public Task GenerateLessonQuizAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken = default)
+    {
+        return _quizGenerationService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken);
+    }
+
+    public Task GenerateFinalQuizAsync(Guid courseId, CancellationToken cancellationToken = default)
+    {
+        return _quizGenerationService.GenerateFinalQuizAsync(courseId, cancellationToken);
     }
 
     public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, bool canPreviewDraft)

@@ -230,7 +230,24 @@ public class CourseServiceTests
         result!.Category.Should().Be("Development");
     }
 
-    private static CourseService CreateCourseService(Mock<ICourseRepository> repository)
+    [Fact]
+    public async Task GenerateLessonQuizAsync_ForwardsRequestToQuizGenerationService()
+    {
+        var repository = new Mock<ICourseRepository>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
+        quizGenerationService.Setup(x => x.GenerateLessonQuizAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = CreateCourseService(repository, quizGenerationService);
+        var courseId = Guid.NewGuid();
+        var lessonId = Guid.NewGuid();
+
+        await service.GenerateLessonQuizAsync(courseId, lessonId);
+
+        quizGenerationService.Verify(x => x.GenerateLessonQuizAsync(courseId, lessonId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static CourseService CreateCourseService(Mock<ICourseRepository> repository, Mock<IQuizGenerationService>? quizGenerationService = null)
     {
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns("/tmp/vibecourseai-course-service-tests");
@@ -241,6 +258,7 @@ public class CourseServiceTests
             Mock.Of<ILessonAudioGenerationService>(),
             Mock.Of<ILessonVideoGenerationService>(),
             Mock.Of<IFullCourseGenerationService>(),
+            quizGenerationService?.Object ?? Mock.Of<IQuizGenerationService>(),
             environment.Object);
     }
 }

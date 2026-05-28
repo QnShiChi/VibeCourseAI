@@ -22,6 +22,11 @@ public class AppDbContext : DbContext
     public DbSet<LessonVoiceSession> LessonVoiceSessions => Set<LessonVoiceSession>();
     public DbSet<LessonVoiceTurn> LessonVoiceTurns => Set<LessonVoiceTurn>();
     public DbSet<LessonVoiceMessage> LessonVoiceMessages => Set<LessonVoiceMessage>();
+    public DbSet<Quiz> Quizzes => Set<Quiz>();
+    public DbSet<QuizQuestion> QuizQuestions => Set<QuizQuestion>();
+    public DbSet<QuizOption> QuizOptions => Set<QuizOption>();
+    public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
+    public DbSet<QuizAttemptAnswer> QuizAttemptAnswers => Set<QuizAttemptAnswer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -230,6 +235,78 @@ public class AppDbContext : DbContext
                 .WithMany(session => session.Messages)
                 .HasForeignKey(message => message.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Quiz>(entity =>
+        {
+            entity.HasKey(quiz => quiz.Id);
+            entity.Property(quiz => quiz.Type).HasMaxLength(30).IsRequired();
+            entity.Property(quiz => quiz.Status).HasMaxLength(30).IsRequired();
+            entity.Property(quiz => quiz.Title).HasMaxLength(300).IsRequired();
+            entity.Property(quiz => quiz.SourceContentVersion).HasMaxLength(100);
+            entity.Property(quiz => quiz.GenerationError).HasMaxLength(2000);
+            entity.HasIndex(quiz => quiz.LessonId).IsUnique().HasFilter("[LessonId] IS NOT NULL");
+            entity.HasIndex(quiz => quiz.CourseId).IsUnique().HasFilter("[CourseId] IS NOT NULL");
+            entity.HasOne(quiz => quiz.Lesson)
+                .WithMany()
+                .HasForeignKey(quiz => quiz.LessonId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(quiz => quiz.Course)
+                .WithMany(course => course.Quizzes)
+                .HasForeignKey(quiz => quiz.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuizQuestion>(entity =>
+        {
+            entity.HasKey(question => question.Id);
+            entity.Property(question => question.QuestionText).HasMaxLength(2000).IsRequired();
+            entity.Property(question => question.Explanation).HasMaxLength(2000).IsRequired();
+            entity.HasIndex(question => new { question.QuizId, question.OrderIndex });
+            entity.HasOne(question => question.Quiz)
+                .WithMany(quiz => quiz.Questions)
+                .HasForeignKey(question => question.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuizOption>(entity =>
+        {
+            entity.HasKey(option => option.Id);
+            entity.Property(option => option.OptionText).HasMaxLength(1000).IsRequired();
+            entity.HasIndex(option => new { option.QuizQuestionId, option.OrderIndex });
+            entity.HasOne(option => option.QuizQuestion)
+                .WithMany(question => question.Options)
+                .HasForeignKey(option => option.QuizQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuizAttempt>(entity =>
+        {
+            entity.HasKey(attempt => attempt.Id);
+            entity.Property(attempt => attempt.Score).HasPrecision(5, 2);
+            entity.HasIndex(attempt => new { attempt.QuizId, attempt.UserId, attempt.StartedAt });
+            entity.HasOne(attempt => attempt.Quiz)
+                .WithMany(quiz => quiz.Attempts)
+                .HasForeignKey(attempt => attempt.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(attempt => attempt.User)
+                .WithMany()
+                .HasForeignKey(attempt => attempt.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<QuizAttemptAnswer>(entity =>
+        {
+            entity.HasKey(answer => answer.Id);
+            entity.HasIndex(answer => new { answer.QuizAttemptId, answer.QuizQuestionId }).IsUnique();
+            entity.HasOne(answer => answer.QuizAttempt)
+                .WithMany(attempt => attempt.Answers)
+                .HasForeignKey(answer => answer.QuizAttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(answer => answer.QuizQuestion)
+                .WithMany()
+                .HasForeignKey(answer => answer.QuizQuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

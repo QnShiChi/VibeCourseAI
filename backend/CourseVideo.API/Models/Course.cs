@@ -12,4 +12,5 @@ public class Course : BaseEntity
     public Syllabus? Syllabus { get; set; }
     public ICollection<Module> Modules { get; set; } = new List<Module>();
     public ICollection<GenerationJob> GenerationJobs { get; set; } = new List<GenerationJob>();
+    public ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
 }

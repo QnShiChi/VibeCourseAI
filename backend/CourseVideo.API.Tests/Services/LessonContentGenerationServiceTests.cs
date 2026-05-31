@@ -19,6 +19,7 @@ public class LessonContentGenerationServiceTests
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var generator = new Mock<IOpenRouterLessonContentService>();
         var queue = new Mock<IGenerationJobQueue>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
         var courseId = Guid.NewGuid();
         var course = CreateCourseWithLessons(courseId, 2, lessonStatus: "NotGenerated");
 
@@ -32,7 +33,8 @@ public class LessonContentGenerationServiceTests
             lessonRepository.Object,
             generationJobRepository.Object,
             generator.Object,
-            queue.Object);
+            queue.Object,
+            quizGenerationService.Object);
 
         var result = await service.GenerateCourseContentAsync(courseId, Guid.NewGuid(), CancellationToken.None);
 
@@ -50,6 +52,7 @@ public class LessonContentGenerationServiceTests
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var generator = new Mock<IOpenRouterLessonContentService>();
         var queue = new Mock<IGenerationJobQueue>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
         var courseId = Guid.NewGuid();
         var course = CreateCourseWithLessons(courseId, 1, lessonStatus: "Failed");
         var module = course.Modules.First();
@@ -67,7 +70,8 @@ public class LessonContentGenerationServiceTests
             lessonRepository.Object,
             generationJobRepository.Object,
             generator.Object,
-            queue.Object);
+            queue.Object,
+            quizGenerationService.Object);
 
         var result = await service.RegenerateLessonContentAsync(courseId, lesson.Id, Guid.NewGuid(), CancellationToken.None);
 
@@ -84,6 +88,7 @@ public class LessonContentGenerationServiceTests
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var generator = new Mock<IOpenRouterLessonContentService>();
         var queue = new Mock<IGenerationJobQueue>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
         var courseId = Guid.NewGuid();
         var course = CreateCourseWithLessons(courseId, 1, lessonStatus: "Failed");
         var module = course.Modules.First();
@@ -112,7 +117,8 @@ public class LessonContentGenerationServiceTests
             lessonRepository.Object,
             generationJobRepository.Object,
             generator.Object,
-            queue.Object);
+            queue.Object,
+            quizGenerationService.Object);
 
         await service.ProcessJobAsync(job.Id, CancellationToken.None);
 
@@ -120,6 +126,54 @@ public class LessonContentGenerationServiceTests
         job.Status.Should().Be("Completed");
         job.ProcessedItems.Should().Be(1);
         job.FailedItems.Should().Be(0);
+        quizGenerationService.Verify(x => x.GenerateLessonQuizAsync(courseId, lesson.Id, CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessJobAsync_GeneratesLessonQuiz_ForEachSuccessfullyGeneratedLesson()
+    {
+        var courseRepository = new Mock<ICourseRepository>();
+        var lessonRepository = new Mock<ILessonRepository>();
+        var generationJobRepository = new Mock<IGenerationJobRepository>();
+        var generator = new Mock<IOpenRouterLessonContentService>();
+        var queue = new Mock<IGenerationJobQueue>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
+        var courseId = Guid.NewGuid();
+        var course = CreateCourseWithLessons(courseId, 2, lessonStatus: "NotGenerated");
+        var job = new GenerationJob
+        {
+            Id = Guid.NewGuid(),
+            CourseId = courseId,
+            SyllabusId = course.SyllabusId!.Value,
+            JobType = "GenerateLessonContent",
+            Status = "Pending"
+        };
+
+        generationJobRepository.Setup(x => x.GetByIdAsync(job.Id)).ReturnsAsync(job);
+        generationJobRepository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+        courseRepository.Setup(x => x.GetByIdWithStructureAsync(courseId)).ReturnsAsync(course);
+        lessonRepository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+
+        foreach (var lesson in course.Modules.SelectMany(module => module.Lessons))
+        {
+            generator.Setup(x => x.GenerateAsync(course, lesson.Module!, lesson, CancellationToken.None))
+                .ReturnsAsync(CreateContentResult(lesson));
+        }
+
+        var service = new LessonContentGenerationService(
+            courseRepository.Object,
+            lessonRepository.Object,
+            generationJobRepository.Object,
+            generator.Object,
+            queue.Object,
+            quizGenerationService.Object);
+
+        await service.ProcessJobAsync(job.Id, CancellationToken.None);
+
+        foreach (var lesson in course.Modules.SelectMany(module => module.Lessons))
+        {
+            quizGenerationService.Verify(x => x.GenerateLessonQuizAsync(courseId, lesson.Id, CancellationToken.None), Times.Once);
+        }
     }
 
     private static Course CreateCourseWithLessons(Guid courseId, int lessonCount, string lessonStatus)

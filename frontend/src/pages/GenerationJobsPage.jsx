@@ -10,6 +10,23 @@ function getStatusClassName(status) {
   return `status-badge status-badge--${status.toLowerCase()}`;
 }
 
+function isJobActive(status) {
+  return status === "Pending"
+    || status === "GeneratingFullCourse"
+    || status === "GeneratingLessonContent"
+    || status === "RegeneratingLessonContent"
+    || status === "GeneratingLessonAudio"
+    || status === "GeneratingLessonVideo";
+}
+
+function getProgressPercent(job) {
+  if (!job?.totalItems) {
+    return 0;
+  }
+
+  return Math.min(100, Math.round((job.processedItems / job.totalItems) * 100));
+}
+
 export default function GenerationJobsPage() {
   const [jobs, setJobs] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -20,8 +37,23 @@ export default function GenerationJobsPage() {
     loadJobs();
   }, []);
 
-  async function loadJobs(selectedId = null) {
-    setIsLoading(true);
+  useEffect(() => {
+    if (!selected?.id || !isJobActive(selected.status)) {
+      return undefined;
+    }
+
+    const timerId = window.setInterval(() => {
+      loadJobs(selected.id, { showLoading: false });
+    }, 2500);
+
+    return () => window.clearInterval(timerId);
+  }, [selected?.id, selected?.status]);
+
+  async function loadJobs(selectedId = null, { showLoading = true } = {}) {
+    if (showLoading) {
+      setIsLoading(true);
+    }
+
     setErrorMessage("");
     try {
       const items = await getGenerationJobs();
@@ -36,7 +68,9 @@ export default function GenerationJobsPage() {
     } catch {
       setErrorMessage("Không thể tải danh sách generation jobs.");
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -104,6 +138,23 @@ export default function GenerationJobsPage() {
 
           {selected ? (
             <div className="section-stack">
+              <div className="generation-progress" aria-label="Tiến trình generation job">
+                <div className="generation-progress__header">
+                  <div>
+                    <strong>{selected.jobType || "Generation job"}</strong>
+                    <p>{selected.progressMessage || "Đang chuẩn bị job..."}</p>
+                  </div>
+                  <span>{getProgressPercent(selected)}%</span>
+                </div>
+                <div className="generation-progress__bar" aria-hidden="true">
+                  <div className="generation-progress__fill" style={{ width: `${getProgressPercent(selected)}%` }} />
+                </div>
+                <div className="course-card__stats">
+                  <span>{selected.processedItems || 0}/{selected.totalItems || 0} bước đã xử lý</span>
+                  <span>{selected.failedItems || 0} lesson lỗi</span>
+                </div>
+              </div>
+
               <div className="info-grid two-column-grid">
                 <div className="profile-detail">
                   <span className="profile-detail__label">Đề cương nguồn</span>

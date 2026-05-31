@@ -59,8 +59,8 @@ public class LessonServiceTests
         var result = await service.UpdateGeneratedContentAsync(lesson.Id, new UpdateLessonGeneratedContentRequest
         {
             TeachingScript = " Script moi ",
-            SlideOutlineJson = " {\"slides\":[{\"title\":\"S1\"}]} ",
-            VoiceoverPlanJson = " {\"tone\":\"clear\"} "
+            SlideOutlineJson = " [{\"SlideNumber\":1,\"Title\":\"S1\",\"BulletPoints\":[\"BP1\"],\"SpeakerNotes\":\"Note\"}] ",
+            VoiceoverPlanJson = " {\"EstimatedDurationMinutes\":5,\"Tone\":\"clear\",\"Pacing\":\"normal\",\"TargetAudience\":\"all\",\"PronunciationNotes\":\"none\"} "
         });
 
         result.Should().NotBeNull();

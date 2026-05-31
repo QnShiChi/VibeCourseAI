@@ -1669,6 +1669,107 @@ img {
   font-weight: 600;
 }
 
+.lesson-voice-fab {
+  position: absolute;
+  right: 18px;
+  bottom: 88px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.lesson-voice-fab__dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lesson-voice-fab__label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 0.95rem;
+  border: 1px solid rgba(180, 255, 68, 0.24);
+  border-radius: 999px;
+  background: rgba(13, 20, 17, 0.82);
+  color: #f7ffe9;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(10px);
+}
+
+.lesson-voice-fab__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(180, 255, 68, 0.32);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(180, 255, 68, 0.96), rgba(118, 193, 34, 0.96));
+  color: #10211b;
+  box-shadow: 0 18px 36px rgba(8, 17, 14, 0.28);
+  cursor: pointer;
+}
+
+.lesson-voice-fab__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.lesson-voice-fab__icon {
+  width: 24px;
+  height: 24px;
+}
+
+.lesson-voice-fab--recording .lesson-voice-fab__button {
+  animation: lesson-voice-pulse 1.35s ease-in-out infinite;
+}
+
+.lesson-voice-fab__actions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.lesson-voice-fab__actions button {
+  min-height: 40px;
+  padding: 0 0.95rem;
+  border: 1px solid rgba(180, 255, 68, 0.24);
+  border-radius: 999px;
+  background: rgba(13, 20, 17, 0.9);
+  color: #f7ffe9;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-voice-fab__error {
+  max-width: 260px;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 118, 118, 0.28);
+  border-radius: 14px;
+  background: rgba(38, 18, 20, 0.92);
+  color: #ffe7e7;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+@keyframes lesson-voice-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 18px 36px rgba(8, 17, 14, 0.28);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(180, 255, 68, 0.18);
+  }
+}
+
 .learn-stage-card__badge {
   position: absolute;
   top: 20px;
@@ -2076,6 +2177,49 @@ img {
   margin-right: 8px;
   font-style: italic;
   text-transform: uppercase;
+}
+
+.lesson-quiz-panel,
+.final-quiz-card,
+.quiz-result {
+  border: 1px solid var(--color-charcoal-border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow-subtle);
+  padding: 20px;
+}
+
+.lesson-quiz-panel__header,
+.final-quiz-card__eyebrow {
+  margin-bottom: 12px;
+}
+
+.lesson-quiz-panel__question {
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.lesson-quiz-panel label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.quiz-result__headline {
+  font-weight: 700;
+}
+
+.quiz-result__answers {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.final-quiz-card {
+  margin-top: 20px;
 }
 
 .compact-empty-state {

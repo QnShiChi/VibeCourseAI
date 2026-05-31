@@ -30,4 +30,22 @@ public class GenerationJobsController : ControllerBase
         var job = await _courseGenerationService.GetJobByIdAsync(id);
         return job is null ? NotFound() : Ok(job);
     }
+
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> CancelJob(Guid id)
+    {
+        try
+        {
+            await _courseGenerationService.CancelJobAsync(id);
+            return Ok(new { Message = "Đã hủy tiến trình thành công." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { Message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
 }

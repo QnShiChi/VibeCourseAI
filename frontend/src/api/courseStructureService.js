@@ -24,6 +24,10 @@ export async function uploadCourseThumbnail(courseId, file) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const { data } = await axiosClient.post(`/courses/${courseId}/thumbnail`, formData);
+  const { data } = await axiosClient.post(`/courses/${courseId}/thumbnail`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
   return data;
 }

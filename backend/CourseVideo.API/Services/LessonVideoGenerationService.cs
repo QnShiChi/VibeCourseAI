@@ -1,10 +1,9 @@
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using CourseVideo.API.DTOs.Courses;
+using CourseVideo.API.DTOs.VideoWorker;
 using CourseVideo.API.Models;
 using CourseVideo.API.Repositories.Interfaces;
 using CourseVideo.API.Services.Interfaces;
+using CourseVideo.API.Services.Video;
 
 namespace CourseVideo.API.Services;
 
@@ -16,20 +15,29 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
     private readonly ILessonRepository _lessonRepository;
     private readonly IGenerationJobRepository _generationJobRepository;
     private readonly ILessonVideoJobQueue _lessonVideoJobQueue;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ITimelineService _timelineService;
+    private readonly IStorageService _storageService;
+    private readonly IRenderService _renderService;
+    private readonly IFFmpegService _ffmpegService;
 
     public LessonVideoGenerationService(
         ICourseRepository courseRepository,
         ILessonRepository lessonRepository,
         IGenerationJobRepository generationJobRepository,
         ILessonVideoJobQueue lessonVideoJobQueue,
-        IHttpClientFactory httpClientFactory)
+        ITimelineService timelineService,
+        IStorageService storageService,
+        IRenderService renderService,
+        IFFmpegService ffmpegService)
     {
         _courseRepository = courseRepository;
         _lessonRepository = lessonRepository;
         _generationJobRepository = generationJobRepository;
         _lessonVideoJobQueue = lessonVideoJobQueue;
-        _httpClientFactory = httpClientFactory;
+        _timelineService = timelineService;
+        _storageService = storageService;
+        _renderService = renderService;
+        _ffmpegService = ffmpegService;
     }
 
     public async Task<GenerateLessonVideoResponse> GenerateCourseVideoAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
@@ -131,6 +139,10 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
 
             await ProcessCourseJobAsync(job, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             job.Status = "Failed";
@@ -193,7 +205,12 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
 
             try
             {
-                await GenerateVideoForLessonAsync(lesson, cancellationToken);
+                await GenerateVideoForLessonInternalAsync(lesson, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                ResetVideoGenerationState(lesson, "Tiến trình tạo video đã bị hủy.");
+                throw;
             }
             catch (Exception exception)
             {
@@ -245,11 +262,16 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
 
         try
         {
-            await GenerateVideoForLessonAsync(lesson, cancellationToken);
+            await GenerateVideoForLessonInternalAsync(lesson, cancellationToken);
             job.Status = "Completed";
             job.ProgressMessage = "Đã generate video lesson thành công.";
             job.ErrorMessage = null;
             job.FailedItems = 0;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            ResetVideoGenerationState(lesson, "Tiến trình tạo video đã bị hủy.");
+            throw;
         }
         catch (Exception exception)
         {
@@ -271,41 +293,43 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
         await _generationJobRepository.SaveChangesAsync();
     }
 
-    private async Task GenerateVideoForLessonAsync(Lesson lesson, CancellationToken cancellationToken)
+    public async Task GenerateVideoForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken)
     {
         LessonVideoValidation.ValidateReadyForVideo(lesson);
 
-        var client = _httpClientFactory.CreateClient("VideoWorker");
-        var payload = new VideoWorkerLessonRequest
+        var slides = _timelineService.ParseSlideOutlineJson(lesson.SlideOutlineJson ?? string.Empty);
+        if (slides.Count == 0)
         {
-            LessonId = lesson.Id,
-            LessonTitle = lesson.Title,
-            SlideOutlineJson = lesson.SlideOutlineJson ?? string.Empty,
-            AudioUrl = lesson.AudioUrl ?? string.Empty,
-            AudioSegmentsJson = lesson.AudioSegmentsJson ?? string.Empty
-        };
-
-        using var response = await client.PostAsJsonAsync("/jobs/generate-lesson-video", payload, cancellationToken);
-        var workerResponse = await response.Content.ReadFromJsonAsync<VideoWorkerLessonResponse>(cancellationToken: cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var rawContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            var message = workerResponse?.ErrorMessage
-                ?? ExtractWorkerErrorMessage(rawContent)
-                ?? rawContent
-                ?? "Video worker không thể render video cho lesson.";
-            throw new InvalidOperationException(message);
+            throw new InvalidOperationException("Lesson phải có ít nhất một slide để render video.");
         }
 
-        if (workerResponse is null)
+        var audioSegments = _timelineService.ParseAudioSegmentsJson(lesson.AudioSegmentsJson ?? string.Empty);
+        var timeline = _timelineService.BuildSlideTimeline(audioSegments);
+        var slideLookup = slides.ToDictionary(slide => slide.SlideNumber, slide => slide);
+        var slidePaths = new List<string>();
+        var durations = new List<double>();
+        var framesDir = _storageService.BuildVideoFramesDir(lesson.Id.ToString());
+
+        foreach (var item in timeline)
         {
-            throw new InvalidOperationException("Video worker trả về dữ liệu video rỗng.");
+            if (!slideLookup.TryGetValue(item.SlideNumber, out var slide))
+            {
+                throw new InvalidOperationException($"Không tìm thấy slide {item.SlideNumber} để khớp với audio segment.");
+            }
+
+            var slidePath = Path.Combine(framesDir, $"slide-{item.SlideNumber:D3}.png");
+            await _renderService.RenderSlidePngAsync(slidePath, slide, cancellationToken);
+            slidePaths.Add(slidePath);
+            durations.Add(item.DurationSeconds);
         }
 
-        lesson.VideoUrl = workerResponse.VideoUrl;
-        lesson.Duration = workerResponse.DurationSeconds > 0
-            ? (int)Math.Ceiling(workerResponse.DurationSeconds)
+        var audioPath = _storageService.ResolveStoragePathFromUrl(lesson.AudioUrl ?? string.Empty);
+        var finalPath = _storageService.BuildVideoOutputPath(lesson.Id.ToString());
+        var totalDuration = await _ffmpegService.AssembleVideoAsync(slidePaths, durations, audioPath, finalPath, cancellationToken);
+
+        lesson.VideoUrl = $"/storage/video/{Path.GetFileName(finalPath)}";
+        lesson.Duration = totalDuration > 0
+            ? (int)Math.Ceiling(totalDuration)
             : lesson.Duration;
         lesson.VideoGenerationStatus = "Completed";
         lesson.VideoGenerationError = null;
@@ -380,58 +404,11 @@ public class LessonVideoGenerationService : ILessonVideoGenerationService
         job.UpdatedAt = DateTime.UtcNow;
     }
 
-    private static string? ExtractWorkerErrorMessage(string? rawContent)
+    private static void ResetVideoGenerationState(Lesson lesson, string message)
     {
-        if (string.IsNullOrWhiteSpace(rawContent))
-        {
-            return null;
-        }
-
-        try
-        {
-            var payload = JsonSerializer.Deserialize<JsonElement>(rawContent);
-            if (payload.ValueKind == JsonValueKind.Object &&
-                payload.TryGetProperty("detail", out var detail) &&
-                detail.ValueKind == JsonValueKind.String)
-            {
-                return detail.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-
-        return null;
-    }
-
-    private sealed class VideoWorkerLessonRequest
-    {
-        [JsonPropertyName("lesson_id")]
-        public Guid LessonId { get; set; }
-
-        [JsonPropertyName("lesson_title")]
-        public string LessonTitle { get; set; } = string.Empty;
-
-        [JsonPropertyName("slide_outline_json")]
-        public string SlideOutlineJson { get; set; } = string.Empty;
-
-        [JsonPropertyName("audio_url")]
-        public string AudioUrl { get; set; } = string.Empty;
-
-        [JsonPropertyName("audio_segments_json")]
-        public string AudioSegmentsJson { get; set; } = string.Empty;
-    }
-
-    private sealed class VideoWorkerLessonResponse
-    {
-        [JsonPropertyName("video_url")]
-        public string VideoUrl { get; set; } = string.Empty;
-
-        [JsonPropertyName("duration_seconds")]
-        public double DurationSeconds { get; set; }
-
-        [JsonPropertyName("error_message")]
-        public string? ErrorMessage { get; set; }
+        lesson.VideoGenerationStatus = "NotGenerated";
+        lesson.VideoGenerationError = message;
+        lesson.VideoGeneratedAt = null;
+        lesson.UpdatedAt = DateTime.UtcNow;
     }
 }

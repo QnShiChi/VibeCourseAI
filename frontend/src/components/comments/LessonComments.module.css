@@ -15,7 +15,7 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .commentsHeader h2 {
@@ -107,7 +107,7 @@
   height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #d9f99d, #fef3c7);
-  border: 1px solid var(--color-border-strong, #111827);
+  border: 1px solid rgba(17, 24, 39, 0.12);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -133,6 +133,15 @@
 .commentMeta span {
   color: var(--comment-text-muted);
   font-size: 14px;
+}
+
+.sentimentBadge {
+  background: var(--app-surface-muted, rgba(243, 244, 246, 1));
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px !important;
+  font-weight: 500;
+  border: 1px solid var(--comment-border);
 }
 
 .commentContent {
@@ -165,8 +174,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 
 .commentReactionPickerAnchor {
@@ -277,20 +285,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-wrap: wrap;
   padding-bottom: 2px;
-}
-
-.commentActionRow::-webkit-scrollbar,
-.commentReactionShell::-webkit-scrollbar {
-  height: 6px;
-}
-
-.commentActionRow::-webkit-scrollbar-thumb,
-.commentReactionShell::-webkit-scrollbar-thumb {
-  background: rgba(107, 114, 128, 0.28);
-  border-radius: 999px;
 }
 
 .commentActions {

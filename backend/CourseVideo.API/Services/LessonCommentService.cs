@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using CourseVideo.API.DTOs.Comments;
 using CourseVideo.API.Models;
 using CourseVideo.API.Repositories.Interfaces;
@@ -10,15 +12,18 @@ public class LessonCommentService : ILessonCommentService
     private readonly ILessonCommentRepository _lessonCommentRepository;
     private readonly ILessonRepository _lessonRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
 
     public LessonCommentService(
         ILessonCommentRepository lessonCommentRepository,
         ILessonRepository lessonRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IServiceScopeFactory serviceScopeFactory)
     {
         _lessonCommentRepository = lessonCommentRepository;
         _lessonRepository = lessonRepository;
         _userRepository = userRepository;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public async Task<LessonCommentListResponse> GetCommentsAsync(
@@ -88,6 +93,8 @@ public class LessonCommentService : ILessonCommentService
         await _lessonCommentRepository.AddAsync(comment, cancellationToken);
         await _lessonCommentRepository.SaveChangesAsync(cancellationToken);
 
+        TriggerSentimentAnalysis(comment.Id);
+
         comment.User = currentUser;
         return new LessonCommentThreadResponse
         {
@@ -125,6 +132,8 @@ public class LessonCommentService : ILessonCommentService
 
         await _lessonCommentRepository.AddAsync(reply, cancellationToken);
         await _lessonCommentRepository.SaveChangesAsync(cancellationToken);
+
+        TriggerSentimentAnalysis(reply.Id);
 
         reply.User = currentUser;
         if (replyToUserId != Guid.Empty)
@@ -307,6 +316,7 @@ public class LessonCommentService : ILessonCommentService
             ReplyToUserId = comment.ReplyToUserId,
             ReplyToUserName = comment.ReplyToUser?.FullName,
             Content = content,
+            Sentiment = comment.Sentiment,
             IsHidden = comment.IsHidden,
             IsDeleted = isDeleted,
             CanDelete = !isDeleted && (isAdmin || comment.UserId == currentUserId),
@@ -375,5 +385,42 @@ public class LessonCommentService : ILessonCommentService
         var ageInDays = Math.Max(0, (DateTime.UtcNow - comment.CreatedAt).TotalDays);
         var freshnessBonus = Math.Max(0, 5 - ageInDays);
         return reactionCount * 3 + replyCount * 2 + freshnessBonus;
+    }
+
+    private void TriggerSentimentAnalysis(Guid commentId)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ILessonCommentRepository>();
+                
+                var comment = await repo.GetByIdAsync(commentId, CancellationToken.None);
+                if (comment == null || string.IsNullOrWhiteSpace(comment.Content)) return;
+
+                using var httpClient = new HttpClient();
+                httpClient.BaseAddress = new Uri("http://course_ai_worker:8000");
+
+                var requestData = new { text = comment.Content };
+                var jsonContent = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+
+                var response = await httpClient.PostAsync("/jobs/analyze-sentiment", jsonContent);
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseString = await response.Content.ReadAsStringAsync();
+                    var resultDoc = JsonDocument.Parse(responseString);
+                    if (resultDoc.RootElement.TryGetProperty("pred_label", out var labelProp))
+                    {
+                        comment.Sentiment = labelProp.GetString();
+                        await repo.SaveChangesAsync(CancellationToken.None);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error analyzing sentiment for comment {commentId}: {ex.Message}");
+            }
+        });
     }
 }

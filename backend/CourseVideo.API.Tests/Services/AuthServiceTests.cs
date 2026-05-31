@@ -45,7 +45,8 @@ public class AuthServiceTests
             userRepository.Object,
             refreshTokenRepository.Object,
             tokenService.Object,
-            new PasswordHasher<User>());
+            new PasswordHasher<User>(),
+            Mock.Of<IEmailService>());
 
         var response = await authService.RegisterAsync(new RegisterRequest
         {
@@ -91,7 +92,8 @@ public class AuthServiceTests
             userRepository.Object,
             refreshTokenRepository.Object,
             tokenService.Object,
-            passwordHasher);
+            passwordHasher,
+            Mock.Of<IEmailService>());
 
         var action = async () => await authService.LoginAsync(new LoginRequest
         {

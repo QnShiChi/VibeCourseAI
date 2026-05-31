@@ -1,0 +1,11 @@
+file '/app/storage/video/frames/78920ecc-1145-47cf-8c29-fe15e6498f59/slide-001.png'
+duration 13.392
+file '/app/storage/video/frames/78920ecc-1145-47cf-8c29-fe15e6498f59/slide-002.png'
+duration 14.256
+file '/app/storage/video/frames/78920ecc-1145-47cf-8c29-fe15e6498f59/slide-003.png'
+duration 15.720
+file '/app/storage/video/frames/78920ecc-1145-47cf-8c29-fe15e6498f59/slide-004.png'
+duration 13.800
+file '/app/storage/video/frames/78920ecc-1145-47cf-8c29-fe15e6498f59/slide-005.png'
+duration 12.072
+file '/app/storage/video/frames/78920ecc-1145-47cf-8c29-fe15e6498f59/slide-005.png'

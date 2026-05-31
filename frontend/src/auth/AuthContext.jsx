@@ -74,6 +74,14 @@ export function AuthProvider({ children }) {
     await logout();
   }
 
+  async function forgotPassword(payload) {
+    return await authService.forgotPassword(payload);
+  }
+
+  async function resetPassword(payload) {
+    return await authService.resetPassword(payload);
+  }
+
   const value = useMemo(
     () => ({
       session,
@@ -83,7 +91,9 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
-      changePassword
+      changePassword,
+      forgotPassword,
+      resetPassword
     }),
     [session, user, isBootstrapping]
   );

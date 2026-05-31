@@ -7,15 +7,18 @@ public class LessonContentGenerationWorker : BackgroundService
 {
     private readonly IGenerationJobQueue _generationJobQueue;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IJobCancellationTracker _cancellationTracker;
     private readonly ILogger<LessonContentGenerationWorker> _logger;
 
     public LessonContentGenerationWorker(
         IGenerationJobQueue generationJobQueue,
         IServiceScopeFactory serviceScopeFactory,
+        IJobCancellationTracker cancellationTracker,
         ILogger<LessonContentGenerationWorker> logger)
     {
         _generationJobQueue = generationJobQueue;
         _serviceScopeFactory = serviceScopeFactory;
+        _cancellationTracker = cancellationTracker;
         _logger = logger;
     }
 
@@ -54,12 +57,18 @@ public class LessonContentGenerationWorker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var jobId = await _generationJobQueue.DequeueAsync(stoppingToken);
+            using var jobCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            _cancellationTracker.RegisterJob(jobId, jobCts);
 
             try
             {
                 using var scope = _serviceScopeFactory.CreateScope();
                 var service = scope.ServiceProvider.GetRequiredService<ILessonContentGenerationService>();
-                await service.ProcessJobAsync(jobId, stoppingToken);
+                await service.ProcessJobAsync(jobId, jobCts.Token);
+            }
+            catch (OperationCanceledException) when (jobCts.Token.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Job {JobId} was explicitly cancelled.", jobId);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -68,6 +77,10 @@ public class LessonContentGenerationWorker : BackgroundService
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Lesson content background job {JobId} failed unexpectedly.", jobId);
+            }
+            finally
+            {
+                _cancellationTracker.UnregisterJob(jobId);
             }
         }
     }

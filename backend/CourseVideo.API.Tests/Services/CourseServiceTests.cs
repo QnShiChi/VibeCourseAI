@@ -230,7 +230,78 @@ public class CourseServiceTests
         result!.Category.Should().Be("Development");
     }
 
-    private static CourseService CreateCourseService(Mock<ICourseRepository> repository)
+    [Fact]
+    public async Task GenerateLessonQuizAsync_ForwardsRequestToQuizGenerationService()
+    {
+        var repository = new Mock<ICourseRepository>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
+        quizGenerationService.Setup(x => x.GenerateLessonQuizAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = CreateCourseService(repository, quizGenerationService);
+        var courseId = Guid.NewGuid();
+        var lessonId = Guid.NewGuid();
+
+        await service.GenerateLessonQuizAsync(courseId, lessonId);
+
+        quizGenerationService.Verify(x => x.GenerateLessonQuizAsync(courseId, lessonId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetLearnPayloadAsync_MapsQuizFlags_ForLessonAndFinalQuiz()
+    {
+        var repository = new Mock<ICourseRepository>();
+        var courseId = Guid.NewGuid();
+        var lessonId = Guid.NewGuid();
+        var lessonQuizId = Guid.NewGuid();
+        var finalQuizId = Guid.NewGuid();
+
+        repository.Setup(x => x.GetByIdWithStructureAsync(courseId)).ReturnsAsync(new Course
+        {
+            Id = courseId,
+            Title = "AI",
+            Description = "Desc",
+            IsPublished = true,
+            Modules =
+            [
+                new Module
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Module",
+                    Description = "Desc",
+                    OrderIndex = 1,
+                    Lessons =
+                    [
+                        new Lesson
+                        {
+                            Id = lessonId,
+                            Title = "Lesson",
+                            Description = "Desc",
+                            ContentSeed = "Noi dung",
+                            OrderIndex = 1
+                        }
+                    ]
+                }
+            ],
+            Quizzes =
+            [
+                new Quiz { Id = lessonQuizId, LessonId = lessonId, CourseId = courseId, Type = "Lesson", Status = "Ready", QuestionCount = 5 },
+                new Quiz { Id = finalQuizId, CourseId = courseId, Type = "Final", Status = "Ready", QuestionCount = 10 }
+            ]
+        });
+
+        var service = CreateCourseService(repository);
+
+        var result = await service.GetLearnPayloadAsync(courseId, true);
+
+        result.Should().NotBeNull();
+        result!.HasFinalQuiz.Should().BeTrue();
+        result.FinalQuizId.Should().Be(finalQuizId);
+        result.Modules[0].Lessons[0].QuizId.Should().Be(lessonQuizId);
+        result.Modules[0].Lessons[0].QuizStatus.Should().Be("Ready");
+    }
+
+    private static CourseService CreateCourseService(Mock<ICourseRepository> repository, Mock<IQuizGenerationService>? quizGenerationService = null)
     {
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns("/tmp/vibecourseai-course-service-tests");
@@ -240,6 +311,8 @@ public class CourseServiceTests
             Mock.Of<ILessonContentGenerationService>(),
             Mock.Of<ILessonAudioGenerationService>(),
             Mock.Of<ILessonVideoGenerationService>(),
+            Mock.Of<IFullCourseGenerationService>(),
+            quizGenerationService?.Object ?? Mock.Of<IQuizGenerationService>(),
             environment.Object);
     }
 }

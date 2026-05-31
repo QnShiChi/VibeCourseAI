@@ -35,7 +35,11 @@ public static class DbInitializer
                 EnsureLessonCommentReactionsTableExists(dbContext);
                 EnsureGenerationJobsTableExists(dbContext);
                 EnsureLessonGeneratedContentColumnsExist(dbContext);
+                EnsureLessonVoiceTutorColumnsExist(dbContext);
+                EnsureLessonVoiceTutorTablesExist(dbContext);
+                EnsureQuizTablesExist(dbContext);
                 EnsureGenerationJobColumnsExist(dbContext);
+                EnsureUserColumnsExist(dbContext);
                 Seed(dbContext, adminSeedOptions.Value);
                 return;
             }
@@ -50,16 +54,6 @@ public static class DbInitializer
 
     public static void Seed(AppDbContext dbContext, AdminSeedOptions adminSeed)
     {
-        if (!dbContext.Courses.Any())
-        {
-            dbContext.Courses.Add(new Course
-            {
-                Title = "Sample Course",
-                Description = "Skeleton course created during initial project setup.",
-                IsPublished = false
-            });
-        }
-
         var hasAdminSeed = !string.IsNullOrWhiteSpace(adminSeed.Email)
             && !string.IsNullOrWhiteSpace(adminSeed.Password)
             && !string.IsNullOrWhiteSpace(adminSeed.FullName);
@@ -132,6 +126,7 @@ public static class DbInitializer
             BEGIN
                 ALTER TABLE [Courses] ADD [SyllabusId] uniqueidentifier NULL;
                 CREATE INDEX [IX_Courses_SyllabusId] ON [Courses] ([SyllabusId]);
+                ALTER TABLE [Courses] ADD CONSTRAINT [FK_Courses_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]) ON DELETE CASCADE;
             END
 
             IF COL_LENGTH('Courses', 'CreatedByUserId') IS NULL
@@ -180,7 +175,7 @@ public static class DbInitializer
                     [CreatedAt] datetime2 NOT NULL,
                     [UpdatedAt] datetime2 NULL,
                     CONSTRAINT [PK_GenerationJobs] PRIMARY KEY ([Id]),
-                    CONSTRAINT [FK_GenerationJobs_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]),
+                    CONSTRAINT [FK_GenerationJobs_Syllabuses_SyllabusId] FOREIGN KEY ([SyllabusId]) REFERENCES [Syllabuses]([Id]) ON DELETE CASCADE,
                     CONSTRAINT [FK_GenerationJobs_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]),
                     CONSTRAINT [FK_GenerationJobs_Users_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [Users]([Id])
                 );
@@ -189,6 +184,242 @@ public static class DbInitializer
                 CREATE INDEX [IX_GenerationJobs_SyllabusId] ON [GenerationJobs] ([SyllabusId]);
                 CREATE INDEX [IX_GenerationJobs_CourseId] ON [GenerationJobs] ([CourseId]);
                 CREATE INDEX [IX_GenerationJobs_CreatedByUserId] ON [GenerationJobs] ([CreatedByUserId]);
+            END
+            """);
+    }
+
+    private static void EnsureLessonVoiceTutorColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('Lessons', 'NarrationVoiceKey') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [NarrationVoiceKey] nvarchar(200) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'TranscriptText') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [TranscriptText] nvarchar(max) NULL;
+            END
+
+            IF COL_LENGTH('Lessons', 'VoiceTutorEnabled') IS NULL
+            BEGIN
+                ALTER TABLE [Lessons] ADD [VoiceTutorEnabled] bit NOT NULL CONSTRAINT [DF_Lessons_VoiceTutorEnabled] DEFAULT 1;
+            END
+            """);
+    }
+
+    private static void EnsureLessonVoiceTutorTablesExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[LessonVoiceSessions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonVoiceSessions] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [LessonId] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [StartedAt] datetime2 NOT NULL,
+                    [LastActivityAt] datetime2 NOT NULL,
+                    [EndedAt] datetime2 NULL,
+                    [LastPausedVideoTimeSeconds] float NULL,
+                    [VoiceProfileKey] nvarchar(200) NOT NULL,
+                    [ContextScope] nvarchar(100) NOT NULL,
+                    [ConversationSummary] nvarchar(max) NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonVoiceSessions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonVoiceSessions_Lessons_LessonId] FOREIGN KEY ([LessonId]) REFERENCES [Lessons]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_LessonVoiceSessions_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id])
+                );
+
+                CREATE INDEX [IX_LessonVoiceSessions_LessonId_UserId_Status] ON [LessonVoiceSessions] ([LessonId], [UserId], [Status]);
+            END
+
+            IF OBJECT_ID(N'[LessonVoiceTurns]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonVoiceTurns] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SessionId] uniqueidentifier NOT NULL,
+                    [TurnNumber] int NOT NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [PlaybackPausedAtSeconds] float NULL,
+                    [UserAudioUrl] nvarchar(1000) NULL,
+                    [TranscriptionText] nvarchar(max) NULL,
+                    [TranscriptionConfidence] decimal(18, 2) NULL,
+                    [AnswerText] nvarchar(max) NULL,
+                    [AnswerSourceSummary] nvarchar(max) NULL,
+                    [ErrorCode] nvarchar(100) NULL,
+                    [ErrorMessage] nvarchar(2000) NULL,
+                    [StartedAt] datetime2 NOT NULL,
+                    [CompletedAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonVoiceTurns] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonVoiceTurns_LessonVoiceSessions_SessionId] FOREIGN KEY ([SessionId]) REFERENCES [LessonVoiceSessions]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_LessonVoiceTurns_SessionId_TurnNumber] ON [LessonVoiceTurns] ([SessionId], [TurnNumber]);
+            END
+
+            IF OBJECT_ID(N'[LessonVoiceMessages]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [LessonVoiceMessages] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SessionId] uniqueidentifier NOT NULL,
+                    [TurnNumber] int NOT NULL,
+                    [Role] nvarchar(30) NOT NULL,
+                    [ContentText] nvarchar(max) NOT NULL,
+                    [ContentSourceType] nvarchar(50) NOT NULL,
+                    [AudioUrl] nvarchar(1000) NULL,
+                    [AudioDurationSeconds] float NULL,
+                    [SequenceIndex] int NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_LessonVoiceMessages] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_LessonVoiceMessages_LessonVoiceSessions_SessionId] FOREIGN KEY ([SessionId]) REFERENCES [LessonVoiceSessions]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE INDEX [IX_LessonVoiceMessages_SessionId_TurnNumber_SequenceIndex]
+                    ON [LessonVoiceMessages] ([SessionId], [TurnNumber], [SequenceIndex]);
+            END
+            """);
+    }
+
+    private static void EnsureQuizTablesExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[Quizzes]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [Quizzes] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [LessonId] uniqueidentifier NULL,
+                    [CourseId] uniqueidentifier NULL,
+                    [Type] nvarchar(30) NOT NULL,
+                    [Status] nvarchar(30) NOT NULL,
+                    [Title] nvarchar(300) NOT NULL,
+                    [SourceContentVersion] nvarchar(100) NULL,
+                    [QuestionCount] int NOT NULL,
+                    [LastGeneratedAt] datetime2 NULL,
+                    [GenerationError] nvarchar(2000) NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_Quizzes] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_Quizzes_Lessons_LessonId] FOREIGN KEY ([LessonId]) REFERENCES [Lessons]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_Quizzes_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id])
+                );
+
+                CREATE UNIQUE INDEX [IX_Quizzes_LessonId] ON [Quizzes]([LessonId]) WHERE [LessonId] IS NOT NULL;
+                CREATE UNIQUE INDEX [IX_Quizzes_CourseId] ON [Quizzes]([CourseId]) WHERE [CourseId] IS NOT NULL AND [Type] = 'Final';
+            END
+
+            IF OBJECT_ID(N'[Quizzes]', N'U') IS NOT NULL
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'[Quizzes]')
+                      AND name = N'IX_Quizzes_LessonId'
+                )
+                BEGIN
+                    CREATE UNIQUE INDEX [IX_Quizzes_LessonId] ON [Quizzes]([LessonId]) WHERE [LessonId] IS NOT NULL;
+                END
+
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'[Quizzes]')
+                      AND name = N'IX_Quizzes_CourseId'
+                )
+                BEGIN
+                    DROP INDEX [IX_Quizzes_CourseId] ON [Quizzes];
+                END
+
+                CREATE UNIQUE INDEX [IX_Quizzes_CourseId] ON [Quizzes]([CourseId]) WHERE [CourseId] IS NOT NULL AND [Type] = 'Final';
+            END
+
+            IF OBJECT_ID(N'[QuizQuestions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [QuizQuestions] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [QuizId] uniqueidentifier NOT NULL,
+                    [QuestionText] nvarchar(2000) NOT NULL,
+                    [Explanation] nvarchar(2000) NOT NULL,
+                    [OrderIndex] int NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_QuizQuestions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_QuizQuestions_Quizzes_QuizId] FOREIGN KEY ([QuizId]) REFERENCES [Quizzes]([Id]) ON DELETE CASCADE
+                );
+            END
+
+            IF OBJECT_ID(N'[QuizOptions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [QuizOptions] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [QuizQuestionId] uniqueidentifier NOT NULL,
+                    [OptionText] nvarchar(1000) NOT NULL,
+                    [OrderIndex] int NOT NULL,
+                    [IsCorrect] bit NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_QuizOptions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_QuizOptions_QuizQuestions_QuizQuestionId] FOREIGN KEY ([QuizQuestionId]) REFERENCES [QuizQuestions]([Id]) ON DELETE CASCADE
+                );
+            END
+
+            IF OBJECT_ID(N'[QuizAttempts]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [QuizAttempts] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [QuizId] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [StartedAt] datetime2 NOT NULL,
+                    [SubmittedAt] datetime2 NULL,
+                    [Score] decimal(5,2) NOT NULL,
+                    [CorrectCount] int NOT NULL,
+                    [TotalQuestions] int NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_QuizAttempts] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_QuizAttempts_Quizzes_QuizId] FOREIGN KEY ([QuizId]) REFERENCES [Quizzes]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_QuizAttempts_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id])
+                );
+            END
+
+            IF OBJECT_ID(N'[QuizAttemptAnswers]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [QuizAttemptAnswers] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [QuizAttemptId] uniqueidentifier NOT NULL,
+                    [QuizQuestionId] uniqueidentifier NOT NULL,
+                    [SelectedOptionId] uniqueidentifier NOT NULL,
+                    [IsCorrect] bit NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_QuizAttemptAnswers] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_QuizAttemptAnswers_QuizAttempts_QuizAttemptId] FOREIGN KEY ([QuizAttemptId]) REFERENCES [QuizAttempts]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_QuizAttemptAnswers_QuizQuestions_QuizQuestionId] FOREIGN KEY ([QuizQuestionId]) REFERENCES [QuizQuestions]([Id]),
+                    CONSTRAINT [UQ_QuizAttemptAnswers_Attempt_Question] UNIQUE ([QuizAttemptId], [QuizQuestionId])
+                );
             END
             """);
     }
@@ -374,6 +605,11 @@ public static class DbInitializer
                 CREATE INDEX [IX_LessonComments_LessonId_CreatedAt] ON [LessonComments] ([LessonId], [CreatedAt]);
                 CREATE INDEX [IX_LessonComments_ParentCommentId] ON [LessonComments] ([ParentCommentId]);
             END
+
+            IF COL_LENGTH('LessonComments', 'Sentiment') IS NULL
+            BEGIN
+                ALTER TABLE [LessonComments] ADD [Sentiment] nvarchar(50) NULL;
+            END
             """);
     }
 
@@ -475,6 +711,27 @@ public static class DbInitializer
 
                 CREATE INDEX [IX_RefreshTokens_UserId] ON [RefreshTokens] ([UserId]);
                 CREATE UNIQUE INDEX [IX_RefreshTokens_TokenHash] ON [RefreshTokens] ([TokenHash]);
+            END
+            """);
+    }
+
+    private static void EnsureUserColumnsExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF COL_LENGTH('Users', 'ResetPasswordToken') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [ResetPasswordToken] nvarchar(500) NULL;
+            END
+
+            IF COL_LENGTH('Users', 'ResetPasswordTokenExpiry') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [ResetPasswordTokenExpiry] datetime2 NULL;
             END
             """);
     }

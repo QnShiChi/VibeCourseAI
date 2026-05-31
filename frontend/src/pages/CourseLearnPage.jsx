@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
+import { getLessonQuiz, startQuizAttempt, submitQuizAttempt } from "../api/quizService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
+import FinalQuizCard from "../components/course/FinalQuizCard";
+import LessonQuizPanel from "../components/course/LessonQuizPanel";
+import LessonVoiceTutorFab from "../components/course/LessonVoiceTutorFab";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
+import { useLessonVoiceTutor } from "../hooks/useLessonVoiceTutor";
 import { useTheme } from "../theme/ThemeContext";
 
 function sortByOrder(items) {
@@ -44,16 +49,13 @@ function buildSingleExpandedState(modules, moduleId, shouldExpand = true) {
   return next;
 }
 
-function getLessonStage(lesson, selectedLessonId, flatLessons) {
-  const lessonIndex = flatLessons.findIndex((item) => item.lessonId === lesson.lessonId);
-  const activeIndex = flatLessons.findIndex((item) => item.lessonId === selectedLessonId);
+function getLessonStage(lesson, selectedLessonId, completedLessonIds) {
+  if (completedLessonIds.includes(lesson.lessonId)) {
+    return "complete";
+  }
 
   if (lesson.lessonId === selectedLessonId) {
     return "active";
-  }
-
-  if (lessonIndex !== -1 && activeIndex !== -1 && lessonIndex < activeIndex) {
-    return "complete";
   }
 
   return "upcoming";
@@ -104,6 +106,23 @@ export default function CourseLearnPage() {
   const [expandedModules, setExpandedModules] = useState({});
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const videoRef = useRef(null);
+  const pausedTimeRef = useRef(0);
+  
+  const [completedLessonIds, setCompletedLessonIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`course_progress_${courseId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (courseId) {
+      localStorage.setItem(`course_progress_${courseId}`, JSON.stringify(completedLessonIds));
+    }
+  }, [completedLessonIds, courseId]);
 
   useEffect(() => {
     if (courseId) {
@@ -146,6 +165,17 @@ export default function CourseLearnPage() {
     setExpandedModules(buildSingleExpandedState(modules, targetLesson.moduleId, true));
   }
 
+  function handleTimeUpdate(e) {
+    const video = e.target;
+    if (!video.duration) return;
+    
+    if (video.currentTime >= Math.max(0, video.duration - 5)) {
+      if (selectedLessonId && !completedLessonIds.includes(selectedLessonId)) {
+        setCompletedLessonIds((prev) => [...prev, selectedLessonId]);
+      }
+    }
+  }
+
   const modules = sortByOrder(course?.modules ?? []);
   const flatLessons = flattenLessons(modules);
   const selectedLesson =
@@ -156,13 +186,31 @@ export default function CourseLearnPage() {
     null;
   const currentLessonIndex = flatLessons.findIndex((lesson) => lesson.lessonId === selectedLessonId);
   const totalLessons = flatLessons.length;
-  const progressPercent =
-    currentLessonIndex >= 0 && totalLessons ? Math.round(((currentLessonIndex + 1) / totalLessons) * 100) : 0;
-  const completedLessons = currentLessonIndex >= 0 ? currentLessonIndex + 1 : 0;
+  
+  const validCompletedLessons = completedLessonIds.filter(id => flatLessons.some(l => l.lessonId === id));
+  const progressPercent = totalLessons ? Math.round((validCompletedLessons.length / totalLessons) * 100) : 0;
+  const completedLessons = validCompletedLessons.length;
   const previousLesson = currentLessonIndex > 0 ? flatLessons[currentLessonIndex - 1] : null;
   const nextLesson =
     currentLessonIndex >= 0 && currentLessonIndex < totalLessons - 1 ? flatLessons[currentLessonIndex + 1] : null;
   const isAdmin = user?.role === "Admin";
+  const tutor = useLessonVoiceTutor({
+    lessonId: selectedLesson?.lessonId ?? "",
+    enabled: Boolean(selectedLesson?.videoUrl),
+    onPauseVideo(playbackTimeSeconds) {
+      pausedTimeRef.current = playbackTimeSeconds;
+      videoRef.current?.pause();
+    },
+    onResumeVideo() {
+      if (videoRef.current) {
+        videoRef.current.currentTime = pausedTimeRef.current;
+        const playPromise = videoRef.current.play?.();
+        if (playPromise?.catch) {
+          playPromise.catch(() => {});
+        }
+      }
+    }
+  });
 
   return (
     <div className="learn-workspace" data-testid="course-learn-shell" data-theme={theme}>
@@ -214,7 +262,12 @@ export default function CourseLearnPage() {
                           : `Bài ${currentLessonIndex + 1}`}
                       </span>
                       {selectedLesson.videoUrl ? (
-                        <video controls preload="metadata" src={selectedLesson.videoUrl}>
+                        <video
+                          ref={videoRef}
+                          controls
+                          preload="metadata"
+                          src={selectedLesson.videoUrl}
+                          onTimeUpdate={handleTimeUpdate}>
                           Trình duyệt của bạn không hỗ trợ phát video.
                         </video>
                       ) : (
@@ -227,6 +280,16 @@ export default function CourseLearnPage() {
                           </span>
                         </div>
                       )}
+                      {selectedLesson.videoUrl ? (
+                        <LessonVoiceTutorFab
+                          state={tutor.state}
+                          errorMessage={tutor.errorMessage}
+                          onStartRecording={() => tutor.startRecording(videoRef.current?.currentTime ?? 0)}
+                          onStopRecording={tutor.stopRecording}
+                          onRequestFollowUp={() => tutor.requestFollowUp(pausedTimeRef.current)}
+                          onResumeLearning={tutor.resumeLearning}
+                        />
+                      ) : null}
                     </div>
                     <div className="learn-stage-card__video-meta">
                       <span>{getVideoStatusLabel(selectedLesson)}</span>
@@ -254,6 +317,15 @@ export default function CourseLearnPage() {
                   </div>
                   <pre className="text-preview learn-content-preview">{selectedLesson.contentSeed}</pre>
                 </Card>
+
+                <LessonQuizPanel
+                  initialStatus={selectedLesson.quizStatus}
+                  lessonId={selectedLesson.lessonId}
+                  quizId={selectedLesson.quizId}
+                  onLoadQuiz={getLessonQuiz}
+                  onStartAttempt={startQuizAttempt}
+                  onSubmitAttempt={submitQuizAttempt}
+                />
 
                 <Card className="learn-comments-card" variant="shadowed">
                   <LessonComments isAdmin={isAdmin} lessonId={selectedLesson.lessonId} />
@@ -291,6 +363,14 @@ export default function CourseLearnPage() {
                       </div>
                       <p>Tiến độ: {progressPercent}%</p>
                     </div>
+                    {course.hasFinalQuiz ? (
+                      <FinalQuizCard
+                        courseId={course.courseId}
+                        questionCount={course.finalQuizQuestionCount}
+                        quizId={course.finalQuizId}
+                        status={course.finalQuizStatus}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="learn-sidebar-panel__modules">
@@ -319,7 +399,7 @@ export default function CourseLearnPage() {
                           {isExpanded ? (
                             <div className="learn-module__lessons">
                               {sortByOrder(module.lessons).map((lesson) => {
-                                const stage = getLessonStage(lesson, selectedLessonId, flatLessons);
+                                const stage = getLessonStage(lesson, selectedLessonId, completedLessonIds);
                                 return (
                                   <button
                                     className={`learn-lesson-button${selectedLessonId === lesson.lessonId ? " learn-lesson-button--active" : ""}`}

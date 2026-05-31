@@ -155,8 +155,12 @@ export default function CoursesPage() {
                       </div>
                       <div className={styles.featureContent}>
                         <span className={styles.featureTag}>Best seller</span>
-                        <h3>{heroCourse.title}</h3>
-                        <p>{heroCourse.description}</p>
+                        {!heroCourse.thumbnailUrl && (
+                          <>
+                            <h3>{heroCourse.title}</h3>
+                            <p>{heroCourse.description}</p>
+                          </>
+                        )}
                         <div className={styles.featureMetaRow}>
                           <span>{heroCourse.moduleCount} modules</span>
                           <span>{heroCourse.lessonCount} bài học</span>
@@ -178,10 +182,12 @@ export default function CoursesPage() {
                             )}
                             <div className={styles.featureShade} aria-hidden="true" />
                           </div>
-                          <div className={styles.featureContentCompact}>
-                            <h3>{course.title}</h3>
-                            <p>{course.description}</p>
-                          </div>
+                          {!course.thumbnailUrl && (
+                            <div className={styles.featureContentCompact}>
+                              <h3>{course.title}</h3>
+                              <p>{course.description}</p>
+                            </div>
+                          )}
                         </article>
                       ))}
                     </div>

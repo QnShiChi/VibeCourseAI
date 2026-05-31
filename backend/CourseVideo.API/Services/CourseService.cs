@@ -18,6 +18,8 @@ public class CourseService : ICourseService
     private readonly ILessonContentGenerationService _lessonContentGenerationService;
     private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
     private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
+    private readonly IFullCourseGenerationService _fullCourseGenerationService;
+    private readonly IQuizGenerationService _quizGenerationService;
     private readonly IWebHostEnvironment _environment;
 
     public CourseService(
@@ -25,12 +27,16 @@ public class CourseService : ICourseService
         ILessonContentGenerationService lessonContentGenerationService,
         ILessonAudioGenerationService lessonAudioGenerationService,
         ILessonVideoGenerationService lessonVideoGenerationService,
+        IFullCourseGenerationService fullCourseGenerationService,
+        IQuizGenerationService quizGenerationService,
         IWebHostEnvironment environment)
     {
         _courseRepository = courseRepository;
         _lessonContentGenerationService = lessonContentGenerationService;
         _lessonAudioGenerationService = lessonAudioGenerationService;
         _lessonVideoGenerationService = lessonVideoGenerationService;
+        _fullCourseGenerationService = fullCourseGenerationService;
+        _quizGenerationService = quizGenerationService;
         _environment = environment;
     }
 
@@ -143,6 +149,11 @@ public class CourseService : ICourseService
         return await GetStructureAsync(id);
     }
 
+    public async Task<GenerateFullCourseResponse> GenerateFullCourseAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        return await _fullCourseGenerationService.GenerateFullCourseAsync(courseId, createdByUserId, cancellationToken);
+    }
+
     public Task<GenerateLessonContentResponse> GenerateLessonContentAsync(Guid id, Guid createdByUserId, CancellationToken cancellationToken = default)
     {
         return _lessonContentGenerationService.GenerateCourseContentAsync(id, createdByUserId, cancellationToken);
@@ -173,6 +184,16 @@ public class CourseService : ICourseService
         return _lessonVideoGenerationService.GenerateLessonVideoAsync(courseId, lessonId, createdByUserId, cancellationToken);
     }
 
+    public Task GenerateLessonQuizAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken = default)
+    {
+        return _quizGenerationService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken);
+    }
+
+    public Task GenerateFinalQuizAsync(Guid courseId, CancellationToken cancellationToken = default)
+    {
+        return _quizGenerationService.GenerateFinalQuizAsync(courseId, cancellationToken);
+    }
+
     public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, bool canPreviewDraft)
     {
         var course = await _courseRepository.GetByIdWithStructureAsync(id);
@@ -186,6 +207,11 @@ public class CourseService : ICourseService
             return null;
         }
 
+        var lessonQuizLookup = course.Quizzes
+            .Where(quiz => quiz.LessonId.HasValue)
+            .ToDictionary(quiz => quiz.LessonId!.Value, quiz => quiz);
+        var finalQuiz = course.Quizzes.FirstOrDefault(quiz => quiz.CourseId == course.Id && quiz.Type == "Final");
+
         var modules = course.Modules
             .OrderBy(module => module.OrderIndex)
             .Select(module => new CourseLearnModuleResponse
@@ -196,7 +222,7 @@ public class CourseService : ICourseService
                 OrderIndex = module.OrderIndex,
                 Lessons = module.Lessons
                     .OrderBy(lesson => lesson.OrderIndex)
-                    .Select(MapLearnLesson)
+                    .Select(lesson => MapLearnLesson(lesson, lessonQuizLookup))
                     .ToList()
             })
             .ToList();
@@ -214,6 +240,10 @@ public class CourseService : ICourseService
             IsPublished = course.IsPublished,
             SelectedLessonId = selectedLesson?.LessonId,
             SelectedLesson = selectedLesson,
+            FinalQuizId = finalQuiz?.Id,
+            HasFinalQuiz = finalQuiz is not null,
+            FinalQuizStatus = finalQuiz?.Status ?? string.Empty,
+            FinalQuizQuestionCount = finalQuiz?.QuestionCount ?? 0,
             Modules = modules
         };
     }
@@ -299,8 +329,10 @@ public class CourseService : ICourseService
         };
     }
 
-    private static CourseLearnLessonResponse MapLearnLesson(Lesson lesson)
+    private static CourseLearnLessonResponse MapLearnLesson(Lesson lesson, IReadOnlyDictionary<Guid, Quiz> lessonQuizLookup)
     {
+        lessonQuizLookup.TryGetValue(lesson.Id, out var quiz);
+
         return new CourseLearnLessonResponse
         {
             LessonId = lesson.Id,
@@ -311,7 +343,10 @@ public class CourseService : ICourseService
             VideoUrl = lesson.VideoUrl,
             VideoGenerationStatus = lesson.VideoGenerationStatus,
             VideoGenerationError = lesson.VideoGenerationError ?? string.Empty,
-            Duration = lesson.Duration
+            Duration = lesson.Duration,
+            QuizId = quiz?.Id,
+            QuizStatus = quiz?.Status ?? string.Empty,
+            QuizQuestionCount = quiz?.QuestionCount ?? 0
         };
     }
 }

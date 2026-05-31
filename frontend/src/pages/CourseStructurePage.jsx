@@ -9,9 +9,7 @@ import {
 } from "../api/courseStructureService";
 import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
 import {
-  generateCourseLessonContent,
-  generateCourseLessonAudio,
-  generateCourseLessonVideo,
+  generateFullCourse,
   generateLessonAudio,
   generateLessonVideo,
   getLessonGeneratedContent,
@@ -22,7 +20,7 @@ import {
   regenerateLessonContent,
   updateLessonGeneratedContent
 } from "../api/lessonContentService";
-import { getGenerationJobDetail, getGenerationJobs } from "../api/generationJobService";
+import { cancelGenerationJob, getGenerationJobDetail, getGenerationJobs } from "../api/generationJobService";
 import Button from "../components/ui/Button";
 import LessonContentEditor from "../components/course/LessonContentEditor";
 import LessonContentPreview from "../components/course/LessonContentPreview";
@@ -92,11 +90,20 @@ export default function CourseStructurePage() {
 
         setActiveJob(detail);
 
+        // Dynamically fetch course structure to update lesson status badges in the UI
+        try {
+          const latestCourse = await getCourseStructure(courseId);
+          if (!isCancelled) {
+            setCourse(latestCourse);
+          }
+        } catch (e) {
+          // ignore error if failed to fetch course structure during polling
+        }
+
         if (!isJobActive(detail.status)) {
           setActiveJobId(null);
           setIsGeneratingContent(false);
           setMessage(detail.progressMessage || "Job generate đã hoàn tất.");
-          await loadCourse();
         }
       } catch {
         if (!isCancelled) {
@@ -195,6 +202,20 @@ export default function CourseStructurePage() {
     }
   }
 
+  async function handleCancelJob() {
+    if (!activeJobId) return;
+    try {
+      await cancelGenerationJob(activeJobId);
+      setMessage("Đã gửi yêu cầu hủy tiến trình.");
+      setActiveJob(null);
+      setActiveJobId(null);
+      setIsGeneratingContent(false);
+      await loadCourse();
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message || "Không thể hủy tiến trình.");
+    }
+  }
+
   function startEditModule(module) {
     setEditingModuleId(module.id);
     setModuleForm({ title: module.title, description: module.description });
@@ -209,105 +230,29 @@ export default function CourseStructurePage() {
     });
   }
 
-  async function handleGenerateLessonContent() {
+  async function handleGenerateFullCourse() {
     setMessage("");
     setErrorMessage("");
     setIsGeneratingContent(true);
     try {
-      const response = await generateCourseLessonContent(courseId);
+      const response = await generateFullCourse(courseId);
+      const detail = await getGenerationJobDetail(response.jobId);
       setActiveJobId(response.jobId);
-      setActiveJob({
-        id: response.jobId,
-        jobType: "GenerateLessonContent",
-        status: response.status,
-        totalItems: response.totalLessons,
-        processedItems: 0,
-        failedItems: 0,
-        progressMessage: response.message,
-        courseId
-      });
-      setMessage(response.message || "Đã tạo job generate nội dung bài học.");
+      setActiveJob(detail);
+      setMessage(response.message || "Đã tạo tiến trình generate tự động A->Z cho khóa học.");
       await loadCourse();
     } catch (error) {
       const apiMessage = error?.response?.data?.message ?? "";
-      if (apiMessage.includes("đang có job generate nội dung lesson chạy nền")) {
+      if (apiMessage.includes("đang có job chạy nền")) {
         const existingJob = await discoverActiveJob({ silent: false });
         if (existingJob) {
-          setMessage("Khóa học đang có job generate nền. Đã kết nối lại tiến trình hiện tại.");
+          setMessage("Khóa học đang có tiến trình nền. Đã kết nối lại tiến trình hiện tại.");
           return;
         }
       }
 
       setIsGeneratingContent(false);
-      setErrorMessage(apiMessage || "Không thể generate nội dung bài học.");
-    }
-  }
-
-  async function handleGenerateLessonAudio() {
-    setMessage("");
-    setErrorMessage("");
-    setIsGeneratingContent(true);
-    try {
-      const response = await generateCourseLessonAudio(courseId);
-      setActiveJobId(response.jobId);
-      setActiveJob({
-        id: response.jobId,
-        jobType: "GenerateLessonAudio",
-        status: response.status,
-        totalItems: response.totalLessons,
-        processedItems: 0,
-        failedItems: 0,
-        progressMessage: response.message,
-        courseId
-      });
-      setMessage(response.message || "Đã tạo job generate audio bài học.");
-      await loadCourse();
-    } catch (error) {
-      const apiMessage = error?.response?.data?.message ?? "";
-      if (apiMessage.includes("đang có job generate audio chạy nền")) {
-        const existingJob = await discoverActiveJob({ silent: false });
-        if (existingJob) {
-          setMessage("Khóa học đang có job audio nền. Đã kết nối lại tiến trình hiện tại.");
-          return;
-        }
-      }
-
-      setIsGeneratingContent(false);
-      setErrorMessage(apiMessage || "Không thể generate audio bài học.");
-    }
-  }
-
-  async function handleGenerateLessonVideo() {
-    setMessage("");
-    setErrorMessage("");
-    setIsGeneratingContent(true);
-    try {
-      const response = await generateCourseLessonVideo(courseId);
-      setActiveJobId(response.jobId);
-      setActiveJob({
-        id: response.jobId,
-        jobType: "GenerateLessonVideo",
-        status: response.status,
-        totalItems: response.totalLessons,
-        processedItems: 0,
-        failedItems: 0,
-        progressMessage: response.message,
-        courseId
-      });
-      setMessage(response.message || "Đã tạo job generate video bài học.");
-      await loadCourse();
-    } catch (error) {
-      const apiMessage = error?.response?.data?.message ?? "";
-      if (apiMessage.includes("đang có job generate video chạy nền")) {
-        const existingJob = await discoverActiveJob({ silent: false });
-        if (existingJob) {
-          setMessage("Khóa học đang có job video nền. Đã kết nối lại tiến trình hiện tại.");
-          return;
-        }
-      }
-
-      setIsGeneratingContent(false);
-      setErrorMessage(apiMessage || "Không thể generate video bài học.");
+      setErrorMessage(apiMessage || "Không thể khởi tạo tiến trình generate khóa học.");
     }
   }
 
@@ -751,8 +696,11 @@ export default function CourseStructurePage() {
   const processedItems = activeJob?.processedItems ?? 0;
   const failedItems = activeJob?.failedItems ?? 0;
   const totalItems = activeJob?.totalItems ?? 0;
-  const successfulItems = Math.max(processedItems - failedItems, 0);
+  const successfulItems = activeJob?.jobType === "GenerateFullCourse"
+    ? processedItems
+    : Math.max(processedItems - failedItems, 0);
   const progressPercent = getProgressPercent(activeJob);
+  const processedLabel = activeJob?.jobType === "GenerateFullCourse" ? "bước đã xử lý" : "lesson đã xử lý";
   const selectedLesson = getSelectedLesson();
 
   return (
@@ -785,14 +733,8 @@ export default function CourseStructurePage() {
                   <p>{course.description}</p>
                 </div>
                 <div className="course-structure-hero__actions">
-                  <Button onClick={handleGenerateLessonContent} disabled={isGeneratingContent || isSavingPresentation}>
-                    {hasActiveJob ? "Đang generate nền..." : "Generate nội dung bài học"}
-                  </Button>
-                  <Button onClick={handleGenerateLessonAudio} disabled={isGeneratingContent} variant="ghost">
-                    {hasActiveJob && isAudioJob(activeJob?.jobType) ? "Đang generate audio..." : "Generate audio khóa học"}
-                  </Button>
-                  <Button onClick={handleGenerateLessonVideo} disabled={isGeneratingContent} variant="ghost">
-                    {hasActiveJob && isVideoJob(activeJob?.jobType) ? "Đang generate video..." : "Generate video khóa học"}
+                  <Button onClick={handleGenerateFullCourse} disabled={isGeneratingContent || isSavingPresentation}>
+                    {hasActiveJob ? "Đang generate khóa học..." : "Generate khóa học (Auto A->Z)"}
                   </Button>
                 </div>
               </div>
@@ -879,11 +821,16 @@ export default function CourseStructurePage() {
                 <div className="generation-progress__bar" aria-hidden="true">
                   <div className="generation-progress__fill" style={{ width: `${progressPercent}%` }} />
                 </div>
-                <div className="course-card__stats">
-                  <span>{processedItems}/{totalItems || 0} lesson đã xử lý</span>
+                <div className="course-card__stats" style={{ alignItems: "center" }}>
+                  <span>{processedItems}/{totalItems || 0} {processedLabel}</span>
                   <span>{successfulItems} thành công</span>
-                  <span>{failedItems} lỗi</span>
+                  <span>{failedItems} {activeJob?.jobType === "GenerateFullCourse" ? "lesson lỗi" : "lỗi"}</span>
                   <span>Trạng thái: {resolveJobStatusLabel(activeJob.status)}</span>
+                  <div style={{ marginLeft: "auto" }}>
+                    <Button onClick={handleCancelJob} variant="danger" size="small">
+                      Hủy tiến trình
+                    </Button>
+                  </div>
                 </div>
                 {activeJob.errorMessage ? <p className="generation-progress__error">{activeJob.errorMessage}</p> : null}
               </div>
@@ -1243,11 +1190,11 @@ function isVideoJob(jobType) {
 }
 
 function isCourseJobType(jobType) {
-  return isLessonContentJob(jobType) || isAudioJob(jobType) || isVideoJob(jobType);
+  return jobType === "GenerateFullCourse" || isLessonContentJob(jobType) || isAudioJob(jobType) || isVideoJob(jobType);
 }
 
 function isJobActive(status) {
-  return status === "Pending" || status === "GeneratingLessonContent" || status === "RegeneratingLessonContent" || status === "GeneratingLessonAudio" || status === "GeneratingLessonVideo";
+  return status === "Pending" || status === "GeneratingFullCourse" || status === "GeneratingLessonContent" || status === "RegeneratingLessonContent" || status === "GeneratingLessonAudio" || status === "GeneratingLessonVideo";
 }
 
 function getProgressPercent(job) {
@@ -1262,6 +1209,8 @@ function resolveJobStatusLabel(status) {
   switch (status) {
     case "Pending":
       return "Đang chờ";
+    case "GeneratingFullCourse":
+      return "Đang generate A->Z";
     case "GeneratingLessonContent":
       return "Đang generate";
     case "RegeneratingLessonContent":
@@ -1282,6 +1231,10 @@ function resolveJobStatusLabel(status) {
 }
 
 function resolveJobProgressTitle(jobType) {
+  if (jobType === "GenerateFullCourse") {
+    return "Tiến trình generate khóa học tự động A đến Z";
+  }
+
   if (isAudioJob(jobType)) {
     return "Tiến trình generate audio bài học";
   }
@@ -1294,6 +1247,10 @@ function resolveJobProgressTitle(jobType) {
 }
 
 function resolveJobProgressAriaLabel(jobType) {
+  if (jobType === "GenerateFullCourse") {
+    return "Tiến trình generate khóa học tự động A đến Z";
+  }
+
   if (isAudioJob(jobType)) {
     return "Tiến trình generate audio bài học";
   }

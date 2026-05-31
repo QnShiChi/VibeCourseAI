@@ -48,18 +48,57 @@ public class OpenRouterLessonContentServiceTests
         result.LessonTitle.Should().Be(lesson.Title);
     }
 
-    private static OpenRouterLessonContentService CreateService(HttpMessageHandler handler)
+    [Fact]
+    public async Task GenerateAsync_ThrowsTimeout_WhenResponseBodyNeverCompletes()
+    {
+        var lesson = CreateLesson();
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NeverEndingStream())
+        });
+
+        var service = CreateService(handler, timeoutSeconds: 1);
+
+        var exception = await Assert.ThrowsAsync<LessonContentGenerationException>(async () =>
+            await service.GenerateAsync(CreateCourse(lesson), CreateModule(lesson), lesson, CancellationToken.None)
+                .WaitAsync(TimeSpan.FromSeconds(2)));
+
+        exception.Message.Should().Be("OpenRouter request timeout.");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_ThrowsTimeout_WhenResponseBodyIgnoresCancellation()
+    {
+        var lesson = CreateLesson();
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NonCooperativeNeverEndingStream())
+        });
+
+        var service = CreateService(handler, timeoutSeconds: 1);
+
+        var exception = await Assert.ThrowsAsync<LessonContentGenerationException>(async () =>
+            await service.GenerateAsync(CreateCourse(lesson), CreateModule(lesson), lesson, CancellationToken.None)
+                .WaitAsync(TimeSpan.FromSeconds(2)));
+
+        exception.Message.Should().Be("OpenRouter request timeout.");
+    }
+
+    private static OpenRouterLessonContentService CreateService(HttpMessageHandler handler, int timeoutSeconds = 30)
     {
         var options = Options.Create(new OpenRouterOptions
         {
             ApiKey = "test-key",
             Model = "openai/gpt-4.1-mini",
             BaseUrl = "https://openrouter.ai/api/v1",
-            TimeoutSeconds = 30
+            TimeoutSeconds = timeoutSeconds
         });
 
         return new OpenRouterLessonContentService(
-            new HttpClient(handler),
+            new HttpClient(handler)
+            {
+                Timeout = Timeout.InfiniteTimeSpan
+            },
             options,
             NullLogger<OpenRouterLessonContentService>.Instance);
     }
@@ -156,6 +195,62 @@ public class OpenRouterLessonContentServiceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             return Task.FromResult(_responseFactory(request));
+        }
+    }
+
+    private sealed class NeverEndingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return 0;
+        }
+    }
+
+    private sealed class NonCooperativeNeverEndingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            while (true)
+            {
+                await Task.Delay(100);
+            }
         }
     }
 }

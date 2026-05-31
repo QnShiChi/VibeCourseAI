@@ -9,6 +9,7 @@ const mockUpdateLesson = vi.fn();
 const mockUploadCourseThumbnail = vi.fn();
 const mockUpdateCourseCategory = vi.fn();
 const mockGenerateCourseLessonContent = vi.fn();
+const mockGenerateFullCourse = vi.fn();
 const mockGenerateCourseLessonAudio = vi.fn();
 const mockGenerateCourseLessonVideo = vi.fn();
 const mockGenerateLessonAudio = vi.fn();
@@ -33,6 +34,7 @@ vi.mock("../api/courseStructureService", () => ({
 
 vi.mock("../api/lessonContentService", () => ({
   generateCourseLessonContent: (...args) => mockGenerateCourseLessonContent(...args),
+  generateFullCourse: (...args) => mockGenerateFullCourse(...args),
   generateCourseLessonAudio: (...args) => mockGenerateCourseLessonAudio(...args),
   generateCourseLessonVideo: (...args) => mockGenerateCourseLessonVideo(...args),
   generateLessonAudio: (...args) => mockGenerateLessonAudio(...args),
@@ -238,6 +240,40 @@ describe("CourseStructurePage", () => {
 
     expect(await screen.findByLabelText("Tiến trình generate nội dung bài học")).toBeInTheDocument();
     expect(await screen.findByText("1/4 lesson đã xử lý")).toBeInTheDocument();
+  });
+
+  it("reconnects an active full-course job and shows its step-based progress", async () => {
+    mockGetCourseStructure.mockResolvedValue(baseCourse);
+    mockGetGenerationJobs.mockResolvedValue([
+      {
+        id: "job-az-1",
+        courseId: "course-1",
+        jobType: "GenerateFullCourse",
+        status: "GeneratingFullCourse",
+        totalItems: 6,
+        processedItems: 2,
+        failedItems: 0,
+        progressMessage: "Bài 1/2 - đang tạo audio",
+        errorMessage: ""
+      }
+    ]);
+    mockGetGenerationJobDetail.mockResolvedValue({
+      id: "job-az-1",
+      courseId: "course-1",
+      jobType: "GenerateFullCourse",
+      status: "GeneratingFullCourse",
+      totalItems: 6,
+      processedItems: 2,
+      failedItems: 0,
+      progressMessage: "Bài 1/2 - đang tạo audio",
+      errorMessage: ""
+    });
+
+    renderPage();
+
+    expect(await screen.findByLabelText("Tiến trình generate khóa học tự động A đến Z")).toBeInTheDocument();
+    expect(await screen.findByText("2/6 bước đã xử lý")).toBeInTheDocument();
+    expect(await screen.findByText("Bài 1/2 - đang tạo audio")).toBeInTheDocument();
   });
 
   it("starts whole-course lesson content generation as a background job", async () => {

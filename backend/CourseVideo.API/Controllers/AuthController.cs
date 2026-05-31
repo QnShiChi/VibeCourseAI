@@ -108,4 +108,27 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = exception.Message });
         }
     }
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var originUrl = Request.Headers["Origin"].FirstOrDefault() ?? "http://localhost:3000";
+        var resetUrl = $"{originUrl.TrimEnd('/')}/reset-password";
+        
+        await _authService.ForgotPasswordAsync(request, resetUrl);
+        return Ok(new { message = "Nếu email hợp lệ, hướng dẫn khôi phục mật khẩu sẽ được gửi đến hòm thư của bạn." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            await _authService.ResetPasswordAsync(request);
+            return Ok(new { message = "Mật khẩu đã được đặt lại thành công." });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
 }

@@ -44,12 +44,16 @@ public class LessonCommentService : ILessonCommentService
         var rootComments = await _lessonCommentRepository.GetRootCommentsByLessonIdAsync(lessonId, true, cancellationToken);
         var replyLookup = await LoadRepliesByParentIdAsync(rootComments.Select(comment => comment.Id).ToArray(), cancellationToken);
 
-        var orderedRootComments = normalizedSort == "featured"
-            ? rootComments
+        var orderedRootComments = normalizedSort switch
+        {
+            "featured" => rootComments
                 .OrderByDescending(comment => CalculateFeaturedScore(comment, replyLookup))
-                .ThenByDescending(comment => comment.CreatedAt)
-            : rootComments
-                .OrderByDescending(comment => comment.CreatedAt);
+                .ThenByDescending(comment => comment.CreatedAt),
+            "oldest" => rootComments
+                .OrderBy(comment => comment.CreatedAt),
+            _ => rootComments
+                .OrderByDescending(comment => comment.CreatedAt)
+        };
 
         var totalCount = orderedRootComments.Count();
         var pagedRootComments = orderedRootComments
@@ -343,7 +347,17 @@ public class LessonCommentService : ILessonCommentService
 
     private static string NormalizeSort(string sort)
     {
-        return string.Equals(sort, "featured", StringComparison.OrdinalIgnoreCase) ? "featured" : "newest";
+        if (string.Equals(sort, "featured", StringComparison.OrdinalIgnoreCase))
+        {
+            return "featured";
+        }
+
+        if (string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase))
+        {
+            return "oldest";
+        }
+
+        return "newest";
     }
 
     private static string NormalizeContent(string content)

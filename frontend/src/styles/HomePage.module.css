@@ -575,7 +575,7 @@
 }
 
 .heroLiveCard--topRight {
-  top: 154px;
+  top: 24px;
   right: 18px;
   animation-delay: -1.2s;
 }
@@ -586,7 +586,7 @@
 
 .heroLiveCard--bottomRight {
   right: 18px;
-  bottom: 72px;
+  bottom: 18px;
   animation-delay: -1.8s;
 }
 
@@ -1198,13 +1198,13 @@
   }
 
   .heroLiveCard--topRight {
-    top: 64px;
+    top: 18px;
     right: 0;
   }
 
   .heroLiveCard--bottomRight {
     right: 0;
-    bottom: 12px;
+    bottom: 0;
   }
 
   .heroLiveCard--bottomLeft {

@@ -7,6 +7,9 @@ public class CourseLearnLessonResponse
     public string Description { get; set; } = string.Empty;
     public int OrderIndex { get; set; }
     public string ContentSeed { get; set; } = string.Empty;
+    public string AudioGenerationStatus { get; set; } = string.Empty;
+    public string AudioGenerationError { get; set; } = string.Empty;
+    public string AudioUrl { get; set; } = string.Empty;
     public string? VideoUrl { get; set; }
     public string VideoGenerationStatus { get; set; } = string.Empty;
     public string VideoGenerationError { get; set; } = string.Empty;

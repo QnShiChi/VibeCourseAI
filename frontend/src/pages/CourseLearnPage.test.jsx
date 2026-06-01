@@ -195,7 +195,7 @@ describe("CourseLearnPage", () => {
 
     expect(await screen.findAllByText("Tổng quan về AI")).not.toHaveLength(0);
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Bình luận" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Thảo luận bài học" })).toBeInTheDocument();
     expect(await screen.findByText("Quiz tong ket khoa hoc")).toBeInTheDocument();
   });
 
@@ -212,11 +212,11 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Lam quiz" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Làm quiz" }));
     fireEvent.click(await screen.findByLabelText("Tri tue con nguoi"));
-    fireEvent.click(screen.getByRole("button", { name: "Nop bai" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nộp bài" }));
 
-    expect(await screen.findByText("Diem: 100")).toBeInTheDocument();
+    expect(await screen.findByText("100")).toBeInTheDocument();
   });
 
   it("changes left panel when selecting another lesson", async () => {
@@ -406,13 +406,15 @@ describe("CourseLearnPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Bài trước/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: /Tiếp tục bài học/i }));
 
     expect(await screen.findByText("Noi dung lesson 2")).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
   });
 
   it("moves back to the previous lesson and renders the course content heading", async () => {
@@ -432,12 +434,14 @@ describe("CourseLearnPage", () => {
     );
 
     expect(await screen.findByRole("heading", { name: /Nội dung khóa học/i })).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Bài trước/i }));
 
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 0%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
   });
 
   it("keeps only one module expanded when opening another module", async () => {

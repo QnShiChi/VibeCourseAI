@@ -51,11 +51,11 @@ describe("LessonQuizPanel", () => {
       />
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Lam quiz" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Làm quiz" }));
     fireEvent.click(await screen.findByLabelText("Tri tue con nguoi"));
-    fireEvent.click(screen.getByRole("button", { name: "Nop bai" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nộp bài" }));
 
-    expect(await screen.findByText("Diem: 100")).toBeInTheDocument();
+    expect(await screen.findByText("100")).toBeInTheDocument();
     expect(screen.getByText("AI mo phong tri tue con nguoi.")).toBeInTheDocument();
   });
 
@@ -73,7 +73,7 @@ describe("LessonQuizPanel", () => {
       />
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Lam quiz" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Làm quiz" }));
 
     expect(await screen.findByText("Quiz cho bài học này chưa sẵn sàng. Vui lòng thử lại sau.")).toBeInTheDocument();
   });
@@ -91,5 +91,59 @@ describe("LessonQuizPanel", () => {
     );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("resets the loaded quiz state when switching to another lesson", async () => {
+    const onLoadQuiz = vi.fn().mockResolvedValue({
+      quizId: "quiz-1",
+      title: "Kiem tra nhanh bai 1",
+      status: "Ready",
+      questionCount: 1,
+      questions: [
+        {
+          questionId: "q1",
+          questionText: "AI mo phong dieu gi?",
+          explanation: "AI mo phong tri tue con nguoi.",
+          options: [
+            { optionId: "o1", optionText: "Tri tue con nguoi" },
+            { optionId: "o2", optionText: "May in" }
+          ]
+        }
+      ]
+    });
+    const onStartAttempt = vi.fn().mockResolvedValue({ attemptId: "attempt-1", startedAt: "2026-05-28T00:00:00Z" });
+
+    const { rerender } = render(
+      <LessonQuizPanel
+        initialQuestionCount={1}
+        initialStatus="Ready"
+        lessonId="lesson-1"
+        lessonTitle="Bai 1"
+        quizId="quiz-1"
+        onLoadQuiz={onLoadQuiz}
+        onStartAttempt={onStartAttempt}
+        onSubmitAttempt={vi.fn()}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Làm quiz" }));
+    expect(await screen.findByText("Kiem tra nhanh bai 1")).toBeInTheDocument();
+
+    rerender(
+      <LessonQuizPanel
+        initialQuestionCount={2}
+        initialStatus="Ready"
+        lessonId="lesson-2"
+        lessonTitle="Bai 2"
+        quizId="quiz-2"
+        onLoadQuiz={onLoadQuiz}
+        onStartAttempt={onStartAttempt}
+        onSubmitAttempt={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("Bai 2")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Làm quiz" })).toBeInTheDocument();
+    expect(screen.queryByText("Kiem tra nhanh bai 1")).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,12 @@
 import { Route, Routes } from "react-router-dom";
 import RequireAuth from "../auth/RequireAuth";
+import AdminLayout from "../components/layout/AdminLayout";
 import MainLayout from "../components/layout/MainLayout";
+import AdminCoursesPage from "../pages/AdminCoursesPage";
+import AdminFinancePage from "../pages/AdminFinancePage";
+import AdminProfilePage from "../pages/AdminProfilePage";
+import AdminSettingsPage from "../pages/AdminSettingsPage";
+import AdminUsersPage from "../pages/AdminUsersPage";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import CoursesPage from "../pages/CoursesPage";
 import CourseLearnPage from "../pages/CourseLearnPage";
@@ -22,40 +28,25 @@ export default function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route
+        element={(
+          <RequireAuth requiredRole="Admin">
+            <AdminLayout />
+          </RequireAuth>
+        )}
+      >
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/admin/courses" element={<AdminCoursesPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/finance" element={<AdminFinancePage />} />
+        <Route path="/admin/profile" element={<AdminProfilePage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
+        <Route path="/admin/syllabuses" element={<SyllabusesPage />} />
+        <Route path="/admin/generation-jobs" element={<GenerationJobsPage />} />
+        <Route path="/admin/courses/:courseId" element={<CourseStructurePage />} />
+      </Route>
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <DashboardPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/syllabuses"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <SyllabusesPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/generation-jobs"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <GenerationJobsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/courses/:courseId"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <CourseStructurePage />
-            </RequireAuth>
-          }
-        />
         <Route
           path="/profile"
           element={

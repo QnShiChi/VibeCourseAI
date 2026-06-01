@@ -21,7 +21,7 @@ export default function CommentItem({
         {(comment.authorName || "U").slice(0, 1).toUpperCase()}
       </div>
 
-      <div className={styles.commentBody}>
+      <div className={`${styles.commentBody}${isReply ? ` ${styles.commentBodyReply}` : ""}`}>
         <div className={styles.commentMeta}>
           <strong>{comment.authorName}</strong>
           {isAdmin && comment.sentiment ? (
@@ -32,6 +32,7 @@ export default function CommentItem({
               {comment.sentiment === "positive" ? "😊 Tích cực" : comment.sentiment === "negative" ? "😡 Tiêu cực" : "😐 Bình thường"}
             </span>
           ) : null}
+          {comment.authorRole ? <span className={styles.commentRoleBadge}>{comment.authorRole}</span> : null}
           <span>{new Date(comment.createdAt).toLocaleString("vi-VN")}</span>
         </div>
 

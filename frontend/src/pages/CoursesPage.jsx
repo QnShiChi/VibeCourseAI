@@ -10,6 +10,21 @@ import { useTheme } from "../theme/ThemeContext";
 import styles from "../styles/CoursesPage.module.css";
 
 const ALL_COURSES_FILTER = "All";
+const FAVORITE_COURSE_IDS_STORAGE_KEY = "favorite-course-ids";
+
+function loadFavoriteCourseIds() {
+  try {
+    const rawValue = window.localStorage.getItem(FAVORITE_COURSE_IDS_STORAGE_KEY);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function CoursesPage() {
   const { user } = useAuth();
@@ -20,12 +35,16 @@ export default function CoursesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState(ALL_COURSES_FILTER);
-  const [favoriteCourseIds, setFavoriteCourseIds] = useState([]);
+  const [favoriteCourseIds, setFavoriteCourseIds] = useState(() => loadFavoriteCourseIds());
   const [sortOption, setSortOption] = useState("latest");
 
   useEffect(() => {
     loadCourses();
   }, [isAdmin]);
+
+  useEffect(() => {
+    window.localStorage.setItem(FAVORITE_COURSE_IDS_STORAGE_KEY, JSON.stringify(favoriteCourseIds));
+  }, [favoriteCourseIds]);
 
   async function loadCourses() {
     setIsLoading(true);

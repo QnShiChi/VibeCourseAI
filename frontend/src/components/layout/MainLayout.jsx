@@ -5,6 +5,7 @@ import BrandLockup from "../brand/BrandLockup";
 import { useTheme } from "../../theme/ThemeContext";
 import Button from "../ui/Button";
 import Footer from "./Footer";
+import { recordWebActivity } from "../../utils/webActivity";
 
 const AUTH_TRANSITION_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuAYPOZVwCAf5b5EozQb5JWjUNvm6bVWnV-6O0buWpzmEKq8v1EJgSlpM-_ZjfYQlAyTDNTS2ayXXQRIJHQ25Gk-D1thv7ICBZf4Ox2MIw31gm0soIeIpEVO2UVL9njocBy0Z6mUAB1L2aJL6YvRc9OwARRo9QZd-uf7lGIO7Doda9d_ZBK5e1JHCA3MnR-4DV-eTjWFmbl15FsfdgWZMQkuTWqePJUcN_aZQ_52hDNT4bP8ce12GgC9kyrrcGYRaTOaL_1OGmmdVw";
 
@@ -120,6 +121,68 @@ export default function MainLayout() {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => () => clearAuthIntroTimers(), []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    const lastRecordedAtRef = { current: Date.now() };
+
+    const flushActivity = () => {
+      const now = Date.now();
+      const isVisible = document.visibilityState === "visible";
+      const isFocused = document.hasFocus();
+
+      if (isVisible && isFocused) {
+        const elapsedSeconds = (now - lastRecordedAtRef.current) / 1000;
+        recordWebActivity(Math.min(elapsedSeconds, 30));
+      }
+
+      lastRecordedAtRef.current = now;
+    };
+
+    const syncTimestamp = () => {
+      lastRecordedAtRef.current = Date.now();
+    };
+
+    const intervalId = window.setInterval(flushActivity, 15000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushActivity();
+        return;
+      }
+
+      syncTimestamp();
+    };
+
+    const handleWindowBlur = () => {
+      flushActivity();
+    };
+
+    const handleWindowFocus = () => {
+      syncTimestamp();
+    };
+
+    const handlePageHide = () => {
+      flushActivity();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      flushActivity();
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [isAuthenticated]);
 
   function handleLogout() {
     clearAuthIntroTimers();

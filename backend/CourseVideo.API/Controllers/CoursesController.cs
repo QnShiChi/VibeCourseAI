@@ -67,14 +67,14 @@ public class CoursesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] UpdateCourseCategoryRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Category))
+        if (request.CategoryId == Guid.Empty)
         {
             return BadRequest(new { message = "Category khóa học là bắt buộc." });
         }
 
         try
         {
-            var updated = await _courseService.UpdateCategoryAsync(id, request.Category);
+            var updated = await _courseService.UpdateCategoryAsync(id, request.CategoryId);
             return updated is null ? NotFound() : Ok(updated);
         }
         catch (InvalidOperationException exception)

@@ -22,6 +22,7 @@ public class CourseRepository : ICourseRepository
     public async Task<IReadOnlyList<Course>> GetAllAsync()
     {
         return await _dbContext.Courses
+            .Include(course => course.Category)
             .OrderBy(course => course.CreatedAt)
             .ToListAsync();
     }
@@ -29,6 +30,7 @@ public class CourseRepository : ICourseRepository
     public async Task<IReadOnlyList<Course>> GetAdminCoursesAsync()
     {
         return await _dbContext.Courses
+            .Include(course => course.Category)
             .Include(course => course.Modules)
             .ThenInclude(module => module.Lessons)
             .OrderByDescending(course => course.CreatedAt)
@@ -38,6 +40,7 @@ public class CourseRepository : ICourseRepository
     public async Task<IReadOnlyList<Course>> GetPublishedAsync()
     {
         return await _dbContext.Courses
+            .Include(course => course.Category)
             .Include(course => course.Modules)
             .ThenInclude(module => module.Lessons)
             .Where(course => course.IsPublished)
@@ -47,17 +50,25 @@ public class CourseRepository : ICourseRepository
 
     public Task<Course?> GetByIdAsync(Guid id)
     {
-        return _dbContext.Courses.FirstOrDefaultAsync(course => course.Id == id);
+        return _dbContext.Courses
+            .Include(course => course.Category)
+            .FirstOrDefaultAsync(course => course.Id == id);
     }
 
     public Task<Course?> GetByIdWithStructureAsync(Guid id)
     {
         return _dbContext.Courses
+            .Include(course => course.Category)
             .Include(course => course.Modules.OrderBy(module => module.OrderIndex))
             .ThenInclude(module => module.Lessons.OrderBy(lesson => lesson.OrderIndex))
             .Include(course => course.Quizzes)
             .ThenInclude(quiz => quiz.Questions)
             .FirstOrDefaultAsync(course => course.Id == id);
+    }
+
+    public Task<int> CountByCategoryIdAsync(Guid categoryId)
+    {
+        return _dbContext.Courses.CountAsync(course => course.CategoryId == categoryId);
     }
 
     public Task SaveChangesAsync()

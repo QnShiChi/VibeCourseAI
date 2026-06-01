@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { getVisibleCategories } from "../api/categoryService";
 import { useAuth } from "../auth/useAuth";
 import { getAdminCourses, getPublishedCourses, publishCourse, unpublishCourse } from "../api/courseService";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
-import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
 import { useTheme } from "../theme/ThemeContext";
 import styles from "../styles/CoursesPage.module.css";
 
@@ -37,9 +37,11 @@ export default function CoursesPage() {
   const [activeCategory, setActiveCategory] = useState(ALL_COURSES_FILTER);
   const [favoriteCourseIds, setFavoriteCourseIds] = useState(() => loadFavoriteCourseIds());
   const [sortOption, setSortOption] = useState("latest");
+  const [categoryOptions, setCategoryOptions] = useState([]);
 
   useEffect(() => {
-    loadCourses();
+    void loadCourses();
+    void loadCategories();
   }, [isAdmin]);
 
   useEffect(() => {
@@ -56,6 +58,14 @@ export default function CoursesPage() {
       setErrorMessage("Không thể tải danh sách khóa học.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadCategories() {
+    try {
+      setCategoryOptions(await getVisibleCategories());
+    } catch {
+      setCategoryOptions([]);
     }
   }
 
@@ -132,14 +142,14 @@ export default function CoursesPage() {
               >
                 Tất cả
               </button>
-              {COURSE_CATEGORY_OPTIONS.map((option) => (
+              {categoryOptions.map((option) => (
                 <button
-                  key={option.value}
+                  key={option.id}
                   type="button"
-                  className={`${styles.chip} ${activeCategory === option.value ? styles.chipActive : ""}`}
-                  onClick={() => setActiveCategory(option.value)}
+                  className={`${styles.chip} ${activeCategory === option.name ? styles.chipActive : ""}`}
+                  onClick={() => setActiveCategory(option.name)}
                 >
-                  {option.label}
+                  {option.name}
                 </button>
               ))}
             </div>
@@ -277,7 +287,7 @@ export default function CoursesPage() {
                         </button>
                       </div>
                       <div className={styles.cardBody}>
-                        <span className={styles.cardCategoryLabel}>{getCategoryLabel(course.category)}</span>
+                        <span className={styles.cardCategoryLabel}>{course.category || "Chưa phân loại"}</span>
                         <h3>{course.title}</h3>
                         <p>{course.description}</p>
                         <div className={styles.cardMetaRow}>
@@ -308,10 +318,6 @@ export default function CoursesPage() {
       </Section>
     </div>
   );
-}
-
-function getCategoryLabel(categoryValue) {
-  return COURSE_CATEGORY_OPTIONS.find((option) => option.value === categoryValue)?.label ?? categoryValue ?? "Uncategorized";
 }
 
 function sortCourses(courses, sortOption) {

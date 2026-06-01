@@ -10,6 +10,7 @@ public class CourseGenerationService : ICourseGenerationService
     private readonly ISyllabusRepository _syllabusRepository;
     private readonly IGenerationJobRepository _generationJobRepository;
     private readonly ICourseRepository _courseRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly IModuleRepository _moduleRepository;
     private readonly ILessonRepository _lessonRepository;
     private readonly IOpenRouterCourseStructureService _openRouterCourseStructureService;
@@ -20,6 +21,7 @@ public class CourseGenerationService : ICourseGenerationService
         ISyllabusRepository syllabusRepository,
         IGenerationJobRepository generationJobRepository,
         ICourseRepository courseRepository,
+        ICategoryRepository categoryRepository,
         IModuleRepository moduleRepository,
         ILessonRepository lessonRepository,
         IOpenRouterCourseStructureService openRouterCourseStructureService,
@@ -29,6 +31,7 @@ public class CourseGenerationService : ICourseGenerationService
         _syllabusRepository = syllabusRepository;
         _generationJobRepository = generationJobRepository;
         _courseRepository = courseRepository;
+        _categoryRepository = categoryRepository;
         _moduleRepository = moduleRepository;
         _lessonRepository = lessonRepository;
         _openRouterCourseStructureService = openRouterCourseStructureService;
@@ -74,10 +77,13 @@ public class CourseGenerationService : ICourseGenerationService
             await _generationJobRepository.SaveChangesAsync();
 
             var structure = await BuildStructureAsync(syllabus);
+            var defaultCategory = await _categoryRepository.GetDefaultForAssignmentAsync()
+                ?? throw new InvalidOperationException("Chưa có category khả dụng để tạo khóa học.");
             var course = new Course
             {
                 Title = ResolveCourseTitle(syllabus, structure),
                 Description = ResolveCourseDescription(syllabus, structure),
+                CategoryId = defaultCategory.Id,
                 IsPublished = false,
                 SyllabusId = syllabus.Id,
                 CreatedByUserId = createdByUserId

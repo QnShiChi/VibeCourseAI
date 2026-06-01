@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { getAdminCategories } from "../api/categoryService";
 import {
   getCourseStructure,
   updateCourseCategory,
@@ -7,7 +8,6 @@ import {
   updateModule,
   uploadCourseThumbnail
 } from "../api/courseStructureService";
-import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
 import {
   generateFullCourse,
   generateLessonAudio,
@@ -53,7 +53,8 @@ export default function CourseStructurePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("UiUxDesign");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState([]);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [isSavingPresentation, setIsSavingPresentation] = useState(false);
 
@@ -69,8 +70,9 @@ export default function CourseStructurePage() {
 
   useEffect(() => {
     if (courseId) {
-      loadCourse();
-      discoverActiveJob();
+      void loadCourse();
+      void discoverActiveJob();
+      void loadCategories();
     }
   }, [courseId]);
 
@@ -164,12 +166,21 @@ export default function CourseStructurePage() {
     try {
       const data = await getCourseStructure(courseId);
       setCourse(data);
-      setSelectedCategory(data.category || "UiUxDesign");
+      setSelectedCategoryId(data.categoryId || "");
       setThumbnailFile(null);
     } catch {
       setErrorMessage("Không thể tải cấu trúc khóa học.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadCategories() {
+    try {
+      const items = await getAdminCategories({ status: "all", sort: "manual" });
+      setCategoryOptions(items);
+    } catch {
+      setCategoryOptions([]);
     }
   }
 
@@ -660,9 +671,9 @@ export default function CourseStructurePage() {
     setErrorMessage("");
     setIsSavingPresentation(true);
     try {
-      const updatedCourse = await updateCourseCategory(courseId, selectedCategory);
+      const updatedCourse = await updateCourseCategory(courseId, selectedCategoryId);
       setCourse(updatedCourse);
-      setSelectedCategory(updatedCourse.category || selectedCategory);
+      setSelectedCategoryId(updatedCourse.categoryId || selectedCategoryId);
       setMessage("Đã cập nhật category khóa học.");
     } catch (error) {
       setErrorMessage(error?.response?.data?.message ?? "Không thể cập nhật category khóa học.");
@@ -742,7 +753,7 @@ export default function CourseStructurePage() {
 
             <div className="course-structure-summary">
               <span className="course-structure-summary__pill">
-                Category: {course.category || "UiUxDesign"}
+                Category: {course.category || "Chưa phân loại"}
               </span>
               <span className="course-structure-summary__pill">
                 Thumbnail: {course.thumbnailUrl ? "Available" : "Missing"}
@@ -780,18 +791,20 @@ export default function CourseStructurePage() {
                     <select
                       className="ui-input"
                       id="course-category"
-                      value={selectedCategory}
-                      onChange={(event) => setSelectedCategory(event.target.value)}
+                      value={selectedCategoryId}
+                      onChange={(event) => setSelectedCategoryId(event.target.value)}
                     >
-                      {COURSE_CATEGORY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
+                      {categoryOptions
+                        .filter((option) => option.status === "Visible" || option.id === course.categoryId)
+                        .map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}{option.status !== "Visible" ? ` (${option.status})` : ""}
                         </option>
                       ))}
                     </select>
                   </FormField>
                   <div className="quick-actions course-presentation-form__actions">
-                    <Button onClick={handleSaveCategory} disabled={isSavingPresentation}>Lưu category</Button>
+                    <Button onClick={handleSaveCategory} disabled={isSavingPresentation || !selectedCategoryId}>Lưu category</Button>
                   </div>
                   <FormField id="course-thumbnail" label="Ảnh thumbnail">
                     <input

@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<Category> Categories => Set<Category>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Module> Modules => Set<Module>();
     public DbSet<Lesson> Lessons => Set<Lesson>();
@@ -55,17 +56,31 @@ public class AppDbContext : DbContext
                 .HasForeignKey(user => user.RoleId);
         });
 
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.HasKey(category => category.Id);
+            entity.Property(category => category.Name).HasMaxLength(120).IsRequired();
+            entity.Property(category => category.Description).HasMaxLength(400).IsRequired();
+            entity.Property(category => category.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30)
+                .HasDefaultValue(CategoryStatus.Visible)
+                .IsRequired();
+            entity.Property(category => category.SortOrder).HasDefaultValue(0);
+            entity.HasIndex(category => category.Name).IsUnique();
+        });
+
         modelBuilder.Entity<Course>(entity =>
         {
             entity.HasKey(course => course.Id);
             entity.Property(course => course.Title).HasMaxLength(200).IsRequired();
             entity.Property(course => course.Description).HasMaxLength(2000).IsRequired();
             entity.Property(course => course.ThumbnailUrl).HasMaxLength(1000);
-            entity.Property(course => course.Category)
-                .HasConversion<string>()
-                .HasMaxLength(50)
-                .HasDefaultValue(CourseCategory.UiUxDesign)
-                .IsRequired();
+            entity.Property(course => course.CategoryId).IsRequired();
+            entity.HasOne(course => course.Category)
+                .WithMany(category => category.Courses)
+                .HasForeignKey(course => course.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(course => course.Syllabus)
                 .WithMany(syllabus => syllabus.Courses)
                 .HasForeignKey(course => course.SyllabusId)

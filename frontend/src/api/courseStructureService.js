@@ -15,8 +15,8 @@ export async function updateLesson(lessonId, payload) {
   return data;
 }
 
-export async function updateCourseCategory(courseId, category) {
-  const { data } = await axiosClient.put(`/courses/${courseId}/category`, { category });
+export async function updateCourseCategory(courseId, categoryId) {
+  const { data } = await axiosClient.put(`/courses/${courseId}/category`, { categoryId });
   return data;
 }
 

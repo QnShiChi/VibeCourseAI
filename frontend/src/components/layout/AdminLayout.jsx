@@ -41,6 +41,8 @@ export default function AdminLayout() {
     ? "Tìm kiếm người dùng..."
     : location.pathname.startsWith("/admin/courses")
       ? "Tìm kiếm khóa học..."
+      : location.pathname.startsWith("/admin/categories")
+        ? "Tìm kiếm danh mục..."
       : location.pathname.startsWith("/admin/settings")
         ? "Tìm kiếm cài đặt..."
         : "Tìm kiếm hệ thống...";
@@ -129,6 +131,7 @@ export default function AdminLayout() {
           <nav className="admin-shell__nav" aria-label="Điều hướng quản trị">
             <AdminNavItem end icon="◫" label="Dashboard" to="/dashboard" />
             <AdminNavItem icon="▤" label="Quản lý khóa học" to="/admin/courses" />
+            <AdminNavItem icon="◈" label="Quản lý danh mục" to="/admin/categories" />
             <AdminNavItem icon="◌" label="Quản lý người dùng" to="/admin/users" />
             <AdminNavItem icon="◧" label="Báo cáo hệ thống" to="/admin/finance" />
             <AdminNavItem icon="◎" label="Admin Profile" to="/admin/profile" />

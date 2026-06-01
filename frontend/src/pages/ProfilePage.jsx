@@ -5,7 +5,6 @@ import { useAuth } from "../auth/useAuth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
-import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
 import { readCurrentLearningProgress } from "../utils/learningProgress";
 import { formatActivityDuration, readWebActivitySeries } from "../utils/webActivity";
 
@@ -50,10 +49,6 @@ function loadFavoriteCourseIds() {
   } catch {
     return [];
   }
-}
-
-function getCategoryLabel(categoryValue) {
-  return COURSE_CATEGORY_OPTIONS.find((option) => option.value === categoryValue)?.label ?? categoryValue ?? "Chưa phân loại";
 }
 
 function getBarHeight(value, maxValue) {
@@ -482,7 +477,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="profile-course-card__body">
-                    <p className="profile-course-card__eyebrow">{getCategoryLabel(course.category)}</p>
+                    <p className="profile-course-card__eyebrow">{course.category || "Chưa phân loại"}</p>
                     <h4>{course.title}</h4>
                   </div>
 

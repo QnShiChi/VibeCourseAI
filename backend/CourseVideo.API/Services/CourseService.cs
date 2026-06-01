@@ -15,6 +15,7 @@ public class CourseService : ICourseService
     };
 
     private readonly ICourseRepository _courseRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly ILessonContentGenerationService _lessonContentGenerationService;
     private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
     private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
@@ -24,6 +25,7 @@ public class CourseService : ICourseService
 
     public CourseService(
         ICourseRepository courseRepository,
+        ICategoryRepository categoryRepository,
         ILessonContentGenerationService lessonContentGenerationService,
         ILessonAudioGenerationService lessonAudioGenerationService,
         ILessonVideoGenerationService lessonVideoGenerationService,
@@ -32,6 +34,7 @@ public class CourseService : ICourseService
         IWebHostEnvironment environment)
     {
         _courseRepository = courseRepository;
+        _categoryRepository = categoryRepository;
         _lessonContentGenerationService = lessonContentGenerationService;
         _lessonAudioGenerationService = lessonAudioGenerationService;
         _lessonVideoGenerationService = lessonVideoGenerationService;
@@ -93,7 +96,7 @@ public class CourseService : ICourseService
         return MapAdminListItem(course);
     }
 
-    public async Task<CourseStructureResponse?> UpdateCategoryAsync(Guid id, string category)
+    public async Task<CourseStructureResponse?> UpdateCategoryAsync(Guid id, Guid categoryId)
     {
         var course = await _courseRepository.GetByIdAsync(id);
         if (course is null)
@@ -101,12 +104,19 @@ public class CourseService : ICourseService
             return null;
         }
 
-        if (!Enum.TryParse<CourseCategory>(category, true, out var parsedCategory))
+        var category = await _categoryRepository.GetByIdAsync(categoryId);
+        if (category is null)
         {
             throw new InvalidOperationException("Category khóa học không hợp lệ.");
         }
 
-        course.Category = parsedCategory;
+        if (category.Status != CategoryStatus.Visible)
+        {
+            throw new InvalidOperationException("Chỉ có thể gán category đang hiển thị cho khóa học.");
+        }
+
+        course.CategoryId = category.Id;
+        course.Category = category;
         course.UpdatedAt = DateTime.UtcNow;
         await _courseRepository.SaveChangesAsync();
         return await GetStructureAsync(id);
@@ -259,10 +269,12 @@ public class CourseService : ICourseService
         return new CourseStructureResponse
         {
             Id = course.Id,
+            CategoryId = course.CategoryId,
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
-            Category = course.Category.ToString(),
+            Category = course.Category?.Name ?? "Chưa phân loại",
+            CategoryStatus = course.Category?.Status.ToString() ?? string.Empty,
             IsPublished = course.IsPublished,
             CreatedAt = course.CreatedAt,
             Modules = course.Modules
@@ -302,10 +314,12 @@ public class CourseService : ICourseService
         return new AdminCourseListItemResponse
         {
             Id = course.Id,
+            CategoryId = course.CategoryId,
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
-            Category = course.Category.ToString(),
+            Category = course.Category?.Name ?? "Chưa phân loại",
+            CategoryStatus = course.Category?.Status.ToString() ?? string.Empty,
             IsPublished = course.IsPublished,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),
@@ -318,10 +332,11 @@ public class CourseService : ICourseService
         return new PublishedCourseListItemResponse
         {
             Id = course.Id,
+            CategoryId = course.CategoryId,
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
-            Category = course.Category.ToString(),
+            Category = course.Category?.Name ?? "Chưa phân loại",
             IsPublished = course.IsPublished,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),

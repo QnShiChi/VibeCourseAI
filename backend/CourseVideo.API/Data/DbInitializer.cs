@@ -28,6 +28,7 @@ public static class DbInitializer
 
                 EnsureRefreshTokensTableExists(dbContext);
                 EnsureSyllabusesTableExists(dbContext);
+                EnsureCategoriesTableExists(dbContext);
                 EnsureCourseColumnsExist(dbContext);
                 EnsureModulesTableExists(dbContext);
                 EnsureLessonsTableExists(dbContext);
@@ -142,6 +143,109 @@ public static class DbInitializer
             IF COL_LENGTH('Courses', 'Category') IS NULL
             BEGIN
                 ALTER TABLE [Courses] ADD [Category] nvarchar(50) NOT NULL CONSTRAINT [DF_Courses_Category] DEFAULT N'UiUxDesign';
+            END
+
+            IF COL_LENGTH('Courses', 'CategoryId') IS NULL
+            BEGIN
+                ALTER TABLE [Courses] ADD [CategoryId] uniqueidentifier NULL;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_CategoryId' AND object_id = OBJECT_ID(N'[Courses]'))
+            BEGIN
+                CREATE INDEX [IX_Courses_CategoryId] ON [Courses] ([CategoryId]);
+            END
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM sys.foreign_keys
+                WHERE name = 'FK_Courses_Categories_CategoryId'
+            )
+            BEGIN
+                ALTER TABLE [Courses]
+                ADD CONSTRAINT [FK_Courses_Categories_CategoryId]
+                FOREIGN KEY ([CategoryId]) REFERENCES [Categories]([Id]);
+            END
+            """);
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            INSERT INTO [Categories] ([Id], [Name], [Description], [Status], [SortOrder], [CreatedAt], [UpdatedAt])
+            SELECT NEWID(), source.[MappedName], N'Chưa có mô tả ngắn.', N'Visible', source.[SortOrder], SYSUTCDATETIME(), NULL
+            FROM (
+                SELECT N'UI/UX Design' AS [MappedName], 100 AS [SortOrder]
+                UNION ALL SELECT N'AI & Data', 200
+                UNION ALL SELECT N'Development', 300
+            ) AS source
+            WHERE NOT EXISTS (
+                SELECT 1 FROM [Categories] existing WHERE existing.[Name] = source.[MappedName]
+            );
+
+            INSERT INTO [Categories] ([Id], [Name], [Description], [Status], [SortOrder], [CreatedAt], [UpdatedAt])
+            SELECT NEWID(), source.[MappedName], N'Chưa có mô tả ngắn.', N'Visible', 1000 + ROW_NUMBER() OVER (ORDER BY source.[MappedName]) * 100, SYSUTCDATETIME(), NULL
+            FROM (
+                SELECT DISTINCT
+                    CASE
+                        WHEN [Category] = N'UiUxDesign' THEN N'UI/UX Design'
+                        WHEN [Category] = N'AiAndData' THEN N'AI & Data'
+                        WHEN [Category] = N'Development' THEN N'Development'
+                        ELSE LTRIM(RTRIM([Category]))
+                    END AS [MappedName]
+                FROM [Courses]
+                WHERE [Category] IS NOT NULL AND LTRIM(RTRIM([Category])) <> N''
+            ) AS source
+            WHERE NOT EXISTS (
+                SELECT 1 FROM [Categories] existing WHERE existing.[Name] = source.[MappedName]
+            );
+            """);
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            UPDATE [Courses]
+            SET [CategoryId] = [Categories].[Id]
+            FROM [Courses]
+            INNER JOIN [Categories] ON [Categories].[Name] = CASE
+                WHEN [Courses].[Category] = N'UiUxDesign' THEN N'UI/UX Design'
+                WHEN [Courses].[Category] = N'AiAndData' THEN N'AI & Data'
+                WHEN [Courses].[Category] = N'Development' THEN N'Development'
+                ELSE LTRIM(RTRIM([Courses].[Category]))
+            END
+            WHERE [Courses].[CategoryId] IS NULL;
+
+            DECLARE @DefaultCategoryId uniqueidentifier;
+            SELECT TOP (1) @DefaultCategoryId = [Id]
+            FROM [Categories]
+            WHERE [Status] = N'Visible'
+            ORDER BY [SortOrder], [CreatedAt] DESC;
+
+            UPDATE [Courses]
+            SET [CategoryId] = @DefaultCategoryId
+            WHERE [CategoryId] IS NULL AND @DefaultCategoryId IS NOT NULL;
+            """);
+    }
+
+    private static void EnsureCategoriesTableExists(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[Categories]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [Categories] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [Name] nvarchar(120) NOT NULL,
+                    [Description] nvarchar(400) NOT NULL,
+                    [Status] nvarchar(30) NOT NULL CONSTRAINT [DF_Categories_Status] DEFAULT N'Visible',
+                    [SortOrder] int NOT NULL CONSTRAINT [DF_Categories_SortOrder] DEFAULT 0,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_Categories] PRIMARY KEY ([Id])
+                );
+
+                CREATE UNIQUE INDEX [IX_Categories_Name] ON [Categories] ([Name]);
             END
             """);
     }

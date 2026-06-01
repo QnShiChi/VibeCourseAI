@@ -3,6 +3,7 @@ import RequireAuth from "../auth/RequireAuth";
 import AdminLayout from "../components/layout/AdminLayout";
 import MainLayout from "../components/layout/MainLayout";
 import AdminCoursesPage from "../pages/AdminCoursesPage";
+import AdminCategoriesPage from "../pages/AdminCategoriesPage";
 import AdminFinancePage from "../pages/AdminFinancePage";
 import AdminProfilePage from "../pages/AdminProfilePage";
 import AdminSettingsPage from "../pages/AdminSettingsPage";
@@ -37,6 +38,7 @@ export default function AppRoutes() {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/admin/courses" element={<AdminCoursesPage />} />
+        <Route path="/admin/categories" element={<AdminCategoriesPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/finance" element={<AdminFinancePage />} />
         <Route path="/admin/profile" element={<AdminProfilePage />} />

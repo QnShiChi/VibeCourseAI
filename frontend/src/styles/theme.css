@@ -4940,6 +4940,10 @@ img {
   grid-template-columns: minmax(240px, 1.8fr) minmax(160px, 0.8fr) 120px 120px 140px;
 }
 
+.admin-category-row {
+  grid-template-columns: minmax(240px, 1.5fr) 160px 160px 140px 140px 210px;
+}
+
 .admin-user-cell {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -4958,9 +4962,94 @@ img {
   font-size: 0.92rem;
 }
 
+.admin-category-cell {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-category-cell strong {
+  color: #f3f7ff;
+}
+
+.admin-category-cell span {
+  color: rgba(193, 202, 176, 0.74);
+  line-height: 1.55;
+}
+
 .admin-table__actions {
   display: flex;
   justify-content: flex-start;
+}
+
+.admin-category-form {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-category-form__field {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-category-form__field span {
+  color: rgba(193, 202, 176, 0.82);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.admin-category-form__textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.admin-category-form__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.admin-filter-select {
+  min-width: 180px;
+}
+
+.admin-settings-grid--categories {
+  grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.4fr);
+}
+
+.admin-toolbar__search--form {
+  margin: 0;
+}
+
+.admin-inline-link--button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-reorder-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-mini-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 148, 125, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3f7ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-mini-button:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+}
+
+.admin-muted-inline {
+  color: rgba(193, 202, 176, 0.72);
+  font-size: 0.92rem;
 }
 
 .admin-chart-card__header {
@@ -5169,10 +5258,17 @@ img {
 }
 
 .page-shell[data-theme="light"] .admin-user-cell strong,
+.page-shell[data-theme="light"] .admin-category-cell strong,
 .page-shell[data-theme="light"] .admin-table__row > span,
 .page-shell[data-theme="light"] .admin-table__row .admin-table__actions,
 .page-shell[data-theme="light"] .admin-distribution-list__item span {
   color: rgba(17, 24, 39, 0.9);
+}
+
+.page-shell[data-theme="light"] .admin-category-cell span,
+.page-shell[data-theme="light"] .admin-muted-inline,
+.page-shell[data-theme="light"] .admin-category-form__field span {
+  color: rgba(17, 24, 39, 0.76);
 }
 
 .page-shell[data-theme="light"] .admin-shell__nav-link {
@@ -5204,18 +5300,22 @@ img {
 .page-shell[data-theme="light"] .admin-shell__search,
 .page-shell[data-theme="light"] .admin-toolbar__search,
 .page-shell[data-theme="light"] .admin-filter-pill,
+.page-shell[data-theme="light"] .admin-filter-select,
 .page-shell[data-theme="light"] .admin-shell__icon-button,
 .page-shell[data-theme="light"] .admin-activity-list__item,
 .page-shell[data-theme="light"] .admin-action-list__item,
 .page-shell[data-theme="light"] .admin-course-list__item,
-.page-shell[data-theme="light"] .admin-note-list__item {
+.page-shell[data-theme="light"] .admin-note-list__item,
+.page-shell[data-theme="light"] .admin-mini-button {
   background: rgba(17, 24, 39, 0.04);
   border-color: rgba(17, 24, 39, 0.14);
 }
 
 .page-shell[data-theme="light"] .admin-shell__search,
 .page-shell[data-theme="light"] .admin-toolbar__search,
-.page-shell[data-theme="light"] .admin-filter-pill {
+.page-shell[data-theme="light"] .admin-filter-pill,
+.page-shell[data-theme="light"] .admin-filter-select,
+.page-shell[data-theme="light"] .admin-mini-button {
   color: rgba(17, 24, 39, 0.82);
 }
 
@@ -5299,7 +5399,8 @@ img {
   }
 
   .admin-user-row,
-  .admin-course-row {
+  .admin-course-row,
+  .admin-category-row {
     grid-template-columns: 1fr;
   }
 

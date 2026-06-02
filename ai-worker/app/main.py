@@ -1,15 +1,16 @@
 import asyncio
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 
 # --- Sentiment Analysis Setup ---
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from pydantic import BaseModel
+from app.sentiment_config import normalize_label, resolve_model_reference
 
-model_dir = "/app/app/phobert_dataset2_model/checkpoint-5200"
-tokenizer_name = "vinai/phobert-base"
+base_dir = Path(__file__).resolve().parent
+model_reference = resolve_model_reference(base_dir=base_dir)
 max_length = 256
-
 label2text = {
     0: "negative",
     1: "normal",
@@ -17,12 +18,20 @@ label2text = {
 }
 
 try:
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    sentiment_model = AutoModelForSequenceClassification.from_pretrained(model_dir)
-    
+    tokenizer_reference = model_reference if not Path(model_reference).is_dir() else "vinai/phobert-base"
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_reference)
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained(model_reference)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     sentiment_model.to(device)
     sentiment_model.eval()
+
+    model_labels = getattr(sentiment_model.config, "id2label", {}) or {}
+    if model_labels:
+        label2text = {
+            int(label_id): normalize_label(label)
+            for label_id, label in model_labels.items()
+        }
     print("PhoBERT Sentiment Model loaded successfully on", device)
 except Exception as e:
     print(f"Error loading sentiment model: {e}")

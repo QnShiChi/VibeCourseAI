@@ -67,14 +67,14 @@ public class CoursesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] UpdateCourseCategoryRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Category))
+        if (request.CategoryId == Guid.Empty)
         {
             return BadRequest(new { message = "Category khóa học là bắt buộc." });
         }
 
         try
         {
-            var updated = await _courseService.UpdateCategoryAsync(id, request.Category);
+            var updated = await _courseService.UpdateCategoryAsync(id, request.CategoryId);
             return updated is null ? NotFound() : Ok(updated);
         }
         catch (InvalidOperationException exception)
@@ -120,6 +120,27 @@ public class CoursesController : ControllerBase
             var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
             var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
             var response = await _courseService.GenerateLessonContentAsync(id, createdByUserId, cancellationToken);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/generate-full-course")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GenerateFullCourse(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier)?.Value;
+            var createdByUserId = Guid.TryParse(userId, out var parsedUserId) ? parsedUserId : Guid.Empty;
+            var response = await _courseService.GenerateFullCourseAsync(id, createdByUserId, cancellationToken);
             return Ok(response);
         }
         catch (KeyNotFoundException exception)

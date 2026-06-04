@@ -44,16 +44,17 @@ export function AuthProvider({ children }) {
     saveAuthSession(nextSession);
     setSession(nextSession);
     setUser(response.user);
+    return nextSession;
   }
 
   async function login(formData) {
     const response = await authService.login(formData);
-    await handleAuthSuccess(response);
+    return handleAuthSuccess(response);
   }
 
   async function register(formData) {
     const response = await authService.register(formData);
-    await handleAuthSuccess(response);
+    return handleAuthSuccess(response);
   }
 
   async function logout() {
@@ -73,6 +74,14 @@ export function AuthProvider({ children }) {
     await logout();
   }
 
+  async function forgotPassword(payload) {
+    return await authService.forgotPassword(payload);
+  }
+
+  async function resetPassword(payload) {
+    return await authService.resetPassword(payload);
+  }
+
   const value = useMemo(
     () => ({
       session,
@@ -82,7 +91,9 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
-      changePassword
+      changePassword,
+      forgotPassword,
+      resetPassword
     }),
     [session, user, isBootstrapping]
   );

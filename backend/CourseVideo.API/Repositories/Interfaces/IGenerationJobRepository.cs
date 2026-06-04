@@ -15,5 +15,6 @@ public interface IGenerationJobRepository
     Task<bool> HasRunningLessonContentJobForCourseAsync(Guid courseId);
     Task<bool> HasRunningLessonAudioJobForCourseAsync(Guid courseId);
     Task<bool> HasRunningLessonVideoJobForCourseAsync(Guid courseId);
+    Task<IReadOnlyList<GenerationJob>> GetByCourseIdAsync(Guid courseId);
     Task SaveChangesAsync();
 }

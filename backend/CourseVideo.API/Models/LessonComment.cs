@@ -7,6 +7,7 @@ public class LessonComment : BaseEntity
     public Guid? ParentCommentId { get; set; }
     public Guid? ReplyToUserId { get; set; }
     public string Content { get; set; } = string.Empty;
+    public string? Sentiment { get; set; }
     public bool IsHidden { get; set; }
     public DateTime? DeletedAt { get; set; }
     public Lesson? Lesson { get; set; }

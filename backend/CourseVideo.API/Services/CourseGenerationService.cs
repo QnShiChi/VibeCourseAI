@@ -10,27 +10,33 @@ public class CourseGenerationService : ICourseGenerationService
     private readonly ISyllabusRepository _syllabusRepository;
     private readonly IGenerationJobRepository _generationJobRepository;
     private readonly ICourseRepository _courseRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly IModuleRepository _moduleRepository;
     private readonly ILessonRepository _lessonRepository;
     private readonly IOpenRouterCourseStructureService _openRouterCourseStructureService;
     private readonly ICourseStructureParser _courseStructureParser;
+    private readonly IJobCancellationTracker _cancellationTracker;
 
     public CourseGenerationService(
         ISyllabusRepository syllabusRepository,
         IGenerationJobRepository generationJobRepository,
         ICourseRepository courseRepository,
+        ICategoryRepository categoryRepository,
         IModuleRepository moduleRepository,
         ILessonRepository lessonRepository,
         IOpenRouterCourseStructureService openRouterCourseStructureService,
-        ICourseStructureParser courseStructureParser)
+        ICourseStructureParser courseStructureParser,
+        IJobCancellationTracker cancellationTracker)
     {
         _syllabusRepository = syllabusRepository;
         _generationJobRepository = generationJobRepository;
         _courseRepository = courseRepository;
+        _categoryRepository = categoryRepository;
         _moduleRepository = moduleRepository;
         _lessonRepository = lessonRepository;
         _openRouterCourseStructureService = openRouterCourseStructureService;
         _courseStructureParser = courseStructureParser;
+        _cancellationTracker = cancellationTracker;
     }
 
     public async Task<GenerateCourseResponse> GenerateFromSyllabusAsync(Guid syllabusId, Guid createdByUserId, string createdByName)
@@ -71,10 +77,13 @@ public class CourseGenerationService : ICourseGenerationService
             await _generationJobRepository.SaveChangesAsync();
 
             var structure = await BuildStructureAsync(syllabus);
+            var defaultCategory = await _categoryRepository.GetDefaultForAssignmentAsync()
+                ?? throw new InvalidOperationException("Chưa có category khả dụng để tạo khóa học.");
             var course = new Course
             {
                 Title = ResolveCourseTitle(syllabus, structure),
                 Description = ResolveCourseDescription(syllabus, structure),
+                CategoryId = defaultCategory.Id,
                 IsPublished = false,
                 SyllabusId = syllabus.Id,
                 CreatedByUserId = createdByUserId
@@ -168,6 +177,29 @@ public class CourseGenerationService : ICourseGenerationService
     {
         var job = await _generationJobRepository.GetByIdAsync(id);
         return job is null ? null : MapDetail(job);
+    }
+
+    public async Task CancelJobAsync(Guid id)
+    {
+        var job = await _generationJobRepository.GetByIdAsync(id);
+        if (job is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy tiến trình.");
+        }
+
+        if (job.Status is "Completed" or "CompletedWithWarnings" or "Failed" or "Cancelled")
+        {
+            throw new InvalidOperationException($"Không thể hủy tiến trình đã kết thúc (trạng thái hiện tại: {job.Status}).");
+        }
+
+        _cancellationTracker.CancelJob(id);
+
+        job.Status = "Cancelled";
+        job.ProgressMessage = "Tiến trình đã bị hủy bởi người dùng.";
+        job.CompletedAt = DateTime.UtcNow;
+        job.UpdatedAt = DateTime.UtcNow;
+
+        await _generationJobRepository.SaveChangesAsync();
     }
 
     private static string BuildCourseDescription(Syllabus syllabus)

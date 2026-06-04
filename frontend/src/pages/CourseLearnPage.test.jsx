@@ -1,14 +1,24 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemeProvider } from "../theme/ThemeContext";
 import CourseLearnPage from "./CourseLearnPage";
 
 const mockGetCourseLearnPayload = vi.fn();
+const mockGetLessonQuiz = vi.fn();
+const mockStartQuizAttempt = vi.fn();
+const mockSubmitQuizAttempt = vi.fn();
 const mockGetLessonComments = vi.fn();
 const mockUseAuth = vi.fn();
 
 vi.mock("../api/courseService", () => ({
   getCourseLearnPayload: (...args) => mockGetCourseLearnPayload(...args)
+}));
+
+vi.mock("../api/quizService", () => ({
+  getLessonQuiz: (...args) => mockGetLessonQuiz(...args),
+  startQuizAttempt: (...args) => mockStartQuizAttempt(...args),
+  submitQuizAttempt: (...args) => mockSubmitQuizAttempt(...args)
 }));
 
 vi.mock("../api/commentService", () => ({
@@ -26,11 +36,21 @@ vi.mock("../auth/AuthContext", () => ({
   useAuth: () => mockUseAuth()
 }));
 
+const mockUseLessonVoiceTutor = vi.fn();
+
+vi.mock("../hooks/useLessonVoiceTutor", () => ({
+  useLessonVoiceTutor: (...args) => mockUseLessonVoiceTutor(...args)
+}));
+
 function buildLearnPayload() {
   return {
     courseId: "course-1",
     courseTitle: "TRÍ TUỆ NHÂN TẠO ỨNG DỤNG",
     courseDescription: "Desc",
+    hasFinalQuiz: true,
+    finalQuizId: "final-quiz-1",
+    finalQuizStatus: "Ready",
+    finalQuizQuestionCount: 15,
     selectedLessonId: "lesson-1",
     selectedLesson: {
       lessonId: "lesson-1",
@@ -40,7 +60,10 @@ function buildLearnPayload() {
       videoUrl: "",
       videoGenerationStatus: "NotGenerated",
       videoGenerationError: "",
-      orderIndex: 1
+      orderIndex: 1,
+      quizId: "quiz-1",
+      quizStatus: "Ready",
+      quizQuestionCount: 3
     },
     modules: [
       {
@@ -57,7 +80,10 @@ function buildLearnPayload() {
             videoUrl: "",
             videoGenerationStatus: "NotGenerated",
             videoGenerationError: "",
-            orderIndex: 1
+            orderIndex: 1,
+            quizId: "quiz-1",
+            quizStatus: "Ready",
+            quizQuestionCount: 3
           },
           {
             lessonId: "lesson-2",
@@ -67,7 +93,10 @@ function buildLearnPayload() {
             videoUrl: "",
             videoGenerationStatus: "NotGenerated",
             videoGenerationError: "",
-            orderIndex: 2
+            orderIndex: 2,
+            quizId: "quiz-2",
+            quizStatus: "Generating",
+            quizQuestionCount: 0
           }
         ]
       }
@@ -77,7 +106,17 @@ function buildLearnPayload() {
 
 describe("CourseLearnPage", () => {
   beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("app-theme", "light");
     mockUseAuth.mockReturnValue({ user: { role: "User" } });
+    mockUseLessonVoiceTutor.mockReturnValue({
+      state: "idle",
+      errorMessage: "",
+      startRecording: vi.fn(),
+      stopRecording: vi.fn(),
+      requestFollowUp: vi.fn(),
+      resumeLearning: vi.fn()
+    });
     mockGetLessonComments.mockResolvedValue({
       items: [],
       page: 1,
@@ -86,6 +125,59 @@ describe("CourseLearnPage", () => {
       hasMore: false,
       sort: "newest"
     });
+    mockGetLessonQuiz.mockResolvedValue({
+      quizId: "quiz-1",
+      title: "Kiem tra nhanh",
+      status: "Ready",
+      questionCount: 1,
+      questions: [
+        {
+          questionId: "q1",
+          questionText: "AI mo phong dieu gi?",
+          explanation: "AI mo phong tri tue con nguoi.",
+          options: [
+            { optionId: "o1", optionText: "Tri tue con nguoi" },
+            { optionId: "o2", optionText: "May in" },
+            { optionId: "o3", optionText: "Ban phim" },
+            { optionId: "o4", optionText: "Loa" }
+          ]
+        }
+      ]
+    });
+    mockStartQuizAttempt.mockResolvedValue({ attemptId: "attempt-1", startedAt: "2026-05-28T00:00:00Z" });
+    mockSubmitQuizAttempt.mockResolvedValue({
+      attemptId: "attempt-1",
+      score: 100,
+      correctCount: 1,
+      totalQuestions: 1,
+      answers: [
+        {
+          questionId: "q1",
+          selectedOptionId: "o1",
+          correctOptionId: "o1",
+          isCorrect: true,
+          explanation: "AI mo phong tri tue con nguoi."
+        }
+      ]
+    });
+  });
+
+  it("provides a themed learner workspace scope in dark mode", async () => {
+    window.localStorage.setItem("app-theme", "dark");
+    mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findAllByText("Tổng quan về AI");
+    expect(screen.getByTestId("course-learn-shell")).toHaveAttribute("data-theme", "dark");
   });
 
   it("renders default selected lesson", async () => {
@@ -93,15 +185,38 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
     expect(await screen.findAllByText("Tổng quan về AI")).not.toHaveLength(0);
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Bình luận" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Thảo luận bài học" })).toBeInTheDocument();
+    expect(await screen.findByText("Quiz tong ket khoa hoc")).toBeInTheDocument();
+  });
+
+  it("submits the lesson quiz inline", async () => {
+    mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Làm quiz" }));
+    fireEvent.click(await screen.findByLabelText("Tri tue con nguoi"));
+    fireEvent.click(screen.getByRole("button", { name: "Nộp bài" }));
+
+    expect(await screen.findByText("100")).toBeInTheDocument();
   });
 
   it("changes left panel when selecting another lesson", async () => {
@@ -153,9 +268,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -203,14 +320,37 @@ describe("CourseLearnPage", () => {
 
     const { container } = render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
     await screen.findAllByText("Lesson 1");
     expect(container.querySelector("video")).not.toBeNull();
+  });
+
+  it("shows the floating lesson voice tutor action when the selected lesson has a video", async () => {
+    const payload = buildLearnPayload();
+    payload.selectedLesson.videoUrl = "/storage/video/lesson-1.mp4";
+    payload.selectedLesson.videoGenerationStatus = "Completed";
+    payload.modules[0].lessons[0].videoUrl = "/storage/video/lesson-1.mp4";
+    payload.modules[0].lessons[0].videoGenerationStatus = "Completed";
+    mockGetCourseLearnPayload.mockResolvedValue(payload);
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("button", { name: "Hỏi ngay" })).toBeInTheDocument();
   });
 
   it("renders comment content below the selected lesson video", async () => {
@@ -242,9 +382,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
@@ -256,19 +398,23 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Bài trước/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: /Tiếp tục bài học/i }));
 
     expect(await screen.findByText("Noi dung lesson 2")).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 100%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
   });
 
   it("moves back to the previous lesson and renders the course content heading", async () => {
@@ -279,19 +425,23 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 
     expect(await screen.findByRole("heading", { name: /Nội dung khóa học/i })).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 100%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Bài trước/i }));
 
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
-    expect(await screen.findByText(/Tiến độ: 50%/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tiến độ")).toBeInTheDocument();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
   });
 
   it("keeps only one module expanded when opening another module", async () => {
@@ -321,9 +471,11 @@ describe("CourseLearnPage", () => {
 
     render(
       <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
-        <Routes>
-          <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>
     );
 

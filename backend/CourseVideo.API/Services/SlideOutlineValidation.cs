@@ -34,6 +34,7 @@ public static class SlideOutlineValidation
     {
         public int SlideNumber { get; set; }
         public string Title { get; set; } = string.Empty;
+        public string ImageKeyword { get; set; } = string.Empty;
         public List<string> BulletPoints { get; set; } = [];
         public string SpeakerNotes { get; set; } = string.Empty;
     }

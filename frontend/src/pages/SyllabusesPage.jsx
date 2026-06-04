@@ -119,7 +119,7 @@ export default function SyllabusesPage() {
   const hasCompletedGeneration = selected ? completedSyllabusIds.has(selected.id) : false;
 
   return (
-    <Section className="section-stack">
+    <Section className="section-stack admin-workspace">
       <PageHeader
         eyebrow="Admin"
         title="Đề cương"
@@ -127,7 +127,7 @@ export default function SyllabusesPage() {
       />
 
       <div className="split-layout">
-        <Card className="section-stack" variant="shadowed">
+        <Card className="section-stack admin-panel-card admin-panel-card--form" variant="shadowed">
           <h2>Import đề cương</h2>
           <form className="auth-form" onSubmit={handleSubmit}>
             <FormField id="syllabus-title" label="Tiêu đề">
@@ -169,7 +169,7 @@ export default function SyllabusesPage() {
         </Card>
 
         <div className="section-stack">
-          <Card variant="shadowed">
+          <Card className="admin-panel-card admin-panel-card--list" variant="shadowed">
             <h2>Danh sách đề cương</h2>
             {isLoading ? (
               <p>Đang tải danh sách đề cương...</p>
@@ -181,7 +181,7 @@ export default function SyllabusesPage() {
               <div className="list-stack">
                 {items.map((item) => (
                   <button
-                    className={`list-item-button${selected?.id === item.id ? " list-item-button--active" : ""}`}
+                    className={`list-item-button admin-list-item${selected?.id === item.id ? " list-item-button--active" : ""}`}
                     key={item.id}
                     onClick={() => handleSelect(item.id)}
                     type="button"
@@ -197,7 +197,7 @@ export default function SyllabusesPage() {
             )}
           </Card>
 
-          <Card variant="shadowed">
+          <Card className="admin-panel-card admin-panel-card--detail" variant="shadowed">
             <div className="detail-header">
               <h2>Chi tiết đề cương</h2>
               {selected ? (

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import vibecourseLogo from "../../assets/icons/vibecourse-logo.png";
+import BrandLockup from "../brand/BrandLockup";
 
 export default function Footer() {
   return (
@@ -7,9 +7,7 @@ export default function Footer() {
       <div className="page-container site-footer__inner">
         <div className="site-footer__grid">
           <div className="site-footer__brand">
-            <Link aria-label="VibeCourseAI" className="site-footer__brand-link" to="/">
-              <img alt="VibeCourseAI" className="site-footer__logo" src={vibecourseLogo} />
-            </Link>
+            <BrandLockup className="site-footer__brand-link" />
             <p>Tạo, quản lý và học khóa học video với AI trong một trải nghiệm sáng, rõ và sống động.</p>
           </div>
 

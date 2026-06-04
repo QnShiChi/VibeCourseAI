@@ -1,6 +1,7 @@
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    user: root
     container_name: course_sqlserver
     restart: unless-stopped
     env_file:
@@ -23,6 +24,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       CONNECTION_STRING: ${CONNECTION_STRING}
+      AI_WORKER_BASE_URL: http://localhost:8080
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
@@ -57,20 +59,7 @@ services:
       - sqlserver
     volumes:
       - ./storage:/app/storage
-
-  video-worker:
-    build:
-      context: ./video-worker
-    container_name: course_video_worker
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "${VIDEO_WORKER_PORT}:8001"
-    depends_on:
-      - sqlserver
-    volumes:
-      - ./storage:/app/storage
+      - ./ai-worker/app/phobert_dataset2_model:/app/app/phobert_dataset2_model:ro
 
 volumes:
   sqlserver_data:

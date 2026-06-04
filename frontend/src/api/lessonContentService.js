@@ -5,6 +5,11 @@ export async function generateCourseLessonContent(courseId) {
   return data;
 }
 
+export async function generateFullCourse(courseId) {
+  const { data } = await axiosClient.post(`/courses/${courseId}/generate-full-course`);
+  return data;
+}
+
 export async function regenerateLessonContent(courseId, lessonId) {
   const { data } = await axiosClient.post(`/courses/${courseId}/lessons/${lessonId}/regenerate-lesson-content`);
   return data;

@@ -15,8 +15,8 @@ export async function updateLesson(lessonId, payload) {
   return data;
 }
 
-export async function updateCourseCategory(courseId, category) {
-  const { data } = await axiosClient.put(`/courses/${courseId}/category`, { category });
+export async function updateCourseCategory(courseId, categoryId) {
+  const { data } = await axiosClient.put(`/courses/${courseId}/category`, { categoryId });
   return data;
 }
 
@@ -24,6 +24,10 @@ export async function uploadCourseThumbnail(courseId, file) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const { data } = await axiosClient.post(`/courses/${courseId}/thumbnail`, formData);
+  const { data } = await axiosClient.post(`/courses/${courseId}/thumbnail`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
   return data;
 }

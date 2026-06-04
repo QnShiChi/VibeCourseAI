@@ -57,8 +57,8 @@ public class LessonsControllerTests
         var result = await controller.UpdateGeneratedContent(lessonId, new UpdateLessonGeneratedContentRequest
         {
             TeachingScript = " Script moi ",
-            SlideOutlineJson = "{\"slides\":[]}",
-            VoiceoverPlanJson = "{\"tone\":\"clear\"}"
+            SlideOutlineJson = "[{\"SlideNumber\":1,\"Title\":\"S1\",\"BulletPoints\":[\"BP1\"],\"SpeakerNotes\":\"Note\"}]",
+            VoiceoverPlanJson = "{\"EstimatedDurationMinutes\":5,\"Tone\":\"clear\",\"Pacing\":\"normal\",\"TargetAudience\":\"all\",\"PronunciationNotes\":\"none\"}"
         });
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;

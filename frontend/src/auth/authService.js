@@ -27,3 +27,13 @@ export async function getCurrentUser() {
 export async function changePassword(payload) {
   await axiosClient.post("/auth/change-password", payload);
 }
+
+export async function forgotPassword(payload) {
+  const { data } = await axiosClient.post("/auth/forgot-password", payload);
+  return data;
+}
+
+export async function resetPassword(payload) {
+  const { data } = await axiosClient.post("/auth/reset-password", payload);
+  return data;
+}

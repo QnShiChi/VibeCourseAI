@@ -9,13 +9,17 @@ import {
   removeLessonCommentReaction,
   unhideLessonComment
 } from "../../api/commentService";
+import { useAuth } from "../../auth/AuthContext";
 import CommentComposer from "./CommentComposer";
 import CommentList from "./CommentList";
 import CommentSortControl from "./CommentSortControl";
 import { applyReactionUpdateToThreads } from "./commentReactionState";
 import styles from "./LessonComments.module.css";
 
+const DEFAULT_VISIBLE_COMMENTS = 4;
+
 export default function LessonComments({ isAdmin = false, lessonId }) {
+  const { user } = useAuth();
   const [comments, setComments] = useState([]);
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
@@ -25,12 +29,14 @@ export default function LessonComments({ isAdmin = false, lessonId }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [replyComposer, setReplyComposer] = useState(null);
+  const [showAllComments, setShowAllComments] = useState(false);
 
   useEffect(() => {
     if (!lessonId) {
       return;
     }
 
+    setShowAllComments(false);
     loadComments({ nextSort: sort, nextPage: 1, append: false });
   }, [lessonId, sort]);
 
@@ -137,21 +143,28 @@ export default function LessonComments({ isAdmin = false, lessonId }) {
     });
   }
 
+  const visibleComments = showAllComments ? comments : comments.slice(0, DEFAULT_VISIBLE_COMMENTS);
+  const canToggleVisibleComments = comments.length > DEFAULT_VISIBLE_COMMENTS;
+  const totalCommentCount = comments.reduce((total, thread) => total + 1 + (thread.replies?.length ?? 0), 0);
+  const userInitial = (user?.fullName || user?.email || "U").slice(0, 1).toUpperCase();
+
   return (
     <section className={styles.commentsSection}>
       <div className={styles.commentsHeader}>
         <div>
-          <h2>Bình luận</h2>
-          <p>Trao đổi trực tiếp ngay dưới lesson video đang học.</p>
+          <h2>Thảo luận bài học</h2>
+          <p>{totalCommentCount} bình luận từ học viên</p>
         </div>
 
         <CommentSortControl onChange={setSort} sort={sort} />
       </div>
 
       <CommentComposer
+        avatarLabel={userInitial}
         isSubmitting={isSubmitting}
         onSubmit={handleSubmitComment}
-        placeholder="Viết bình luận cho bài học này..."
+        placeholder="Chia sẻ cảm nghĩ hoặc đặt câu hỏi về bài học..."
+        submitLabel="Gửi bình luận"
       />
 
       {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
@@ -161,7 +174,7 @@ export default function LessonComments({ isAdmin = false, lessonId }) {
       ) : comments.length ? (
         <>
           <CommentList
-            comments={comments}
+            comments={visibleComments}
             isAdmin={isAdmin}
             isSubmittingReply={isSubmittingReply}
             onDelete={handleDelete}
@@ -172,6 +185,18 @@ export default function LessonComments({ isAdmin = false, lessonId }) {
             onUnhide={handleUnhide}
             replyComposer={replyComposer}
           />
+
+          {canToggleVisibleComments ? (
+            <div className={styles.commentsFooter}>
+              <button
+                className={styles.commentGhostButton}
+                onClick={() => setShowAllComments((current) => !current)}
+                type="button"
+              >
+                {showAllComments ? "Ẩn bớt bình luận" : "Xem thêm bình luận"}
+              </button>
+            </div>
+          ) : null}
 
           {hasMore ? (
             <div className={styles.commentsFooter}>

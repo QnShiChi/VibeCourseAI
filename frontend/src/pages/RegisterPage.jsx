@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import AuthShell, { AuthField, LockIcon, MailIcon, PersonIcon } from "../components/auth/AuthShell";
 import Button from "../components/ui/Button";
-import Card from "../components/ui/Card";
-import FormField from "../components/ui/FormField";
-import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../auth/useAuth";
+import styles from "../styles/AuthPage.module.css";
 
 function getVietnameseErrorMessage(error) {
   const responseData = error?.response?.data;
@@ -31,6 +30,7 @@ export default function RegisterPage() {
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -44,8 +44,16 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      await register(formData);
-      navigate("/");
+      const nextSession = await register(formData);
+      const nextPath = nextSession?.user?.role === "Admin" ? "/dashboard" : "/";
+      navigate(nextPath, {
+        replace: true,
+        state: {
+          authIntro: {
+            source: "register"
+          }
+        }
+      });
     } catch (error) {
       setErrorMessage(getVietnameseErrorMessage(error));
     } finally {
@@ -54,59 +62,76 @@ export default function RegisterPage() {
   }
 
   return (
-    <section className="auth-page">
-      <Card className="auth-card" variant="shadowed">
-        <PageHeader
-          eyebrow="Tai khoan"
-          title="Đăng ký"
-          description="Tạo tài khoản mới để bắt đầu học và theo dõi các khóa học trên hệ thống."
+    <AuthShell
+      alternateCta="Đăng nhập"
+      alternateTo="/login"
+      description="Gia nhập cộng đồng giáo dục AI lớn nhất Việt Nam với flow tạo khóa học rõ ràng hơn."
+      footerLabel="Đã có tài khoản?"
+      footerLinkLabel="Đăng nhập"
+      footerLinkTo="/login"
+      heading="Tạo tài khoản mới"
+      showcaseAudience="1,200+ nhà sáng tạo"
+      showcaseDescription="Hệ thống tự động hóa quy trình sản xuất bài giảng, giúp bạn tiết kiệm thời gian thiết kế giáo án và tập trung vào tri thức."
+      showcaseEyebrow="Bắt đầu ngay"
+      showcaseMeta="Đã tham gia cùng hệ sinh thái học tập của VibeCourseAI."
+      showcaseTitle="Khởi tạo nội dung khóa học bằng Trí tuệ nhân tạo"
+    >
+      <form className={styles.formStack} onSubmit={handleSubmit}>
+        <AuthField
+          autoComplete="name"
+          icon={<PersonIcon />}
+          id="fullName"
+          label="Họ và tên"
+          onChange={(event) => setFormData((current) => ({ ...current, fullName: event.target.value }))}
+          placeholder="Nguyễn Văn A"
+          type="text"
+          value={formData.fullName}
         />
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <FormField id="fullName" label="Họ và tên">
-            <input
-              className="ui-input"
-              id="fullName"
-              type="text"
-              placeholder="Nhập họ và tên"
-              value={formData.fullName}
-              onChange={(event) => setFormData((current) => ({ ...current, fullName: event.target.value }))}
-            />
-          </FormField>
+        <AuthField
+          autoComplete="email"
+          icon={<MailIcon />}
+          id="register-email"
+          label="Email"
+          onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+          placeholder="email@example.com"
+          type="email"
+          value={formData.email}
+        />
 
-          <FormField id="register-email" label="Email">
-            <input
-              className="ui-input"
-              id="register-email"
-              type="email"
-              placeholder="Nhập email của bạn"
-              value={formData.email}
-              onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
-            />
-          </FormField>
+        <AuthField
+          autoComplete="new-password"
+          helper="Tối thiểu 8 ký tự, bao gồm chữ cái và số."
+          icon={<LockIcon />}
+          id="register-password"
+          label="Mật khẩu"
+          onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
+          placeholder="••••••••"
+          type="password"
+          value={formData.password}
+        />
 
-          <FormField id="register-password" label="Mật khẩu">
-            <input
-              className="ui-input"
-              id="register-password"
-              type="password"
-              placeholder="Tạo mật khẩu"
-              value={formData.password}
-              onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
-            />
-          </FormField>
+        <label className={styles.checkboxRow} htmlFor="accept-terms">
+          <input
+            checked={acceptTerms}
+            id="accept-terms"
+            onChange={(event) => setAcceptTerms(event.target.checked)}
+            type="checkbox"
+          />
+          <span className={styles.checkboxLabel}>
+            Tôi đồng ý với <Link to="/register">Điều khoản</Link> và <Link to="/register">Chính sách bảo mật</Link>.
+          </span>
+        </label>
 
-          {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
+        {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
 
-          <Button disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
-          </Button>
-        </form>
-
-        <p className="auth-footer">
-          Bạn đã có tài khoản? <Link to="/login">Đăng nhập</Link>
-        </p>
-      </Card>
-    </section>
+        <Button className={styles.submitButton} disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Đang tạo tài khoản..." : "Đăng ký ngay"}
+          <span aria-hidden="true" className={styles.submitArrow}>
+            →
+          </span>
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

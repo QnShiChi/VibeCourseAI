@@ -11,3 +11,7 @@ storage/videos/*
 storage/slides/*
 storage/thumbnails/*
 !storage/**/.gitkeep
+
+# Ignore large ML models and checkpoints
+ai-worker/app/phobert_dataset2_model/
+models/sentiment-model/

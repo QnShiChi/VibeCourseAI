@@ -45,7 +45,7 @@ Không cần ưu tiên đọc lúc đầu:
 ## 2. Bản đồ thư mục backend
 
 ### 2.1. Điểm khởi động ứng dụng
-
+<!-- xong -->
 Đọc trước:
 - `backend/CourseVideo.API/Program.cs`
 
@@ -74,6 +74,7 @@ Vai trò:
 Vai trò:
 - gom tất cả config backend thành các class options,
 - nối config từ `appsettings` hoặc biến môi trường vào `Program.cs`.
+<!-- Xong -->
 
 ### 2.3. Tầng dữ liệu
 
@@ -84,6 +85,8 @@ Vai trò:
 Vai trò:
 - `AppDbContext.cs`: khai báo `DbSet<>`, quan hệ giữa entity, index, ràng buộc, seed role.
 - `DbInitializer.cs`: migrate/ensure database, thêm bảng/cột khi khởi động, seed admin.
+
+<!-- Xong -->
 
 ### 2.4. Tầng mô hình dữ liệu
 
@@ -114,6 +117,8 @@ Vai trò:
 Vai trò:
 - định nghĩa entity chính của hệ thống,
 - là trung tâm liên kết giữa repository, service và controller.
+
+<!-- Xong -->
 
 ### 2.5. Tầng DTO
 

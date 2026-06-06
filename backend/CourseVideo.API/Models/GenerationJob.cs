@@ -16,6 +16,7 @@ public class GenerationJob : BaseEntity
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
 
+    // Navigation properties
     public Syllabus? Syllabus { get; set; }
     public Course? Course { get; set; }
     public User? CreatedByUser { get; set; }

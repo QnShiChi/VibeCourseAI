@@ -6,6 +6,6 @@ public class LessonCommentListResponse
     public int Page { get; set; }
     public int PageSize { get; set; }
     public int TotalCount { get; set; }
-    public bool HasMore { get; set; }
+    public bool HasMore { get; set; } // Indicates if there are more comments to load
     public string Sort { get; set; } = "newest";
 }

@@ -62,7 +62,7 @@ public class AppDbContext : DbContext
             entity.Property(category => category.Name).HasMaxLength(120).IsRequired();
             entity.Property(category => category.Description).HasMaxLength(400).IsRequired();
             entity.Property(category => category.Status)
-                .HasConversion<string>()
+                .HasConversion<string>() // Lưu theo Enum dưới dạng string
                 .HasMaxLength(30)
                 .HasDefaultValue(CategoryStatus.Visible)
                 .IsRequired();

@@ -50,10 +50,10 @@ public class FullCourseGenerationServiceTests
             .Callback(() => secondLesson.ContentGenerationStatus = "Completed");
 
         lessonAudioService
-            .Setup(service => service.GenerateAudioForLessonInternalAsync(firstLesson, CancellationToken.None))
+            .Setup(service => service.GenerateAudioForLessonInternalAsync(firstLesson, CancellationToken.None, It.IsAny<Func<int, int, Task>?>()))
             .ThrowsAsync(new InvalidOperationException("audio fail"));
         lessonAudioService
-            .Setup(service => service.GenerateAudioForLessonInternalAsync(secondLesson, CancellationToken.None))
+            .Setup(service => service.GenerateAudioForLessonInternalAsync(secondLesson, CancellationToken.None, It.IsAny<Func<int, int, Task>?>()))
             .Returns(Task.CompletedTask)
             .Callback(() => secondLesson.AudioGenerationStatus = "Completed");
 
@@ -88,7 +88,74 @@ public class FullCourseGenerationServiceTests
         quizGenerationService.Verify(service => service.GenerateFinalQuizAsync(course.Id, CancellationToken.None), Times.Once);
     }
 
+    [Fact]
+    public async Task ProcessJobAsync_StopsEarlyAfterRepeatedSystemicAudioFailures()
+    {
+        var courseRepository = new Mock<ICourseRepository>();
+        var lessonRepository = new Mock<ILessonRepository>();
+        var generationJobRepository = new Mock<IGenerationJobRepository>();
+        var queue = new Mock<IFullCourseJobQueue>();
+        var lessonContentService = new Mock<ILessonContentGenerationService>();
+        var lessonAudioService = new Mock<ILessonAudioGenerationService>();
+        var lessonVideoService = new Mock<ILessonVideoGenerationService>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
+
+        var course = CreateCourseWithLessonCount(4);
+        var module = course.Modules.Single();
+        var lessons = module.Lessons.OrderBy(lesson => lesson.OrderIndex).ToList();
+        var job = new GenerationJob
+        {
+            Id = Guid.NewGuid(),
+            CourseId = course.Id,
+            SyllabusId = course.SyllabusId!.Value,
+            JobType = "GenerateFullCourse",
+            Status = "Pending"
+        };
+
+        generationJobRepository.Setup(repository => repository.GetByIdAsync(job.Id)).ReturnsAsync(job);
+        generationJobRepository.Setup(repository => repository.SaveChangesAsync()).Returns(Task.CompletedTask);
+        courseRepository.Setup(repository => repository.GetByIdWithStructureAsync(course.Id)).ReturnsAsync(course);
+        lessonRepository.Setup(repository => repository.SaveChangesAsync()).Returns(Task.CompletedTask);
+
+        foreach (var lesson in lessons)
+        {
+            lessonContentService
+                .Setup(service => service.GenerateContentForLessonInternalAsync(course, module, lesson, CancellationToken.None))
+                .Returns(Task.CompletedTask)
+                .Callback(() => lesson.ContentGenerationStatus = "Completed");
+        }
+
+        lessonAudioService
+            .Setup(service => service.GenerateAudioForLessonInternalAsync(It.IsAny<Lesson>(), CancellationToken.None, It.IsAny<Func<int, int, Task>?>()))
+            .ThrowsAsync(new InvalidOperationException("edge-tts failed with exit code 1: edge_tts.exceptions.NoAudioReceived"));
+
+        var service = new FullCourseGenerationService(
+            courseRepository.Object,
+            lessonRepository.Object,
+            generationJobRepository.Object,
+            queue.Object,
+            lessonContentService.Object,
+            lessonAudioService.Object,
+            lessonVideoService.Object,
+            quizGenerationService.Object);
+
+        await service.ProcessJobAsync(job.Id, CancellationToken.None);
+
+        job.Status.Should().Be("Failed");
+        job.FailedItems.Should().Be(3);
+        job.ErrorMessage.Should().Contain("edge-tts");
+        lessonAudioService.Verify(
+            svc => svc.GenerateAudioForLessonInternalAsync(It.IsAny<Lesson>(), CancellationToken.None, It.IsAny<Func<int, int, Task>?>()),
+            Times.Exactly(3));
+        lessons[3].ContentGenerationStatus.Should().Be("NotGenerated");
+    }
+
     private static Course CreateCourse()
+    {
+        return CreateCourseWithLessonCount(2);
+    }
+
+    private static Course CreateCourseWithLessonCount(int lessonCount)
     {
         var course = new Course
         {
@@ -106,33 +173,24 @@ public class FullCourseGenerationServiceTests
             Course = course
         };
 
-        var firstLesson = new Lesson
+        var lessons = new List<Lesson>();
+        for (var index = 1; index <= lessonCount; index++)
         {
-            Id = Guid.NewGuid(),
-            ModuleId = module.Id,
-            Module = module,
-            Title = "Lesson 1",
-            OrderIndex = 1,
-            ContentSeed = "Seed 1",
-            ContentGenerationStatus = "NotGenerated",
-            AudioGenerationStatus = "NotGenerated",
-            VideoGenerationStatus = "NotGenerated"
-        };
+            lessons.Add(new Lesson
+            {
+                Id = Guid.NewGuid(),
+                ModuleId = module.Id,
+                Module = module,
+                Title = $"Lesson {index}",
+                OrderIndex = index,
+                ContentSeed = $"Seed {index}",
+                ContentGenerationStatus = index == 2 && lessonCount == 2 ? "Completed" : "NotGenerated",
+                AudioGenerationStatus = "NotGenerated",
+                VideoGenerationStatus = "NotGenerated"
+            });
+        }
 
-        var secondLesson = new Lesson
-        {
-            Id = Guid.NewGuid(),
-            ModuleId = module.Id,
-            Module = module,
-            Title = "Lesson 2",
-            OrderIndex = 2,
-            ContentSeed = "Seed 2",
-            ContentGenerationStatus = "Completed",
-            AudioGenerationStatus = "NotGenerated",
-            VideoGenerationStatus = "NotGenerated"
-        };
-
-        module.Lessons = [firstLesson, secondLesson];
+        module.Lessons = lessons;
         course.Modules = [module];
         return course;
     }

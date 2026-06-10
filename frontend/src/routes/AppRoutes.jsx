@@ -9,6 +9,7 @@ import AdminProfilePage from "../pages/AdminProfilePage";
 import AdminSettingsPage from "../pages/AdminSettingsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
+import CartPage from "../pages/CartPage";
 import CoursesPage from "../pages/CoursesPage";
 import CourseLearnPage from "../pages/CourseLearnPage";
 import CourseStructurePage from "../pages/CourseStructurePage";
@@ -19,6 +20,7 @@ import LoginPage from "../pages/LoginPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import ProfilePage from "../pages/ProfilePage";
+import PaymentOrderPage from "../pages/PaymentOrderPage";
 import RegisterPage from "../pages/RegisterPage";
 import SyllabusesPage from "../pages/SyllabusesPage";
 
@@ -65,19 +67,21 @@ export default function AppRoutes() {
             </RequireAuth>
           }
         />
-        <Route
-          path="/courses"
-          element={
-            <RequireAuth>
-              <CoursesPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/cart" element={<CartPage />} />
         <Route
           path="/courses/:courseId/learn"
           element={
             <RequireAuth>
               <CourseLearnPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/payment-orders/:orderId"
+          element={
+            <RequireAuth>
+              <PaymentOrderPage />
             </RequireAuth>
           }
         />

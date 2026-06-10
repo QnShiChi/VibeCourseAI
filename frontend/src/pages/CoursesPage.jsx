@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { addCartItem } from "../api/cartService";
 import { getVisibleCategories } from "../api/categoryService";
 import { useAuth } from "../auth/useAuth";
 import { getAdminCourses, getPublishedCourses, publishCourse, unpublishCourse } from "../api/courseService";
@@ -7,6 +8,7 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
 import { useTheme } from "../theme/ThemeContext";
+import { ensureGuestCartToken, getGuestCartToken } from "../utils/cartStorage";
 import styles from "../styles/CoursesPage.module.css";
 
 const ALL_COURSES_FILTER = "All";
@@ -28,6 +30,7 @@ function loadFavoriteCourseIds() {
 
 export default function CoursesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const isAdmin = user?.role === "Admin";
   const [courses, setCourses] = useState([]);
@@ -81,6 +84,43 @@ export default function CoursesPage() {
     } catch {
       setErrorMessage("Không thể cập nhật trạng thái publish của khóa học.");
     }
+  }
+
+  async function handleAddToCart(courseId) {
+    try {
+      const guestCartToken = user ? "" : (getGuestCartToken() || ensureGuestCartToken());
+      await addCartItem({
+        courseId,
+        guestCartToken
+      });
+      navigate("/cart");
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message ?? "Không thể thêm khóa học vào giỏ.");
+    }
+  }
+
+  function renderCourseAction(course, className) {
+    if (isAdmin) {
+      return (
+        <Button as={Link} to={`/courses/${course.id}/learn`} className={className}>
+          Xem khóa học
+        </Button>
+      );
+    }
+
+    if (course.alreadyOwned) {
+      return (
+        <Button as={Link} to={`/courses/${course.id}/learn`} className={className}>
+          Vào học ngay
+        </Button>
+      );
+    }
+
+    return (
+      <Button className={className} onClick={() => handleAddToCart(course.id)}>
+        Thêm vào giỏ
+      </Button>
+    );
   }
 
   function handleResetFilters() {
@@ -194,9 +234,7 @@ export default function CoursesPage() {
                           <span>{heroCourse.moduleCount} modules</span>
                           <span>{heroCourse.lessonCount} bài học</span>
                         </div>
-                        <Button as={Link} to={`/courses/${heroCourse.id}/learn`} className={styles.featureButton}>
-                          Đăng ký ngay
-                        </Button>
+                        {renderCourseAction(heroCourse, styles.featureButton)}
                       </div>
                     </article>
 
@@ -236,9 +274,7 @@ export default function CoursesPage() {
                         <strong>"{recommendationCourse.title}"</strong>.
                       </p>
                     </div>
-                    <Button as={Link} to={`/courses/${recommendationCourse.id}/learn`} className={styles.recommendButton}>
-                      Xem gợi ý
-                    </Button>
+                    {renderCourseAction(recommendationCourse, styles.recommendButton)}
                   </div>
                 </section>
               ) : null}
@@ -296,11 +332,9 @@ export default function CoursesPage() {
                         </div>
                       </div>
                       <div className={styles.cardFooter}>
-                        <div className={styles.cardPrice}>Từ 599.000đ</div>
+                        <div className={styles.cardPrice}>{formatCurrency(course.price)}</div>
                         <div className={styles.cardActions}>
-                          <Button as={Link} to={`/courses/${course.id}/learn`} className={styles.primaryAction}>
-                            Xem khóa học
-                          </Button>
+                          {renderCourseAction(course, styles.primaryAction)}
                           {isAdmin ? (
                             <Button onClick={() => handleTogglePublish(course)} variant="ghost" className={styles.secondaryAction}>
                               {course.isPublished ? "Unpublish" : "Publish"}
@@ -332,4 +366,12 @@ function sortCourses(courses, sortOption) {
     default:
       return items;
   }
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(value ?? 0);
 }

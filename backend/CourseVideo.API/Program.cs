@@ -32,6 +32,7 @@ builder.Services.Configure<OpenRouterOptions>(builder.Configuration.GetSection("
 builder.Services.Configure<OpenAiAudioOptions>(builder.Configuration.GetSection("OpenAiAudio"));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<LessonVoiceTutorOptions>(builder.Configuration.GetSection("LessonVoiceTutor"));
+builder.Services.Configure<SepayOptions>(builder.Configuration.GetSection("SePay"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing JWT configuration.");
@@ -188,6 +189,7 @@ builder.Services.AddScoped<ISyllabusService, SyllabusService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<PasswordHasher<User>>();
 
 var app = builder.Build();

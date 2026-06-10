@@ -10,7 +10,6 @@ namespace CourseVideo.API.Controllers;
 
 [ApiController]
 [Route("api/courses")]
-[Authorize]
 public class CoursesController : ControllerBase
 {
     private readonly ICourseService _courseService;
@@ -41,9 +40,14 @@ public class CoursesController : ControllerBase
     }
 
     [HttpGet("published")]
-    public async Task<ActionResult<IReadOnlyList<PublishedCourseListItemResponse>>> GetPublishedCourses()
+    [AllowAnonymous]
+    public async Task<ActionResult<IReadOnlyList<PublishedCourseListItemResponse>>> GetPublishedCourses(CancellationToken cancellationToken)
     {
-        var courses = await _courseService.GetPublishedCoursesAsync();
+        Guid? currentUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var userId)
+            ? userId
+            : null;
+
+        var courses = await _courseService.GetPublishedCoursesAsync(currentUserId, cancellationToken);
         return Ok(courses);
     }
 
@@ -83,6 +87,21 @@ public class CoursesController : ControllerBase
         }
     }
 
+    [HttpPut("{id:guid}/price")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdatePrice(Guid id, [FromBody] UpdateCoursePriceRequest request)
+    {
+        try
+        {
+            var updated = await _courseService.UpdatePriceAsync(id, request.Price);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
     [HttpPost("{id:guid}/thumbnail")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UploadThumbnail(Guid id, [FromForm] UploadCourseThumbnailRequest request, CancellationToken cancellationToken)
@@ -104,11 +123,23 @@ public class CoursesController : ControllerBase
     }
 
     [HttpGet("{id:guid}/learn")]
+    [Authorize]
     public async Task<IActionResult> GetLearn(Guid id)
     {
         var isAdmin = User.Claims.Any(claim => claim.Type == ClaimTypes.Role && claim.Value == "Admin");
-        var payload = await _courseService.GetLearnPayloadAsync(id, isAdmin);
-        return payload is null ? NotFound() : Ok(payload);
+        Guid? currentUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var userId)
+            ? userId
+            : null;
+
+        try
+        {
+            var payload = await _courseService.GetLearnPayloadAsync(id, currentUserId, isAdmin);
+            return payload is null ? NotFound() : Ok(payload);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = exception.Message });
+        }
     }
 
     [HttpPost("{id:guid}/generate-lesson-content")]

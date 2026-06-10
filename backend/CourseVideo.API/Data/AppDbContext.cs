@@ -28,6 +28,10 @@ public class AppDbContext : DbContext
     public DbSet<QuizOption> QuizOptions => Set<QuizOption>();
     public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
     public DbSet<QuizAttemptAnswer> QuizAttemptAnswers => Set<QuizAttemptAnswer>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<CourseEnrollment> CourseEnrollments => Set<CourseEnrollment>();
+    public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
+    public DbSet<PaymentTransactionLog> PaymentTransactionLogs => Set<PaymentTransactionLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +80,7 @@ public class AppDbContext : DbContext
             entity.Property(course => course.Title).HasMaxLength(200).IsRequired();
             entity.Property(course => course.Description).HasMaxLength(2000).IsRequired();
             entity.Property(course => course.ThumbnailUrl).HasMaxLength(1000);
+            entity.Property(course => course.Price).HasDefaultValue(599000);
             entity.Property(course => course.CategoryId).IsRequired();
             entity.HasOne(course => course.Category)
                 .WithMany(category => category.Courses)
@@ -322,6 +327,81 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(answer => answer.QuizQuestionId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CartItem>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.GuestCartToken).HasMaxLength(100);
+            entity.HasIndex(item => new { item.UserId, item.CourseId }).IsUnique().HasFilter("[UserId] IS NOT NULL");
+            entity.HasIndex(item => new { item.GuestCartToken, item.CourseId }).IsUnique().HasFilter("[GuestCartToken] IS NOT NULL");
+            entity.HasOne(item => item.User)
+                .WithMany(user => user.CartItems)
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Course)
+                .WithMany(course => course.CartItems)
+                .HasForeignKey(item => item.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CourseEnrollment>(entity =>
+        {
+            entity.HasKey(enrollment => enrollment.Id);
+            entity.HasIndex(enrollment => new { enrollment.UserId, enrollment.CourseId }).IsUnique();
+            entity.HasOne(enrollment => enrollment.User)
+                .WithMany(user => user.Enrollments)
+                .HasForeignKey(enrollment => enrollment.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(enrollment => enrollment.Course)
+                .WithMany(course => course.Enrollments)
+                .HasForeignKey(enrollment => enrollment.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(enrollment => enrollment.PaymentOrder)
+                .WithMany()
+                .HasForeignKey(enrollment => enrollment.PaymentOrderId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PaymentOrder>(entity =>
+        {
+            entity.HasKey(order => order.Id);
+            entity.Property(order => order.OrderCode).HasMaxLength(32).IsRequired();
+            entity.Property(order => order.Status).HasMaxLength(30).IsRequired();
+            entity.Property(order => order.BankCode).HasMaxLength(50);
+            entity.Property(order => order.BankName).HasMaxLength(200);
+            entity.Property(order => order.BankAccountNumber).HasMaxLength(50);
+            entity.Property(order => order.AccountHolderName).HasMaxLength(200);
+            entity.Property(order => order.TransferContent).HasMaxLength(200).IsRequired();
+            entity.HasIndex(order => order.OrderCode).IsUnique();
+            entity.HasIndex(order => new { order.UserId, order.CourseId, order.Status });
+            entity.HasOne(order => order.User)
+                .WithMany(user => user.PaymentOrders)
+                .HasForeignKey(order => order.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(order => order.Course)
+                .WithMany(course => course.PaymentOrders)
+                .HasForeignKey(order => order.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PaymentTransactionLog>(entity =>
+        {
+            entity.HasKey(log => log.Id);
+            entity.Property(log => log.Gateway).HasMaxLength(100).IsRequired();
+            entity.Property(log => log.TransactionDateText).HasMaxLength(50).IsRequired();
+            entity.Property(log => log.AccountNumber).HasMaxLength(50).IsRequired();
+            entity.Property(log => log.SubAccount).HasMaxLength(100);
+            entity.Property(log => log.Code).HasMaxLength(100);
+            entity.Property(log => log.Content).HasMaxLength(500).IsRequired();
+            entity.Property(log => log.TransferType).HasMaxLength(10).IsRequired();
+            entity.Property(log => log.Description).HasMaxLength(1000);
+            entity.Property(log => log.ReferenceCode).HasMaxLength(100);
+            entity.HasIndex(log => log.SepayTransactionId).IsUnique();
+            entity.HasOne(log => log.MatchedPaymentOrder)
+                .WithMany()
+                .HasForeignKey(log => log.MatchedPaymentOrderId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

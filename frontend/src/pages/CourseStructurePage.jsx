@@ -4,6 +4,7 @@ import { getAdminCategories } from "../api/categoryService";
 import {
   getCourseStructure,
   updateCourseCategory,
+  updateCoursePrice,
   updateLesson,
   updateModule,
   uploadCourseThumbnail
@@ -54,6 +55,7 @@ export default function CourseStructurePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [priceInput, setPriceInput] = useState("");
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [isSavingPresentation, setIsSavingPresentation] = useState(false);
@@ -167,6 +169,7 @@ export default function CourseStructurePage() {
       const data = await getCourseStructure(courseId);
       setCourse(data);
       setSelectedCategoryId(data.categoryId || "");
+      setPriceInput(String(data.price ?? 0));
       setThumbnailFile(null);
     } catch {
       setErrorMessage("Không thể tải cấu trúc khóa học.");
@@ -703,6 +706,29 @@ export default function CourseStructurePage() {
     }
   }
 
+  async function handleSavePrice() {
+    const normalizedPrice = Number.parseInt(priceInput, 10);
+
+    if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0) {
+      setErrorMessage("Giá khóa học phải là số nguyên lớn hơn hoặc bằng 0.");
+      return;
+    }
+
+    setMessage("");
+    setErrorMessage("");
+    setIsSavingPresentation(true);
+    try {
+      const updatedCourse = await updateCoursePrice(courseId, normalizedPrice);
+      setCourse(updatedCourse);
+      setPriceInput(String(updatedCourse.price ?? normalizedPrice));
+      setMessage("Đã cập nhật giá khóa học.");
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message ?? "Không thể cập nhật giá khóa học.");
+    } finally {
+      setIsSavingPresentation(false);
+    }
+  }
+
   const hasActiveJob = activeJob && isJobActive(activeJob.status);
   const processedItems = activeJob?.processedItems ?? 0;
   const failedItems = activeJob?.failedItems ?? 0;
@@ -756,6 +782,9 @@ export default function CourseStructurePage() {
                 Category: {course.category || "Chưa phân loại"}
               </span>
               <span className="course-structure-summary__pill">
+                Giá: {formatCurrency(course.price ?? 0)}
+              </span>
+              <span className="course-structure-summary__pill">
                 Thumbnail: {course.thumbnailUrl ? "Available" : "Missing"}
               </span>
             </div>
@@ -764,8 +793,8 @@ export default function CourseStructurePage() {
               <div className="course-presentation-panel__intro">
                 <div>
                   <span className="ui-badge">Presentation</span>
-                  <h3>Thumbnail & category</h3>
-                  <p>Tinh chỉnh phần trình bày của khóa học trước khi publish cho learner.</p>
+                  <h3>Thumbnail, category & giá bán</h3>
+                  <p>Tinh chỉnh phần trình bày và giá khóa học trước khi publish cho learner.</p>
                 </div>
               </div>
 
@@ -787,6 +816,20 @@ export default function CourseStructurePage() {
                 </div>
 
                 <div className="course-presentation-form">
+                  <FormField id="course-price" label="Giá khóa học (VND)">
+                    <input
+                      className="ui-input"
+                      id="course-price"
+                      min="0"
+                      step="1000"
+                      type="number"
+                      value={priceInput}
+                      onChange={(event) => setPriceInput(event.target.value)}
+                    />
+                  </FormField>
+                  <div className="quick-actions course-presentation-form__actions">
+                    <Button onClick={handleSavePrice} disabled={isSavingPresentation || priceInput === ""}>Lưu giá</Button>
+                  </div>
                   <FormField id="course-category" label="Danh mục khóa học">
                     <select
                       className="ui-input"
@@ -1273,4 +1316,12 @@ function resolveJobProgressAriaLabel(jobType) {
   }
 
   return "Tiến trình generate nội dung bài học";
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(value ?? 0);
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import AuthShell, { AuthField, LockIcon, MailIcon } from "../components/auth/AuthShell";
 import Button from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
@@ -35,6 +35,7 @@ function getVietnameseErrorMessage(error) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errorMessage, setErrorMessage] = useState("");
@@ -48,7 +49,7 @@ export default function LoginPage() {
 
     try {
       const nextSession = await login(formData);
-      const nextPath = nextSession?.user?.role === "Admin" ? "/dashboard" : "/";
+      const nextPath = location.state?.from?.pathname ?? (nextSession?.user?.role === "Admin" ? "/dashboard" : "/");
       navigate(nextPath, {
         replace: true,
         state: {

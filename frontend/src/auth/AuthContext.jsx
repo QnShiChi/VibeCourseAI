@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { mergeGuestCart } from "../api/cartService";
 import * as authService from "./authService";
 import { clearAuthSession, loadAuthSession, saveAuthSession } from "./authStorage";
+import { clearGuestCartToken, getGuestCartToken } from "../utils/cartStorage";
 
 const AuthContext = createContext(null);
 
@@ -35,6 +37,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function handleAuthSuccess(response) {
+    const guestCartToken = getGuestCartToken();
+
     const nextSession = {
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
@@ -44,6 +48,16 @@ export function AuthProvider({ children }) {
     saveAuthSession(nextSession);
     setSession(nextSession);
     setUser(response.user);
+
+    if (guestCartToken) {
+      try {
+        await mergeGuestCart(guestCartToken);
+        clearGuestCartToken();
+      } catch {
+        // Ignore cart merge failure to avoid blocking auth success.
+      }
+    }
+
     return nextSession;
   }
 

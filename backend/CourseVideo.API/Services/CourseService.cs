@@ -22,6 +22,7 @@ public class CourseService : ICourseService
     private readonly IFullCourseGenerationService _fullCourseGenerationService;
     private readonly IQuizGenerationService _quizGenerationService;
     private readonly IWebHostEnvironment _environment;
+    private readonly IPaymentService _paymentService;
 
     public CourseService(
         ICourseRepository courseRepository,
@@ -31,7 +32,8 @@ public class CourseService : ICourseService
         ILessonVideoGenerationService lessonVideoGenerationService,
         IFullCourseGenerationService fullCourseGenerationService,
         IQuizGenerationService quizGenerationService,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IPaymentService paymentService)
     {
         _courseRepository = courseRepository;
         _categoryRepository = categoryRepository;
@@ -41,6 +43,7 @@ public class CourseService : ICourseService
         _fullCourseGenerationService = fullCourseGenerationService;
         _quizGenerationService = quizGenerationService;
         _environment = environment;
+        _paymentService = paymentService;
     }
 
     public async Task<IReadOnlyList<CourseResponse>> GetAllAsync()
@@ -62,10 +65,22 @@ public class CourseService : ICourseService
         return courses.Select(MapAdminListItem).ToList();
     }
 
-    public async Task<IReadOnlyList<PublishedCourseListItemResponse>> GetPublishedCoursesAsync()
+    public async Task<IReadOnlyList<PublishedCourseListItemResponse>> GetPublishedCoursesAsync(Guid? currentUserId = null, CancellationToken cancellationToken = default)
     {
         var courses = await _courseRepository.GetPublishedAsync();
-        return courses.Select(MapPublishedListItem).ToList();
+        if (!currentUserId.HasValue)
+        {
+            return courses.Select(course => MapPublishedListItem(course, false)).ToList();
+        }
+
+        var results = new List<PublishedCourseListItemResponse>(courses.Count);
+        foreach (var course in courses)
+        {
+            var alreadyOwned = await _paymentService.HasCourseAccessAsync(currentUserId.Value, course.Id, cancellationToken);
+            results.Add(MapPublishedListItem(course, alreadyOwned));
+        }
+
+        return results;
     }
 
     public async Task<AdminCourseListItemResponse?> PublishAsync(Guid id)
@@ -117,6 +132,25 @@ public class CourseService : ICourseService
 
         course.CategoryId = category.Id;
         course.Category = category;
+        course.UpdatedAt = DateTime.UtcNow;
+        await _courseRepository.SaveChangesAsync();
+        return await GetStructureAsync(id);
+    }
+
+    public async Task<CourseStructureResponse?> UpdatePriceAsync(Guid id, int price)
+    {
+        if (price < 0)
+        {
+            throw new InvalidOperationException("Giá khóa học không được nhỏ hơn 0.");
+        }
+
+        var course = await _courseRepository.GetByIdAsync(id);
+        if (course is null)
+        {
+            return null;
+        }
+
+        course.Price = price;
         course.UpdatedAt = DateTime.UtcNow;
         await _courseRepository.SaveChangesAsync();
         return await GetStructureAsync(id);
@@ -204,7 +238,7 @@ public class CourseService : ICourseService
         return _quizGenerationService.GenerateFinalQuizAsync(courseId, cancellationToken);
     }
 
-    public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, bool canPreviewDraft)
+    public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, Guid? currentUserId, bool canPreviewDraft, CancellationToken cancellationToken = default)
     {
         var course = await _courseRepository.GetByIdWithStructureAsync(id);
         if (course is null)
@@ -215,6 +249,14 @@ public class CourseService : ICourseService
         if (!course.IsPublished && !canPreviewDraft)
         {
             return null;
+        }
+
+        if (!canPreviewDraft && course.Price > 0)
+        {
+            if (!currentUserId.HasValue || !await _paymentService.HasCourseAccessAsync(currentUserId.Value, id, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("Bạn cần thanh toán khóa học trước khi học.");
+            }
         }
 
         var lessonQuizLookup = course.Quizzes
@@ -273,6 +315,7 @@ public class CourseService : ICourseService
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
+            Price = course.Price,
             Category = course.Category?.Name ?? "Chưa phân loại",
             CategoryStatus = course.Category?.Status.ToString() ?? string.Empty,
             IsPublished = course.IsPublished,
@@ -321,13 +364,14 @@ public class CourseService : ICourseService
             Category = course.Category?.Name ?? "Chưa phân loại",
             CategoryStatus = course.Category?.Status.ToString() ?? string.Empty,
             IsPublished = course.IsPublished,
+            Price = course.Price,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),
             CreatedAt = course.CreatedAt
         };
     }
 
-    private static PublishedCourseListItemResponse MapPublishedListItem(Course course)
+    private static PublishedCourseListItemResponse MapPublishedListItem(Course course, bool alreadyOwned)
     {
         return new PublishedCourseListItemResponse
         {
@@ -338,6 +382,8 @@ public class CourseService : ICourseService
             ThumbnailUrl = course.ThumbnailUrl,
             Category = course.Category?.Name ?? "Chưa phân loại",
             IsPublished = course.IsPublished,
+            AlreadyOwned = alreadyOwned,
+            Price = course.Price,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),
             CreatedAt = course.CreatedAt

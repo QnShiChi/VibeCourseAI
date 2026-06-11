@@ -9,6 +9,7 @@ using CourseVideo.API.Models;
 using CourseVideo.API.Repositories;
 using CourseVideo.API.Repositories.Interfaces;
 using CourseVideo.API.Services;
+using CourseVideo.API.Services.Google;
 using CourseVideo.API.Services.Interfaces;
 using CourseVideo.API.Services.Transcription;
 using CourseVideo.API.Services.Tutoring;
@@ -40,11 +41,14 @@ builder.Services.Configure<OpenRouterOptions>(builder.Configuration.GetSection("
 builder.Services.Configure<OpenAiAudioOptions>(builder.Configuration.GetSection("OpenAiAudio"));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<LessonVoiceTutorOptions>(builder.Configuration.GetSection("LessonVoiceTutor"));
+builder.Services.Configure<SepayOptions>(builder.Configuration.GetSection("SePay"));
+builder.Services.Configure<GoogleAuthOptions>(builder.Configuration.GetSection("GoogleAuth"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing JWT configuration.");
 
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.AddSignalR(options =>
 {
     // Voice tutor sends one-shot recorded audio through the hub.
@@ -210,7 +214,11 @@ builder.Services.AddScoped<ILessonCommentService, LessonCommentService>();
 builder.Services.AddScoped<ISyllabusService, SyllabusService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient<IGoogleAuthService, GoogleAuthService>();
+builder.Services.AddSingleton<GoogleOAuthStateStore>();
+builder.Services.AddSingleton<GoogleAuthExchangeStore>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<PasswordHasher<User>>();
 
 var app = builder.Build();

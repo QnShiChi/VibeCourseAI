@@ -235,6 +235,9 @@ export default function MainLayout() {
               <NavLink className={getNavLinkClassName} to="/courses">
                 Khóa học
               </NavLink>
+              <NavLink className={getNavLinkClassName} to="/cart">
+                Giỏ hàng
+              </NavLink>
               {isAdmin ? (
                 <NavigationGroup
                   isActive={isDashboardSection}

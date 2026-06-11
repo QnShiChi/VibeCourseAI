@@ -20,6 +20,11 @@ export async function updateCourseCategory(courseId, categoryId) {
   return data;
 }
 
+export async function updateCoursePrice(courseId, price) {
+  const { data } = await axiosClient.put(`/courses/${courseId}/price`, { price });
+  return data;
+}
+
 export async function uploadCourseThumbnail(courseId, file) {
   const formData = new FormData();
   formData.append("file", file);

@@ -41,6 +41,7 @@ public static class DbInitializer
                 EnsureQuizTablesExist(dbContext);
                 EnsureGenerationJobColumnsExist(dbContext);
                 EnsureUserColumnsExist(dbContext);
+                EnsurePaymentTablesExist(dbContext);
                 Seed(dbContext, adminSeedOptions.Value);
                 return;
             }
@@ -148,6 +149,11 @@ public static class DbInitializer
             IF COL_LENGTH('Courses', 'CategoryId') IS NULL
             BEGIN
                 ALTER TABLE [Courses] ADD [CategoryId] uniqueidentifier NULL;
+            END
+
+            IF COL_LENGTH('Courses', 'Price') IS NULL
+            BEGIN
+                ALTER TABLE [Courses] ADD [Price] int NOT NULL CONSTRAINT [DF_Courses_Price] DEFAULT 599000;
             END
 
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_CategoryId' AND object_id = OBJECT_ID(N'[Courses]'))
@@ -836,6 +842,128 @@ public static class DbInitializer
             IF COL_LENGTH('Users', 'ResetPasswordTokenExpiry') IS NULL
             BEGIN
                 ALTER TABLE [Users] ADD [ResetPasswordTokenExpiry] datetime2 NULL;
+            END
+            """);
+    }
+
+    private static void EnsurePaymentTablesExist(AppDbContext dbContext)
+    {
+        if (!dbContext.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        dbContext.Database.ExecuteSqlRaw(
+            """
+            IF OBJECT_ID(N'[CartItems]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [CartItems] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NULL,
+                    [GuestCartToken] nvarchar(100) NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_CartItems] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_CartItems_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_CartItems_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]) ON DELETE CASCADE
+                );
+            END
+
+            IF NOT EXISTS (
+                SELECT 1 FROM sys.indexes
+                WHERE name = N'IX_CartItems_UserId_CourseId' AND object_id = OBJECT_ID(N'[CartItems]')
+            )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_CartItems_UserId_CourseId]
+                    ON [CartItems]([UserId], [CourseId])
+                    WHERE [UserId] IS NOT NULL;
+            END
+
+            IF NOT EXISTS (
+                SELECT 1 FROM sys.indexes
+                WHERE name = N'IX_CartItems_GuestCartToken_CourseId' AND object_id = OBJECT_ID(N'[CartItems]')
+            )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_CartItems_GuestCartToken_CourseId]
+                    ON [CartItems]([GuestCartToken], [CourseId])
+                    WHERE [GuestCartToken] IS NOT NULL;
+            END
+
+            IF OBJECT_ID(N'[PaymentOrders]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [PaymentOrders] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [OrderCode] nvarchar(32) NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [Amount] int NOT NULL,
+                    [Status] nvarchar(30) NOT NULL,
+                    [ExpiresAt] datetime2 NOT NULL,
+                    [PaidAt] datetime2 NULL,
+                    [SepayTransactionId] int NULL,
+                    [BankCode] nvarchar(50) NULL,
+                    [BankName] nvarchar(200) NULL,
+                    [BankAccountNumber] nvarchar(50) NULL,
+                    [AccountHolderName] nvarchar(200) NULL,
+                    [TransferContent] nvarchar(200) NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_PaymentOrders] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PaymentOrders_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id]),
+                    CONSTRAINT [FK_PaymentOrders_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]) ON DELETE CASCADE
+                );
+
+                CREATE UNIQUE INDEX [IX_PaymentOrders_OrderCode] ON [PaymentOrders]([OrderCode]);
+                CREATE INDEX [IX_PaymentOrders_UserId_CourseId_Status] ON [PaymentOrders]([UserId], [CourseId], [Status]);
+            END
+
+            IF OBJECT_ID(N'[CourseEnrollments]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [CourseEnrollments] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [PaymentOrderId] uniqueidentifier NOT NULL,
+                    [GrantedAt] datetime2 NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_CourseEnrollments] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_CourseEnrollments_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users]([Id]),
+                    CONSTRAINT [FK_CourseEnrollments_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses]([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_CourseEnrollments_PaymentOrders_PaymentOrderId] FOREIGN KEY ([PaymentOrderId]) REFERENCES [PaymentOrders]([Id])
+                );
+
+                CREATE UNIQUE INDEX [IX_CourseEnrollments_UserId_CourseId] ON [CourseEnrollments]([UserId], [CourseId]);
+            END
+
+            IF OBJECT_ID(N'[PaymentTransactionLogs]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [PaymentTransactionLogs] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SepayTransactionId] int NOT NULL,
+                    [Gateway] nvarchar(100) NOT NULL,
+                    [TransactionDateText] nvarchar(50) NOT NULL,
+                    [AccountNumber] nvarchar(50) NOT NULL,
+                    [SubAccount] nvarchar(100) NULL,
+                    [Code] nvarchar(100) NULL,
+                    [Content] nvarchar(500) NOT NULL,
+                    [TransferType] nvarchar(10) NOT NULL,
+                    [Description] nvarchar(1000) NULL,
+                    [TransferAmount] int NOT NULL,
+                    [Accumulated] bigint NOT NULL,
+                    [ReferenceCode] nvarchar(100) NULL,
+                    [RawPayload] nvarchar(max) NOT NULL,
+                    [MatchedPaymentOrderId] uniqueidentifier NULL,
+                    [IsDuplicate] bit NOT NULL CONSTRAINT [DF_PaymentTransactionLogs_IsDuplicate] DEFAULT 0,
+                    [ProcessedAt] datetime2 NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    CONSTRAINT [PK_PaymentTransactionLogs] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PaymentTransactionLogs_PaymentOrders_MatchedPaymentOrderId] FOREIGN KEY ([MatchedPaymentOrderId]) REFERENCES [PaymentOrders]([Id]) ON DELETE SET NULL
+                );
+
+                CREATE UNIQUE INDEX [IX_PaymentTransactionLogs_SepayTransactionId] ON [PaymentTransactionLogs]([SepayTransactionId]);
             END
             """);
     }

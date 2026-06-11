@@ -107,7 +107,18 @@ function FacebookIcon() {
   );
 }
 
-function SocialButton({ icon, label }) {
+function SocialButton({ href, icon, label }) {
+  if (href) {
+    return (
+      <a className={styles.socialButton} href={href}>
+        <span aria-hidden="true" className={styles.socialIcon}>
+          {icon}
+        </span>
+        <span>{label}</span>
+      </a>
+    );
+  }
+
   return (
     <button className={styles.socialButton} type="button">
       <span aria-hidden="true" className={styles.socialIcon}>
@@ -126,6 +137,7 @@ export default function AuthShell({
   footerLabel,
   footerLinkLabel,
   footerLinkTo,
+  googleAuthUrl,
   heading,
   showcaseAudience,
   showcaseDescription,
@@ -210,7 +222,7 @@ export default function AuthShell({
               </div>
 
               <div className={styles.socialGrid}>
-                <SocialButton icon={<GoogleIcon />} label="Google" />
+                <SocialButton href={googleAuthUrl} icon={<GoogleIcon />} label="Google" />
                 <SocialButton icon={<FacebookIcon />} label="Facebook" />
               </div>
 

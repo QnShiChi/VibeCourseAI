@@ -65,6 +65,7 @@ Vai trò:
 - `backend/CourseVideo.API/appsettings.json`
 - `backend/CourseVideo.API/appsettings.Development.json`
 - `backend/CourseVideo.API/Configuration/AdminSeedOptions.cs`
+- `backend/CourseVideo.API/Configuration/GoogleAuthOptions.cs`
 - `backend/CourseVideo.API/Configuration/JwtOptions.cs`
 - `backend/CourseVideo.API/Configuration/OpenRouterOptions.cs`
 - `backend/CourseVideo.API/Configuration/OpenAiAudioOptions.cs`
@@ -125,6 +126,7 @@ Vai trò:
 Đọc sau khi nắm model:
 - `backend/CourseVideo.API/DTOs/Auth/`
 - `backend/CourseVideo.API/DTOs/Categories/`
+- `backend/CourseVideo.API/DTOs/Dashboard/`
 - `backend/CourseVideo.API/DTOs/Courses/`
 - `backend/CourseVideo.API/DTOs/Modules/`
 - `backend/CourseVideo.API/DTOs/Lessons/`
@@ -188,6 +190,7 @@ Vai trò:
 
 Service nghiệp vụ chính:
 - `backend/CourseVideo.API/Services/AuthService.cs`
+- `backend/CourseVideo.API/Services/GoogleAuthService.cs`
 - `backend/CourseVideo.API/Services/CategoryService.cs`
 - `backend/CourseVideo.API/Services/CourseService.cs`
 - `backend/CourseVideo.API/Services/ModuleService.cs`
@@ -240,6 +243,11 @@ Service audio/video/tutor:
 
 Interfaces tương ứng:
 - `backend/CourseVideo.API/Services/Interfaces/`
+
+Service hỗ trợ xác thực ngoài:
+- `backend/CourseVideo.API/Services/Google/GoogleOAuthStateStore.cs`
+- `backend/CourseVideo.API/Services/Google/GoogleAuthExchangeStore.cs`
+- `backend/CourseVideo.API/Services/Google/GoogleUserInfo.cs`
 
 ### 2.8. Tầng background job/queue
 
@@ -307,6 +315,7 @@ Khi đọc bước này, bạn cần lần theo:
 - service nào được đăng ký vào DI,
 - repository nào map với interface nào,
 - worker nào được `AddHostedService`,
+- auth nội bộ và Google OAuth được đăng ký qua những service nào,
 - route nào map controller, route nào map hub.
 
 ### Bước 2: Cơ sở dữ liệu và entity
@@ -319,6 +328,7 @@ Khi đọc bước này, bạn cần lần theo:
 Khi đọc bước này, bạn cần nhìn:
 - các bảng chính của hệ thống,
 - quan hệ `User - Role`,
+- `User` có `PasswordHash`, `AvatarUrl`, `ResetPasswordToken` và được tái dùng cho cả local login lẫn Google login,
 - quan hệ `Category - Course - Module - Lesson`,
 - quan hệ `Lesson - Comment`,
 - quan hệ `Syllabus - GenerationJob - Course`,
@@ -356,15 +366,16 @@ Cách đọc:
 
 Đọc theo thứ tự:
 1. `AuthService.cs`
-2. `TokenService.cs`
-3. `CategoryService.cs`
-4. `CourseService.cs`
-5. `ModuleService.cs`
-6. `LessonService.cs`
-7. `LessonCommentService.cs`
-8. `QuizService.cs`
-9. `SyllabusService.cs`
-10. `CourseGenerationService.cs`
+2. `GoogleAuthService.cs`
+3. `TokenService.cs`
+4. `CategoryService.cs`
+5. `CourseService.cs`
+6. `ModuleService.cs`
+7. `LessonService.cs`
+8. `LessonCommentService.cs`
+9. `QuizService.cs`
+10. `SyllabusService.cs`
+11. `CourseGenerationService.cs`
 
 Đây là lớp quan trọng nhất để báo cáo nghiệp vụ backend.
 
@@ -407,24 +418,30 @@ Sau khi đọc xong phần nền tảng, bạn chuyển sang đọc theo từng 
 Đọc theo thứ tự:
 1. `backend/CourseVideo.API/Configuration/JwtOptions.cs`
 2. `backend/CourseVideo.API/Program.cs`
-3. `backend/CourseVideo.API/Models/Role.cs`
-4. `backend/CourseVideo.API/Models/User.cs`
-5. `backend/CourseVideo.API/Models/RefreshToken.cs`
-6. `backend/CourseVideo.API/Repositories/Interfaces/IUserRepository.cs`
-7. `backend/CourseVideo.API/Repositories/UserRepository.cs`
-8. `backend/CourseVideo.API/Repositories/Interfaces/IRefreshTokenRepository.cs`
-9. `backend/CourseVideo.API/Repositories/RefreshTokenRepository.cs`
-10. `backend/CourseVideo.API/Services/Interfaces/IAuthService.cs`
-11. `backend/CourseVideo.API/Services/AuthService.cs`
-12. `backend/CourseVideo.API/Services/Interfaces/ITokenService.cs`
-13. `backend/CourseVideo.API/Services/TokenService.cs`
-14. `backend/CourseVideo.API/Controllers/AuthController.cs`
-15. `backend/CourseVideo.API/Controllers/UsersController.cs`
-16. `backend/CourseVideo.API/DTOs/Auth/`
-17. `backend/CourseVideo.API/DTOs/Users/`
+3. `backend/CourseVideo.API/Configuration/GoogleAuthOptions.cs`
+4. `backend/CourseVideo.API/Models/Role.cs`
+5. `backend/CourseVideo.API/Models/User.cs`
+6. `backend/CourseVideo.API/Models/RefreshToken.cs`
+7. `backend/CourseVideo.API/Repositories/Interfaces/IUserRepository.cs`
+8. `backend/CourseVideo.API/Repositories/UserRepository.cs`
+9. `backend/CourseVideo.API/Repositories/Interfaces/IRefreshTokenRepository.cs`
+10. `backend/CourseVideo.API/Repositories/RefreshTokenRepository.cs`
+11. `backend/CourseVideo.API/Services/Interfaces/IAuthService.cs`
+12. `backend/CourseVideo.API/Services/AuthService.cs`
+13. `backend/CourseVideo.API/Services/Interfaces/IGoogleAuthService.cs`
+14. `backend/CourseVideo.API/Services/GoogleAuthService.cs`
+15. `backend/CourseVideo.API/Services/Google/GoogleOAuthStateStore.cs`
+16. `backend/CourseVideo.API/Services/Google/GoogleAuthExchangeStore.cs`
+17. `backend/CourseVideo.API/Services/Interfaces/ITokenService.cs`
+18. `backend/CourseVideo.API/Services/TokenService.cs`
+19. `backend/CourseVideo.API/Controllers/AuthController.cs`
+20. `backend/CourseVideo.API/Controllers/UsersController.cs`
+21. `backend/CourseVideo.API/DTOs/Auth/`
+22. `backend/CourseVideo.API/DTOs/Users/`
 
 Liên kết chính:
-- `AuthController` -> `AuthService` -> `UserRepository`, `RefreshTokenRepository`, `TokenService` -> `User`, `RefreshToken`, `Role`
+- login/password reset local: `AuthController` -> `AuthService` -> `UserRepository`, `RefreshTokenRepository`, `TokenService` -> `User`, `RefreshToken`, `Role`
+- login Google: `AuthController` -> `GoogleAuthService` -> `GoogleOAuthStateStore`, Google token exchange HTTP call, `GoogleAuthExchangeStore`, `UserRepository`, `AuthService` -> `User`, `RefreshToken`, `Role`
 
 ### 4.2. Dashboard quản trị
 
@@ -435,9 +452,12 @@ Liên kết chính:
 4. `backend/CourseVideo.API/Models/Syllabus.cs`
 5. `backend/CourseVideo.API/Models/Course.cs`
 6. `backend/CourseVideo.API/Models/GenerationJob.cs`
+7. `backend/CourseVideo.API/Models/LessonComment.cs`
+8. `backend/CourseVideo.API/DTOs/Dashboard/DashboardStatsResponse.cs`
 
 Liên kết chính:
 - `DashboardController` -> `AppDbContext` -> các bảng tổng hợp
+- dashboard hiện không chỉ đếm user/syllabus/course/job mà còn trả `NegativeCommentsCount` để frontend hiển thị card moderation summary
 
 ### 4.3. Danh mục khóa học
 
@@ -494,6 +514,10 @@ Liên kết chính:
 Liên kết chính:
 - `LessonCommentsController` -> `LessonCommentService` -> `LessonCommentRepository` -> `LessonComment`, `LessonCommentReaction`
 - `AdminCommentsController` dùng lại cùng service để hide/unhide comment
+- moderation admin hiện có thêm:
+  - `GET /api/admin/comments/negative` để lấy queue comment tiêu cực chưa ẩn/chưa xóa
+  - `DELETE /api/admin/comments/{commentId}?lessonId=...` để xóa comment từ màn moderation
+- sentiment của comment được lưu ngay trên `LessonComment` và là dữ liệu đầu vào cho dashboard moderation
 
 ### 4.6. Quiz
 
@@ -658,10 +682,11 @@ Liên kết chính:
 
 ### Auth
 - Controller: `AuthController.cs`
-- Service: `AuthService.cs`, `TokenService.cs`
+- Service: `AuthService.cs`, `GoogleAuthService.cs`, `TokenService.cs`
 - Repository: `UserRepository.cs`, `RefreshTokenRepository.cs`
 - Model: `User.cs`, `Role.cs`, `RefreshToken.cs`
 - DTO: `DTOs/Auth/`
+- Google-specific support: `Configuration/GoogleAuthOptions.cs`, `Services/Google/GoogleOAuthStateStore.cs`, `Services/Google/GoogleAuthExchangeStore.cs`
 
 ### User management
 - Controller: `UsersController.cs`
@@ -672,7 +697,8 @@ Liên kết chính:
 ### Dashboard
 - Controller: `DashboardController.cs`
 - Data access: `AppDbContext.cs`
-- Model: `User.cs`, `Syllabus.cs`, `Course.cs`, `GenerationJob.cs`
+- Model: `User.cs`, `Syllabus.cs`, `Course.cs`, `GenerationJob.cs`, `LessonComment.cs`
+- DTO: `DTOs/Dashboard/`
 
 ### Category
 - Controllers: `CategoriesController.cs`, `AdminCategoriesController.cs`
@@ -694,6 +720,7 @@ Liên kết chính:
 - Repository: `LessonCommentRepository.cs`
 - Models: `LessonComment.cs`, `LessonCommentReaction.cs`
 - DTO: `DTOs/Comments/`
+- Admin moderation queue chi tiết đi qua `AdminCommentsController.cs` và `AppDbContext.cs`, không chỉ qua repository/service comment cũ
 
 ### Quiz
 - Controllers: `QuizzesController.cs`, `AdminQuizzesController.cs`
@@ -749,6 +776,7 @@ Liên kết chính:
 6. danh sách controller trong `Controllers/`
 7. các service chính:
    - `AuthService.cs`
+   - `GoogleAuthService.cs`
    - `CourseService.cs`
    - `LessonService.cs`
    - `CategoryService.cs`
@@ -817,7 +845,9 @@ Liên kết chính:
 - `AuthController.cs`
 - `UsersController.cs`
 - `AuthService.cs`
+- `GoogleAuthService.cs`
 - `TokenService.cs`
+- `Services/Google/`
 - `UserRepository.cs`
 - `RefreshTokenRepository.cs`
 - `DTOs/Auth/`, `DTOs/Users/`
@@ -841,6 +871,10 @@ Liên kết chính:
 - `LessonCommentService.cs`
 - `QuizService.cs`
 - `QuizGenerationService.cs`
+
+Ghi chú mới ở buổi này:
+- dashboard admin có card cảnh báo bình luận tiêu cực lấy từ `NegativeCommentsCount`
+- moderation chi tiết comment tiêu cực đi từ `AdminCommentsController.cs` sang `AppDbContext.cs`
 
 ### Buổi 6: Syllabus và generation pipeline
 - `SyllabusesController.cs`
@@ -877,6 +911,7 @@ Mẫu chung để lần:
 
 Ví dụ:
 - đăng nhập: `AuthController` -> `LoginRequest` -> `IAuthService` -> `AuthService` -> `IUserRepository`/`IRefreshTokenRepository` -> `User`/`RefreshToken` -> `LoginResponse`
+- đăng nhập Google: `AuthController` -> `IGoogleAuthService` -> `GoogleAuthService` -> Google OAuth endpoints + `GoogleOAuthStateStore` + `GoogleAuthExchangeStore` + `IUserRepository` + `IAuthService` -> `AuthResponse`
 - import đề cương: `SyllabusesController` -> `ImportSyllabusRequest` -> `ISyllabusService` -> `SyllabusService` -> `ISyllabusRepository` -> `Syllabus`
 - generate khóa học: `SyllabusesController` -> `ICourseGenerationService` -> `CourseGenerationService` -> `GenerationJobQueue` -> worker -> service generate
 
@@ -888,6 +923,7 @@ Nếu chỉ được chọn một nhóm file để đọc trước, hãy ưu ti�
 - `backend/CourseVideo.API/Program.cs`
 - `backend/CourseVideo.API/Data/AppDbContext.cs`
 - `backend/CourseVideo.API/Services/AuthService.cs`
+- `backend/CourseVideo.API/Services/GoogleAuthService.cs`
 - `backend/CourseVideo.API/Services/CourseService.cs`
 - `backend/CourseVideo.API/Services/LessonService.cs`
 - `backend/CourseVideo.API/Services/CourseGenerationService.cs`

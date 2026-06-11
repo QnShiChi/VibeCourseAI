@@ -7,7 +7,6 @@ namespace CourseVideo.API.Controllers;
 
 [ApiController]
 [Route("api/categories")]
-[Authorize]
 public class CategoriesController : ControllerBase
 {
     private readonly ICategoryService _categoryService;
@@ -18,6 +17,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IReadOnlyList<CategoryOptionResponse>>> GetVisible()
     {
         var categories = await _categoryService.GetVisibleCategoryOptionsAsync();

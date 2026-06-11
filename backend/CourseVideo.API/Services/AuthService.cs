@@ -230,6 +230,11 @@ public class AuthService : IAuthService
         await RevokeAllUserSessionsAsync(user.Id, null);
     }
 
+    public Task<AuthResponse> IssueAuthResponseAsync(User user, string? ipAddress)
+    {
+        return CreateAuthResponseAsync(user, ipAddress);
+    }
+
     private async Task<AuthResponse> CreateAuthResponseAsync(User user, string? ipAddress, string? fallbackRoleName = null)
     {
         var refreshToken = _tokenService.CreateRefreshToken();

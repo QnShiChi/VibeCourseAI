@@ -9,6 +9,8 @@ public class PublishedCourseListItemResponse
     public string? ThumbnailUrl { get; set; }
     public string Category { get; set; } = string.Empty;
     public bool IsPublished { get; set; }
+    public bool AlreadyOwned { get; set; }
+    public int Price { get; set; }
     public int ModuleCount { get; set; }
     public int LessonCount { get; set; }
     public DateTime CreatedAt { get; set; }

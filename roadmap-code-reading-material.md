@@ -142,6 +142,8 @@ Vai trò:
 - request/response model cho API,
 - tách model database khỏi dữ liệu trả về frontend.
 
+<!-- Xong -->
+
 ### 2.6. Tầng repository
 
 Đọc tiếp:
@@ -159,6 +161,8 @@ Interfaces:
 - `backend/CourseVideo.API/Repositories/Interfaces/IUserRepository.cs`
 - `backend/CourseVideo.API/Repositories/Interfaces/IRefreshTokenRepository.cs`
 
+<!-- Xong -->
+
 Implementations:
 - `backend/CourseVideo.API/Repositories/CategoryRepository.cs`
 - `backend/CourseVideo.API/Repositories/CourseRepository.cs`
@@ -175,6 +179,8 @@ Implementations:
 Vai trò:
 - làm việc trực tiếp với `AppDbContext`,
 - lấy/lưu dữ liệu cho service.
+
+<!-- Xong -->
 
 ### 2.7. Tầng service
 

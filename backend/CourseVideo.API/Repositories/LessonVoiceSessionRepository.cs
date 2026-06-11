@@ -36,7 +36,7 @@ public class LessonVoiceSessionRepository : ILessonVoiceSessionRepository
             .Where(message => message.SessionId == sessionId)
             .OrderBy(message => message.TurnNumber)
             .ThenBy(message => message.SequenceIndex)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken); 
     }
 
     public Task AddAsync(LessonVoiceSession session, CancellationToken cancellationToken)

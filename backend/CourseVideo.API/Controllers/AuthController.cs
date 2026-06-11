@@ -89,6 +89,26 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = "Admin")]
+    [HttpPut("me/payment-profile")]
+    public async Task<IActionResult> UpdateAdminPaymentProfile([FromBody] UpdateAdminPaymentProfileRequest request)
+    {
+        try
+        {
+            var currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub")!.Value);
+            var result = await _authService.UpdateAdminPaymentProfileAsync(currentUserId, request);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
     [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)

@@ -149,14 +149,41 @@ public class AuthService : IAuthService
         var user = await _userRepository.GetByIdAsync(userId)
             ?? throw new UnauthorizedAccessException("Không tìm thấy người dùng.");
 
-        return new CurrentUserResponse
+        return MapCurrentUser(user);
+    }
+
+    public async Task<CurrentUserResponse> UpdateAdminPaymentProfileAsync(Guid currentUserId, UpdateAdminPaymentProfileRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(currentUserId)
+            ?? throw new UnauthorizedAccessException("Không tìm thấy người dùng.");
+
+        if (!string.Equals(user.Role?.Name, "Admin", StringComparison.OrdinalIgnoreCase))
         {
-            Id = user.Id,
-            FullName = user.FullName,
-            Email = user.Email,
-            Role = user.Role?.Name ?? string.Empty,
-            IsActive = user.IsActive
-        };
+            throw new UnauthorizedAccessException("Chỉ admin mới có thể cập nhật tài khoản nhận thanh toán.");
+        }
+
+        var bankCode = request.BankCode.Trim();
+        var bankName = request.BankName.Trim();
+        var bankAccountNumber = request.BankAccountNumber.Trim();
+        var accountHolderName = request.AccountHolderName.Trim();
+
+        if (string.IsNullOrWhiteSpace(bankCode)
+            || string.IsNullOrWhiteSpace(bankName)
+            || string.IsNullOrWhiteSpace(bankAccountNumber)
+            || string.IsNullOrWhiteSpace(accountHolderName))
+        {
+            throw new InvalidOperationException("Vui lòng nhập đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản.");
+        }
+
+        user.PaymentBankCode = bankCode;
+        user.PaymentBankName = bankName;
+        user.PaymentBankAccountNumber = bankAccountNumber;
+        user.PaymentAccountHolderName = accountHolderName;
+        user.PaymentSettingsUpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _userRepository.SaveChangesAsync();
+        return MapCurrentUser(user);
     }
 
     public async Task ChangePasswordAsync(Guid currentUserId, ChangePasswordRequest request, string? ipAddress)
@@ -254,6 +281,22 @@ public class AuthService : IAuthService
                 Email = user.Email,
                 Role = user.Role?.Name ?? fallbackRoleName ?? string.Empty
             }
+        };
+    }
+
+    private static CurrentUserResponse MapCurrentUser(User user)
+    {
+        return new CurrentUserResponse
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            Role = user.Role?.Name ?? string.Empty,
+            IsActive = user.IsActive,
+            PaymentBankCode = user.PaymentBankCode ?? string.Empty,
+            PaymentBankName = user.PaymentBankName ?? string.Empty,
+            PaymentBankAccountNumber = user.PaymentBankAccountNumber ?? string.Empty,
+            PaymentAccountHolderName = user.PaymentAccountHolderName ?? string.Empty
         };
     }
 

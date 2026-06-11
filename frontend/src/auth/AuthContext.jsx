@@ -96,6 +96,32 @@ export function AuthProvider({ children }) {
     return await authService.resetPassword(payload);
   }
 
+  async function refreshCurrentUser() {
+    const currentUser = await authService.getCurrentUser();
+    const nextSession = session ? { ...session, user: currentUser } : null;
+
+    if (nextSession) {
+      saveAuthSession(nextSession);
+      setSession(nextSession);
+    }
+
+    setUser(currentUser);
+    return currentUser;
+  }
+
+  async function updateAdminPaymentProfile(payload) {
+    const currentUser = await authService.updateAdminPaymentProfile(payload);
+    const nextSession = session ? { ...session, user: currentUser } : null;
+
+    if (nextSession) {
+      saveAuthSession(nextSession);
+      setSession(nextSession);
+    }
+
+    setUser(currentUser);
+    return currentUser;
+  }
+
   const value = useMemo(
     () => ({
       session,
@@ -107,7 +133,9 @@ export function AuthProvider({ children }) {
       logout,
       changePassword,
       forgotPassword,
-      resetPassword
+      resetPassword,
+      refreshCurrentUser,
+      updateAdminPaymentProfile
     }),
     [session, user, isBootstrapping]
   );

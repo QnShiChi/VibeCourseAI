@@ -11,6 +11,7 @@ public interface IAuthService
     Task LogoutAsync(Guid currentUserId, RefreshTokenRequest request, string? ipAddress);
     Task LogoutAllAsync(Guid currentUserId, string? ipAddress);
     Task<CurrentUserResponse> GetCurrentUserAsync(ClaimsPrincipal principal);
+    Task<CurrentUserResponse> UpdateAdminPaymentProfileAsync(Guid currentUserId, UpdateAdminPaymentProfileRequest request);
     Task ChangePasswordAsync(Guid currentUserId, ChangePasswordRequest request, string? ipAddress);
     Task ForgotPasswordAsync(ForgotPasswordRequest request, string originUrl, CancellationToken cancellationToken = default);
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default);

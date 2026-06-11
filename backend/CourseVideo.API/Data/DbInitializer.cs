@@ -965,6 +965,31 @@ public static class DbInitializer
 
                 CREATE UNIQUE INDEX [IX_PaymentTransactionLogs_SepayTransactionId] ON [PaymentTransactionLogs]([SepayTransactionId]);
             END
+
+            IF COL_LENGTH(N'[Users]', N'PaymentBankCode') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [PaymentBankCode] nvarchar(50) NULL;
+            END
+
+            IF COL_LENGTH(N'[Users]', N'PaymentBankName') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [PaymentBankName] nvarchar(200) NULL;
+            END
+
+            IF COL_LENGTH(N'[Users]', N'PaymentBankAccountNumber') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [PaymentBankAccountNumber] nvarchar(50) NULL;
+            END
+
+            IF COL_LENGTH(N'[Users]', N'PaymentAccountHolderName') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [PaymentAccountHolderName] nvarchar(200) NULL;
+            END
+
+            IF COL_LENGTH(N'[Users]', N'PaymentSettingsUpdatedAt') IS NULL
+            BEGIN
+                ALTER TABLE [Users] ADD [PaymentSettingsUpdatedAt] datetime2 NULL;
+            END
             """);
     }
 }

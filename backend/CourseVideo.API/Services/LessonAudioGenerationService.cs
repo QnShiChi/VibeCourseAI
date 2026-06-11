@@ -275,7 +275,7 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
         await _generationJobRepository.SaveChangesAsync();
     }
 
-    public async Task GenerateAudioForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken)
+    public async Task GenerateAudioForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken, Func<int, int, Task>? onSegmentCompleted = null)
     {
         LessonAudioValidation.ValidateReadyForAudio(lesson);
 
@@ -289,7 +289,7 @@ public class LessonAudioGenerationService : ILessonAudioGenerationService
             throw new InvalidOperationException("Lesson phải có ít nhất một slide để render audio.");
         }
 
-        var workerResponse = await _audioPipelineService.GenerateLessonAudioAsync(lesson.Id, narrationSegments, cancellationToken);
+        var workerResponse = await _audioPipelineService.GenerateLessonAudioAsync(lesson.Id, narrationSegments, onSegmentCompleted, cancellationToken);
 
         if (workerResponse is null)
         {

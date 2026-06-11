@@ -1,8 +1,10 @@
 using System.Security.Claims;
+using CourseVideo.API.Configuration;
 using CourseVideo.API.DTOs.Auth;
 using CourseVideo.API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace CourseVideo.API.Controllers;
 
@@ -11,10 +13,14 @@ namespace CourseVideo.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IGoogleAuthService _googleAuthService;
+    private readonly GoogleAuthOptions _googleAuthOptions;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IGoogleAuthService googleAuthService, IOptions<GoogleAuthOptions> googleAuthOptions)
     {
         _authService = authService;
+        _googleAuthService = googleAuthService;
+        _googleAuthOptions = googleAuthOptions.Value;
     }
 
     [HttpPost("register")]
@@ -150,5 +156,81 @@ public class AuthController : ControllerBase
         {
             return BadRequest(new { message = exception.Message });
         }
+    }
+
+    [HttpGet("google/login")]
+    public IActionResult GoogleLogin()
+    {
+        return Redirect(_googleAuthService.BuildAuthorizationUrl(BuildBackendGoogleCallbackUrl()));
+    }
+
+    [HttpGet("google/callback")]
+    public async Task<IActionResult> GoogleCallback(
+        [FromQuery] string? code,
+        [FromQuery] string? state,
+        [FromQuery] string? error,
+        [FromQuery(Name = "error_description")] string? errorDescription,
+        CancellationToken cancellationToken = default)
+    {
+        var frontendCallbackUrl = BuildFrontendGoogleCallbackUrl();
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
+            {
+                throw new InvalidOperationException("google_auth_failed");
+            }
+
+            var exchangeToken = await _googleAuthService.HandleCallbackAsync(
+                code,
+                state,
+                BuildBackendGoogleCallbackUrl(),
+                error,
+                errorDescription,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                cancellationToken);
+
+            return Redirect($"{frontendCallbackUrl}?exchangeToken={Uri.EscapeDataString(exchangeToken)}");
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Redirect($"{frontendCallbackUrl}?error={Uri.EscapeDataString(exception.Message)}");
+        }
+    }
+
+    [HttpPost("google/exchange")]
+    public async Task<IActionResult> GoogleExchange([FromBody] GoogleExchangeRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.ExchangeToken))
+        {
+            return BadRequest(new { message = "Exchange token is required." });
+        }
+
+        try
+        {
+            var result = await _googleAuthService.ExchangeAsync(request.ExchangeToken, cancellationToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+    }
+
+    private string BuildBackendGoogleCallbackUrl()
+    {
+        return Url.ActionLink(nameof(GoogleCallback), "Auth", null, Request.Scheme, Request.Host.ToString())
+            ?? $"{Request.Scheme}://{Request.Host}/api/auth/google/callback";
+    }
+
+    private string BuildFrontendGoogleCallbackUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(_googleAuthOptions.FrontendCallbackUrl))
+        {
+            return _googleAuthOptions.FrontendCallbackUrl;
+        }
+
+        var originUrl = Request.Headers["Origin"].FirstOrDefault() ?? "http://localhost:3000";
+        return $"{originUrl.TrimEnd('/')}/auth/google/callback";
     }
 }

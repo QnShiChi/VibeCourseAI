@@ -1,5 +1,6 @@
 namespace CourseVideo.API.DTOs.Categories;
 
+// This DTO is used for both creating and updating a category
 public class UpsertCategoryRequest
 {
     public string Name { get; set; } = string.Empty;

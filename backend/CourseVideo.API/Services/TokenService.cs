@@ -12,7 +12,7 @@ namespace CourseVideo.API.Services;
 
 public class TokenService : ITokenService
 {
-    private readonly JwtOptions _jwtOptions;
+    private readonly JwtOptions _jwtOptions; 
 
     public TokenService(IOptions<JwtOptions> jwtOptions)
     {
@@ -20,7 +20,8 @@ public class TokenService : ITokenService
     }
 
     public string CreateAccessToken(User user)
-    {
+    {   
+        // claims là những thông tin về người dùng sẽ được mã hóa trong token, giúp server xác định danh tính và quyền hạn của người dùng khi họ gửi yêu cầu kèm theo token đó
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -28,8 +29,8 @@ public class TokenService : ITokenService
             new(JwtRegisteredClaimNames.Name, user.FullName),
             new(ClaimTypes.Role, user.Role?.Name ?? string.Empty)
         };
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SecretKey));
+        
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SecretKey)); 
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
@@ -50,10 +51,10 @@ public class TokenService : ITokenService
     public string HashRefreshToken(string refreshToken)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
-        return Convert.ToHexString(bytes);
+        return Convert.ToHexString(bytes); 
     }
 
-    public DateTime GetRefreshTokenExpiryUtc()
+    public DateTime GetRefreshTokenExpiryUtc() 
     {
         return DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenDays);
     }

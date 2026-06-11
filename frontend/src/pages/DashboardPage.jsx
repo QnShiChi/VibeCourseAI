@@ -222,6 +222,26 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="admin-panel" variant="shadowed">
+          <div className="admin-panel__split">
+            <div>
+              <p className="admin-page__eyebrow">Moderation queue</p>
+              <h2>Cảnh báo bình luận tiêu cực</h2>
+            </div>
+            <strong>{stats?.negativeCommentsCount ?? 0}</strong>
+          </div>
+          <p>
+            {stats?.negativeCommentsCount
+              ? `Hiện có ${stats.negativeCommentsCount} bình luận tiêu cực chưa xử lý cần admin xem xét.`
+              : "Chưa có bình luận tiêu cực cần xử lý."}
+          </p>
+          <div className="admin-action-list">
+            <Button as={Link} to="/admin/comment-moderation" variant="ghost">
+              Xem chi tiết
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="admin-panel" variant="shadowed">
           <p className="admin-page__eyebrow">Pipeline AI</p>
           <h2>Trạng thái job</h2>
           <div className="admin-detail-list">

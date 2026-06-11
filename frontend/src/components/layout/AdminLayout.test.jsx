@@ -93,4 +93,10 @@ describe("AdminLayout", () => {
     expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Login")).toBeInTheDocument();
   });
+
+  it("renders a learning-area link in the admin sidebar", () => {
+    renderAdminLayout("/dashboard");
+
+    expect(screen.getByRole("link", { name: "Khu học tập" })).toHaveAttribute("href", "/");
+  });
 });

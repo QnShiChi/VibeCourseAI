@@ -10,6 +10,7 @@ import AdminSettingsPage from "../pages/AdminSettingsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import CartPage from "../pages/CartPage";
+import CommentModerationPage from "../pages/CommentModerationPage";
 import CoursesPage from "../pages/CoursesPage";
 import CourseLearnPage from "../pages/CourseLearnPage";
 import CourseStructurePage from "../pages/CourseStructurePage";
@@ -18,6 +19,7 @@ import GenerationJobsPage from "../pages/GenerationJobsPage";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import GoogleAuthCallbackPage from "../pages/GoogleAuthCallbackPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import ProfilePage from "../pages/ProfilePage";
 import PaymentOrderPage from "../pages/PaymentOrderPage";
@@ -28,6 +30,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/google/callback" element={<GoogleAuthCallbackPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -47,6 +50,7 @@ export default function AppRoutes() {
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
         <Route path="/admin/syllabuses" element={<SyllabusesPage />} />
         <Route path="/admin/generation-jobs" element={<GenerationJobsPage />} />
+        <Route path="/admin/comment-moderation" element={<CommentModerationPage />} />
         <Route path="/admin/courses/:courseId" element={<CourseStructurePage />} />
       </Route>
       <Route element={<MainLayout />}>

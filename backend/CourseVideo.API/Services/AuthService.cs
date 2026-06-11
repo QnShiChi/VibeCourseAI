@@ -70,13 +70,13 @@ public class AuthService : IAuthService
 
         return await CreateAuthResponseAsync(user, ipAddress);
     }
-
+    
     public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, string? ipAddress)
     {
         var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
         var storedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash)
             ?? throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
-
+        
         if (storedToken.RevokedAt is not null || storedToken.ExpiresAt <= DateTime.UtcNow)
         {
             throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
@@ -257,6 +257,11 @@ public class AuthService : IAuthService
         await RevokeAllUserSessionsAsync(user.Id, null);
     }
 
+    public Task<AuthResponse> IssueAuthResponseAsync(User user, string? ipAddress)
+    {
+        return CreateAuthResponseAsync(user, ipAddress);
+    }
+
     private async Task<AuthResponse> CreateAuthResponseAsync(User user, string? ipAddress, string? fallbackRoleName = null)
     {
         var refreshToken = _tokenService.CreateRefreshToken();
@@ -273,7 +278,7 @@ public class AuthService : IAuthService
         return new AuthResponse
         {
             AccessToken = _tokenService.CreateAccessToken(user),
-            RefreshToken = refreshToken,
+            RefreshToken = refreshToken, 
             User = new AuthUserResponse
             {
                 Id = user.Id,

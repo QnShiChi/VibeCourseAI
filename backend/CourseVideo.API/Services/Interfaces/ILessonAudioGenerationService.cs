@@ -8,5 +8,5 @@ public interface ILessonAudioGenerationService
     Task<GenerateLessonAudioResponse> GenerateCourseAudioAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default);
     Task<GenerateLessonAudioResponse> GenerateLessonAudioAsync(Guid courseId, Guid lessonId, Guid createdByUserId, CancellationToken cancellationToken = default);
     Task ProcessJobAsync(Guid jobId, CancellationToken cancellationToken = default);
-    Task GenerateAudioForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken);
+    Task GenerateAudioForLessonInternalAsync(Lesson lesson, CancellationToken cancellationToken, Func<int, int, Task>? onSegmentCompleted = null);
 }

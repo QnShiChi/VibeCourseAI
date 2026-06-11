@@ -16,6 +16,7 @@ public class CourseGenerationServiceTests
         var syllabusRepository = new Mock<ISyllabusRepository>();
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -80,6 +81,7 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
@@ -136,6 +138,7 @@ public class CourseGenerationServiceTests
         var syllabusRepository = new Mock<ISyllabusRepository>();
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -149,6 +152,7 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
@@ -166,6 +170,7 @@ public class CourseGenerationServiceTests
         var syllabusRepository = new Mock<ISyllabusRepository>();
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -219,6 +224,7 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
@@ -240,6 +246,7 @@ public class CourseGenerationServiceTests
         var syllabusRepository = new Mock<ISyllabusRepository>();
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -294,6 +301,7 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
@@ -314,6 +322,7 @@ public class CourseGenerationServiceTests
         var syllabusRepository = new Mock<ISyllabusRepository>();
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -342,6 +351,7 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
@@ -358,11 +368,83 @@ public class CourseGenerationServiceTests
     }
 
     [Fact]
+    public async Task GenerateFromSyllabusAsync_FallsBackToParser_WhenOpenRouterReturnsSparseLessonValidation()
+    {
+        var syllabusRepository = new Mock<ISyllabusRepository>();
+        var generationJobRepository = new Mock<IGenerationJobRepository>();
+        var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
+        var moduleRepository = new Mock<IModuleRepository>();
+        var lessonRepository = new Mock<ILessonRepository>();
+        var openRouterService = new Mock<IOpenRouterCourseStructureService>();
+        var parser = new Mock<ICourseStructureParser>();
+        var cancellationTracker = new Mock<IJobCancellationTracker>();
+        var syllabus = new Syllabus
+        {
+            Id = Guid.NewGuid(),
+            Title = "OOP",
+            Description = "Mo ta goc",
+            ExtractedText = "Noi dung de cuong"
+        };
+
+        syllabusRepository.Setup(x => x.GetEntityByIdAsync(syllabus.Id)).ReturnsAsync(syllabus);
+        generationJobRepository.Setup(x => x.HasRunningJobForSyllabusAsync(syllabus.Id)).ReturnsAsync(false);
+        generationJobRepository.Setup(x => x.HasCompletedJobForSyllabusAsync(syllabus.Id)).ReturnsAsync(false);
+        generationJobRepository.Setup(x => x.AddAsync(It.IsAny<GenerationJob>())).Returns(Task.CompletedTask);
+        generationJobRepository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+        courseRepository.Setup(x => x.AddAsync(It.IsAny<Course>())).Returns(Task.CompletedTask);
+        courseRepository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+        moduleRepository.Setup(x => x.AddRangeAsync(It.IsAny<IReadOnlyCollection<Module>>())).Returns(Task.CompletedTask);
+        moduleRepository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+        lessonRepository.Setup(x => x.AddRangeAsync(It.IsAny<IReadOnlyCollection<Lesson>>())).Returns(Task.CompletedTask);
+        lessonRepository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
+        openRouterService.Setup(x => x.GenerateStructureAsync(syllabus.ExtractedText, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OpenRouterValidationException("OpenRouter tra ve cau truc qua it lesson cho de cuong dau vao."));
+        parser.Setup(x => x.Parse(syllabus.ExtractedText)).Returns(new ParsedCourseStructure
+        {
+            Modules =
+            [
+                new ParsedModuleStructure
+                {
+                    Title = "Tuan 1",
+                    Description = "Tong quan",
+                    Lessons =
+                    [
+                        new ParsedLessonStructure
+                        {
+                            Title = "Buoi 1",
+                            Description = "Mo dau",
+                            ContentSeed = "Noi dung fallback"
+                        }
+                    ]
+                }
+            ]
+        });
+
+        var service = new CourseGenerationService(
+            syllabusRepository.Object,
+            generationJobRepository.Object,
+            courseRepository.Object,
+            categoryRepository.Object,
+            moduleRepository.Object,
+            lessonRepository.Object,
+            openRouterService.Object,
+            parser.Object,
+            cancellationTracker.Object);
+
+        var result = await service.GenerateFromSyllabusAsync(syllabus.Id, Guid.NewGuid(), "Admin User");
+
+        result.Status.Should().Be("Completed");
+        parser.Verify(x => x.Parse(syllabus.ExtractedText), Times.Once);
+    }
+
+    [Fact]
     public async Task GenerateFromSyllabusAsync_FailsWithSpecificMessage_WhenOpenRouterConfigMissing()
     {
         var syllabusRepository = new Mock<ISyllabusRepository>();
         var generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -388,6 +470,7 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
@@ -408,6 +491,7 @@ public class CourseGenerationServiceTests
         syllabusRepository = new Mock<ISyllabusRepository>();
         generationJobRepository = new Mock<IGenerationJobRepository>();
         var courseRepository = new Mock<ICourseRepository>();
+        var categoryRepository = CreateCategoryRepository();
         var moduleRepository = new Mock<IModuleRepository>();
         var lessonRepository = new Mock<ILessonRepository>();
         var openRouterService = new Mock<IOpenRouterCourseStructureService>();
@@ -428,10 +512,24 @@ public class CourseGenerationServiceTests
             syllabusRepository.Object,
             generationJobRepository.Object,
             courseRepository.Object,
+            categoryRepository.Object,
             moduleRepository.Object,
             lessonRepository.Object,
             openRouterService.Object,
             parser.Object,
             cancellationTracker.Object);
+    }
+
+    private static Mock<ICategoryRepository> CreateCategoryRepository()
+    {
+        var categoryRepository = new Mock<ICategoryRepository>();
+        categoryRepository.Setup(x => x.GetDefaultForAssignmentAsync())
+            .ReturnsAsync(new Category
+            {
+                Id = Guid.NewGuid(),
+                Name = "Development",
+                Status = CategoryStatus.Visible
+            });
+        return categoryRepository;
     }
 }

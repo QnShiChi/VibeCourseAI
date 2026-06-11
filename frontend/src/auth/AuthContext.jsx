@@ -61,6 +61,11 @@ export function AuthProvider({ children }) {
     return nextSession;
   }
 
+  async function completeGoogleLogin(exchangeToken) {
+    const response = await authService.exchangeGoogleLogin(exchangeToken);
+    return handleAuthSuccess(response);
+  }
+
   async function login(formData) {
     const response = await authService.login(formData);
     return handleAuthSuccess(response);
@@ -130,6 +135,7 @@ export function AuthProvider({ children }) {
       isBootstrapping,
       login,
       register,
+      completeGoogleLogin,
       logout,
       changePassword,
       forgotPassword,

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LoginPage from "./LoginPage";
 import { ThemeProvider } from "../theme/ThemeContext";
 
@@ -23,6 +23,28 @@ vi.mock("../auth/useAuth", () => ({
   })
 }));
 
+beforeEach(() => {
+  const storage = {
+    getItem: vi.fn((key) => storage[key] ?? null),
+    setItem: vi.fn((key, value) => {
+      storage[key] = String(value);
+    }),
+    removeItem: vi.fn((key) => {
+      delete storage[key];
+    }),
+    clear: vi.fn(() => {
+      Object.keys(storage)
+        .filter((key) => !["getItem", "setItem", "removeItem", "clear"].includes(key))
+        .forEach((key) => delete storage[key]);
+    })
+  };
+
+  Object.defineProperty(window, "localStorage", {
+    value: storage,
+    configurable: true
+  });
+});
+
 afterEach(() => {
   mockLogin.mockReset();
   mockNavigate.mockReset();
@@ -43,7 +65,7 @@ describe("LoginPage", () => {
     expect(screen.getByText(/thiết kế tri thức cùng ai/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Đăng nhập" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /google/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /google/i })).toHaveAttribute("href", "http://localhost:5000/api/auth/google/login");
     expect(screen.getByRole("button", { name: /facebook/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /chuyển sang dark mode/i })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "VibeCourseAI" }).length).toBeGreaterThan(0);
@@ -148,5 +170,17 @@ describe("LoginPage", () => {
       backgroundColor: "var(--auth-error-bg)",
       border: "1px solid var(--auth-error-border)"
     });
+  });
+
+  it("shows oauth error returned from google callback flow", () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/login", state: { oauthError: "Tài khoản đã bị khóa." } }]}>
+        <ThemeProvider>
+          <LoginPage />
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Tài khoản đã bị khóa.")).toBeInTheDocument();
   });
 });

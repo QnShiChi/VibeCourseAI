@@ -37,3 +37,8 @@ export async function resetPassword(payload) {
   const { data } = await axiosClient.post("/auth/reset-password", payload);
   return data;
 }
+
+export async function exchangeGoogleLogin(exchangeToken) {
+  const { data } = await axiosClient.post("/auth/google/exchange", { exchangeToken });
+  return data;
+}

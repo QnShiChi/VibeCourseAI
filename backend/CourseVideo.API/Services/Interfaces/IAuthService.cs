@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CourseVideo.API.DTOs.Auth;
+using CourseVideo.API.Models;
 
 namespace CourseVideo.API.Services.Interfaces;
 
@@ -14,4 +15,5 @@ public interface IAuthService
     Task ChangePasswordAsync(Guid currentUserId, ChangePasswordRequest request, string? ipAddress);
     Task ForgotPasswordAsync(ForgotPasswordRequest request, string originUrl, CancellationToken cancellationToken = default);
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default);
+    Task<AuthResponse> IssueAuthResponseAsync(User user, string? ipAddress);
 }

@@ -2,169 +2,206 @@
 
 ## Mục tiêu
 
-Hiển thị các bình luận có cảm xúc tiêu cực trên dashboard quản trị để admin phát hiện nhanh và ẩn ngay các bình luận cần xử lý.
+Hiển thị số lượng bình luận tiêu cực trên dashboard quản trị và điều hướng admin sang một trang moderation riêng để xem chi tiết và xử lý.
 
 Phạm vi của thay đổi này:
 
-- thêm dữ liệu comment tiêu cực vào dashboard admin
-- chỉ lấy các comment:
-  - `Sentiment = 'negative'`
-  - `IsHidden = false`
-  - `DeletedAt = null`
-- cho phép admin ẩn comment trực tiếp từ dashboard
+- dashboard chỉ hiển thị số lượng comment tiêu cực cần xử lý
+- thêm trang admin moderation riêng cho comment tiêu cực
+- trang moderation cho phép:
+  - xem người viết, khóa học, bài học, nội dung comment, thời gian tạo
+  - xóa bình luận
+  - khóa tài khoản người viết bằng cách đặt `Users.IsActive = false`
 
 Ngoài phạm vi:
 
-- không thêm hệ thống cảnh cáo user riêng
-- không thêm trạng thái moderation mới như `reviewed`, `dismissed`
-- không tạo trang moderation riêng
+- không thêm hệ thống ban tạm thời có hạn
+- không thêm moderation status kiểu `reviewed` hay `dismissed`
+- không thêm bulk actions ở giai đoạn này
 
 ## Bối cảnh hiện tại
 
 - `LessonComments` đã có cột `Sentiment`
 - sentiment được phân tích bất đồng bộ bởi `ai-worker`
-- admin đã có API hide/unhide comment ở luồng bài học hiện tại
-- dashboard admin hiện chỉ hiển thị thống kê khóa học, user, job và activity feed
+- admin đã có action hide/unhide comment ở luồng bài học
+- user đã có cờ `IsActive`
+- dashboard admin hiện đang hiển thị thống kê tổng hợp
 
-Điều này cho phép triển khai moderation queue trên dashboard mà không cần đổi schema.
+Điều này cho phép triển khai moderation flow mà không cần đổi schema.
+
+## Thiết kế trải nghiệm
+
+### Dashboard admin
+
+Dashboard không hiển thị danh sách comment tiêu cực nữa.
+
+Nó chỉ hiển thị một card summary:
+
+- tiêu đề kiểu `Cảnh báo bình luận tiêu cực`
+- số lượng comment tiêu cực chưa xử lý
+- CTA `Xem chi tiết`
+
+Khi admin bấm vào CTA, hệ thống điều hướng sang trang moderation riêng.
+
+### Trang moderation riêng
+
+Thêm route admin mới:
+
+- `/admin/comment-moderation`
+
+Trang này hiển thị danh sách các comment:
+
+- `Sentiment = 'negative'`
+- `IsHidden = false`
+- `DeletedAt = null`
+
+Mỗi item hiển thị:
+
+- tên người viết
+- email hoặc thông tin nhận diện cơ bản nếu cần
+- tên khóa học
+- tên bài học
+- thời gian tạo
+- nội dung bình luận
+- badge `Tiêu cực`
+
+Mỗi item có 2 action:
+
+- `Xóa bình luận`
+- `Khóa tài khoản`
 
 ## Thiết kế backend
 
-### Dữ liệu cần trả về
+### Dashboard stats
 
-Dashboard sẽ nhận thêm một danh sách `negativeComments`.
+`GET /api/dashboard/stats` sẽ trả thêm:
 
-Mỗi item gồm:
+- `negativeCommentsCount`
+
+Dashboard không cần `negativeComments` list nữa.
+
+### Moderation list API
+
+Thêm endpoint admin-only mới để lấy danh sách moderation chi tiết.
+
+Đề xuất:
+
+- `GET /api/admin/comments/negative`
+
+Response mỗi item gồm:
 
 - `commentId`
 - `lessonId`
 - `lessonTitle`
 - `courseId`
 - `courseTitle`
-- `authorName`
 - `authorUserId`
+- `authorName`
+- `authorEmail`
 - `content`
 - `createdAt`
 - `sentiment`
 
-### Truy vấn
+Sắp xếp:
 
-Backend thêm một truy vấn admin-only lấy comment tiêu cực chưa xử lý:
+- mới nhất trước
 
-- lọc `Sentiment == "negative"`
-- lọc `IsHidden == false`
-- lọc `DeletedAt == null`
-- sắp xếp `CreatedAt DESC`
-- giới hạn mặc định 5 item cho dashboard
+### Delete comment
 
-### API
+Ưu tiên tái sử dụng action xóa comment hiện có nếu đã đủ quyền admin và đủ thông tin `lessonId`.
 
-Ưu tiên mở rộng API dashboard stats hiện có thay vì tạo endpoint moderation riêng.
+Nếu action hiện tại không thuận tiện cho moderation page, có thể thêm một admin endpoint wrapper rõ nghĩa hơn, nhưng không thay đổi semantics xóa.
 
-Đề xuất:
+### Ban user
 
-- endpoint dashboard hiện tại trả thêm:
-  - `negativeCommentsCount`
-  - `negativeComments`
+`Khóa tài khoản` sẽ là soft ban:
 
-Lý do:
+- set `Users.IsActive = false`
 
-- dashboard chỉ cần một payload tổng hợp
-- tránh thêm một request riêng trong lần tải đầu
-- bám sát mục tiêu dashboard-only moderation queue
+Hệ quả mong muốn:
 
-Nếu service dashboard hiện tại đang tách biệt cứng khỏi comments, có thể thêm một method service nội bộ mới và compose vào response hiện tại.
+- user không thể tiếp tục đăng nhập
+- nếu đang có refresh token/session, hệ thống nên revoke toàn bộ refresh tokens của user đó
 
-### Hành động ẩn comment
-
-Dashboard không tạo API mới cho moderation action.
-
-Nó sẽ tái sử dụng API admin hide comment đang có. Sau khi hide thành công:
-
-- comment bị loại khỏi queue trên UI
-- `negativeCommentsCount` giảm ngay trên client
+Vì repo hiện đã có logic admin update active user, ưu tiên tái sử dụng flow đó thay vì tạo mô hình ban mới.
 
 ## Thiết kế frontend
 
-### Vị trí hiển thị
+### Dashboard page
 
-Thêm một panel mới trên `DashboardPage` với tiêu đề kiểu:
+Panel moderation trên dashboard sẽ được rút gọn thành summary card:
 
-- `Cảnh báo bình luận tiêu cực`
+- số lượng comment tiêu cực
+- CTA điều hướng sang `/admin/comment-moderation`
 
-Panel này nằm cùng tầng thông tin quản trị hiện tại, không thay đổi layout tổng thể của dashboard.
+Không hiển thị tên người viết, bài học hay nội dung comment trực tiếp ở dashboard.
 
-### Nội dung panel
+### Comment moderation page
 
-Panel hiển thị:
+Trang mới sẽ:
 
-- tổng số comment tiêu cực chưa ẩn
-- tối đa 5 comment mới nhất
+- load danh sách negative comments từ API moderation
+- render list/card/table tùy theo pattern admin hiện có
+- cho phép:
+  - `Xóa bình luận`
+  - `Khóa tài khoản`
 
-Mỗi item hiển thị:
+Hành vi UI:
 
-- tên người viết
-- tên khóa học hoặc bài học
-- thời gian tạo
-- nội dung comment, có cắt bớt nếu dài
-- badge `Tiêu cực`
-- nút `Ẩn bình luận`
-- link điều hướng đến bài học liên quan nếu route hiện có hỗ trợ
-
-### Hành vi UI
-
-Khi admin bấm `Ẩn bình luận`:
-
-- disable nút của item đang xử lý
-- gọi API hide comment hiện có
-- nếu thành công:
-  - xóa item khỏi danh sách hiện tại
-  - cập nhật số lượng queue trên UI
+- disable button trong lúc action đang chạy
+- nếu xóa comment thành công:
+  - remove item khỏi list
+  - giảm tổng số lượng nếu đang giữ state local summary
+- nếu khóa tài khoản thành công:
+  - remove item khỏi list
+  - hiển thị success feedback ngắn
 - nếu lỗi:
-  - hiển thị lỗi inline ngắn gọn
   - giữ nguyên item
-
-Nếu queue rỗng:
-
-- hiển thị empty state kiểu `Chưa có bình luận tiêu cực cần xử lý`
+  - hiển thị lỗi inline hoặc alert ngắn gọn
 
 ## Dữ liệu và ràng buộc
 
-- Chỉ coi `negative` là tiêu cực cần cảnh báo
-- Không đưa comment đã ẩn vào queue
-- Không đưa comment đã xóa vào queue
-- Không thêm cờ `reviewed`, vì quyết định hiện tại là dashboard chỉ cần action `Ẩn`
+- Chỉ coi `negative` là tiêu cực cần moderation
+- Không hiển thị comment đã ẩn
+- Không hiển thị comment đã xóa
+- Không hiển thị comment `normal` hoặc `positive`
+- Khóa tài khoản là soft lock qua `IsActive = false`
 
 ## Bảo mật và phân quyền
 
-- dữ liệu queue chỉ trả cho admin
-- action hide comment vẫn giữ nguyên guard admin hiện có
+- dashboard summary moderation chỉ dành cho admin
+- moderation list API chỉ dành cho admin
+- delete comment action chỉ dành cho admin
+- khóa tài khoản chỉ dành cho admin
 
 ## Kiểm thử
 
 ### Backend
 
-- test truy vấn chỉ lấy comment `negative`
-- test loại trừ comment hidden
-- test loại trừ comment deleted
-- test sắp xếp mới nhất trước
-- test giới hạn số lượng item trả về
+- test dashboard stats trả đúng `negativeCommentsCount`
+- test moderation list chỉ lấy comment `negative`
+- test loại trừ comment hidden và deleted
+- test ban user set `IsActive = false`
+- test revoke refresh tokens nếu flow đó được tái dùng
 
 ### Frontend
 
-- test dashboard render panel negative comments khi có dữ liệu
-- test render empty state khi không có dữ liệu
-- test bấm `Ẩn bình luận` gọi đúng API và loại item khỏi UI
-- test lỗi hide comment không làm mất item
+- test dashboard chỉ render số lượng + CTA, không render chi tiết comment
+- test moderation page render list chi tiết
+- test xóa comment remove item khỏi list
+- test khóa tài khoản remove item khỏi list
+- test empty state khi không có comment tiêu cực
 
 ## Rủi ro
 
-- sentiment hiện đang là nhãn đơn giản `negative/normal/positive`, nên có thể có false positive
-- vì chưa có trạng thái `dismissed`, comment tiêu cực sẽ tiếp tục hiện cho tới khi admin ẩn nó
+- sentiment hiện là nhãn đơn giản nên có thể có false positive
+- khóa tài khoản là thao tác mạnh, cần label rõ ràng trên UI
+- nếu không revoke session hiện tại thì user bị khóa có thể còn phiên sống tạm thời
 
 ## Quyết định chốt
 
-- triển khai moderation queue trực tiếp trên dashboard admin
-- chỉ lấy comment `negative`, chưa hidden, chưa deleted
-- chỉ cung cấp action nhanh `Ẩn bình luận`
+- dashboard chỉ là summary
+- chi tiết moderation nằm ở route riêng `/admin/comment-moderation`
+- action moderation gồm `Xóa bình luận` và `Khóa tài khoản`
+- khóa tài khoản dùng `IsActive = false`
 - không đổi schema ở giai đoạn này

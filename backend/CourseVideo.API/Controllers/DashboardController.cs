@@ -1,4 +1,5 @@
 using CourseVideo.API.Data;
+using CourseVideo.API.DTOs.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,12 +26,21 @@ public class DashboardController : ControllerBase
         var coursesCount = await _dbContext.Courses.CountAsync();
         var generationJobsCount = await _dbContext.GenerationJobs.CountAsync();
 
-        return Ok(new
+        var negativeCommentsCount = await _dbContext.LessonComments
+            .AsNoTracking()
+            .Where(comment =>
+                comment.Sentiment == "negative"
+                && !comment.IsHidden
+                && comment.DeletedAt == null)
+            .CountAsync();
+
+        return Ok(new DashboardStatsResponse
         {
-            usersCount = usersCount,
-            syllabusesCount = syllabusesCount,
-            coursesCount = coursesCount,
-            generationJobsCount = generationJobsCount
+            UsersCount = usersCount,
+            SyllabusesCount = syllabusesCount,
+            CoursesCount = coursesCount,
+            GenerationJobsCount = generationJobsCount,
+            NegativeCommentsCount = negativeCommentsCount
         });
     }
 }

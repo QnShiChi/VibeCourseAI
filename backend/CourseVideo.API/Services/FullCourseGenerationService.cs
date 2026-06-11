@@ -8,6 +8,7 @@ namespace CourseVideo.API.Services;
 public class FullCourseGenerationService : IFullCourseGenerationService
 {
     private const string GenerateFullCourseJobType = "GenerateFullCourse";
+    private const int MaxConsecutiveSystemicAudioFailures = 3;
     private readonly ICourseRepository _courseRepository;
     private readonly ILessonRepository _lessonRepository;
     private readonly IGenerationJobRepository _generationJobRepository;
@@ -16,6 +17,7 @@ public class FullCourseGenerationService : IFullCourseGenerationService
     private readonly ILessonAudioGenerationService _lessonAudioService;
     private readonly ILessonVideoGenerationService _lessonVideoService;
     private readonly IQuizGenerationService _quizGenerationService;
+    private readonly IServiceScopeFactory? _serviceScopeFactory;
 
     public FullCourseGenerationService(
         ICourseRepository courseRepository,
@@ -25,7 +27,8 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         ILessonContentGenerationService lessonContentService,
         ILessonAudioGenerationService lessonAudioService,
         ILessonVideoGenerationService lessonVideoService,
-        IQuizGenerationService quizGenerationService)
+        IQuizGenerationService quizGenerationService,
+        IServiceScopeFactory? serviceScopeFactory = null)
     {
         _courseRepository = courseRepository;
         _lessonRepository = lessonRepository;
@@ -35,6 +38,7 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         _lessonAudioService = lessonAudioService;
         _lessonVideoService = lessonVideoService;
         _quizGenerationService = quizGenerationService;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public async Task<GenerateFullCourseResponse> GenerateFullCourseAsync(Guid courseId, Guid createdByUserId, CancellationToken cancellationToken = default)
@@ -107,12 +111,7 @@ public class FullCourseGenerationService : IFullCourseGenerationService
         }
         catch (Exception exception)
         {
-            job.Status = "Failed";
-            job.ErrorMessage = exception.Message;
-            job.ProgressMessage = "Job generate full course kết thúc với lỗi hệ thống.";
-            job.CompletedAt = DateTime.UtcNow;
-            job.UpdatedAt = DateTime.UtcNow;
-            await _generationJobRepository.SaveChangesAsync();
+            await PersistFailedJobAsync(job, exception, cancellationToken);
         }
     }
 
@@ -148,6 +147,7 @@ public class FullCourseGenerationService : IFullCourseGenerationService
 
         var processed = 0;
         var failed = 0;
+        var consecutiveSystemicAudioFailures = 0;
 
         for (var lessonIndex = 0; lessonIndex < lessonPairs.Count; lessonIndex++)
         {
@@ -173,11 +173,31 @@ public class FullCourseGenerationService : IFullCourseGenerationService
                 failed++;
                 job.FailedItems = failed;
                 job.ProgressMessage = $"Bài {lessonIndex + 1}/{lessonPairs.Count} gặp lỗi ở bước {result.FailedStepLabel}. Tiếp tục lesson tiếp theo.";
+
+                if (IsSystemicAudioFailure(result, lesson))
+                {
+                    consecutiveSystemicAudioFailures++;
+                    if (consecutiveSystemicAudioFailures >= MaxConsecutiveSystemicAudioFailures)
+                    {
+                        job.Status = "Failed";
+                        job.CompletedAt = DateTime.UtcNow;
+                        job.ProgressMessage = "Dừng sớm vì dịch vụ audio gặp lỗi hệ thống liên tiếp.";
+                        job.ErrorMessage = $"Dừng sớm sau {consecutiveSystemicAudioFailures} lỗi audio hệ thống liên tiếp. Lỗi gần nhất: {lesson.AudioGenerationError}";
+                        job.UpdatedAt = DateTime.UtcNow;
+                        await _generationJobRepository.SaveChangesAsync();
+                        return;
+                    }
+                }
+                else
+                {
+                    consecutiveSystemicAudioFailures = 0;
+                }
             }
             else
             {
                 job.FailedItems = failed;
                 job.ProgressMessage = $"Đã hoàn tất lesson {lessonIndex + 1}/{lessonPairs.Count}: {lesson.Title}.";
+                consecutiveSystemicAudioFailures = 0;
             }
 
             job.UpdatedAt = DateTime.UtcNow;
@@ -265,7 +285,15 @@ public class FullCourseGenerationService : IFullCourseGenerationService
 
             try
             {
-                await _lessonAudioService.GenerateAudioForLessonInternalAsync(lesson, cancellationToken);
+                await _lessonAudioService.GenerateAudioForLessonInternalAsync(
+                    lesson,
+                    cancellationToken,
+                    async (completedSegments, totalSegments) =>
+                    {
+                        job.ProgressMessage = $"Bài {lessonNumber}/{totalLessons} - đang tạo audio ({completedSegments}/{totalSegments} segment).";
+                        job.UpdatedAt = DateTime.UtcNow;
+                        await _generationJobRepository.SaveChangesAsync();
+                    });
                 await _lessonRepository.SaveChangesAsync();
                 processedSteps++;
                 await UpdateStepCompletionProgressAsync(job, lessonNumber, totalLessons, "audio", processedStepsBeforeLesson + processedSteps, failedLessonsBeforeLesson, totalPendingSteps);
@@ -323,7 +351,8 @@ public class FullCourseGenerationService : IFullCourseGenerationService
     {
         try
         {
-            await _quizGenerationService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken);
+            await ExecuteQuizGenerationAsync(
+                quizService => quizService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken));
         }
         catch
         {
@@ -335,13 +364,56 @@ public class FullCourseGenerationService : IFullCourseGenerationService
     {
         try
         {
-            await _quizGenerationService.GenerateFinalQuizAsync(courseId, cancellationToken);
+            await ExecuteQuizGenerationAsync(
+                quizService => quizService.GenerateFinalQuizAsync(courseId, cancellationToken));
             return true;
         }
         catch
         {
             return false;
         }
+    }
+
+    private async Task ExecuteQuizGenerationAsync(Func<IQuizGenerationService, Task> action)
+    {
+        if (_serviceScopeFactory is null)
+        {
+            await action(_quizGenerationService);
+            return;
+        }
+
+        await using var scope = _serviceScopeFactory.CreateAsyncScope();
+        var quizGenerationService = scope.ServiceProvider.GetRequiredService<IQuizGenerationService>();
+        await action(quizGenerationService);
+    }
+
+    private async Task PersistFailedJobAsync(GenerationJob trackedJob, Exception exception, CancellationToken cancellationToken)
+    {
+        if (_serviceScopeFactory is null)
+        {
+            trackedJob.Status = "Failed";
+            trackedJob.ErrorMessage = exception.Message;
+            trackedJob.ProgressMessage = "Job generate full course kết thúc với lỗi hệ thống.";
+            trackedJob.CompletedAt = DateTime.UtcNow;
+            trackedJob.UpdatedAt = DateTime.UtcNow;
+            await _generationJobRepository.SaveChangesAsync();
+            return;
+        }
+
+        await using var scope = _serviceScopeFactory.CreateAsyncScope();
+        var generationJobRepository = scope.ServiceProvider.GetRequiredService<IGenerationJobRepository>();
+        var persistedJob = await generationJobRepository.GetByIdAsync(trackedJob.Id);
+        if (persistedJob is null)
+        {
+            return;
+        }
+
+        persistedJob.Status = "Failed";
+        persistedJob.ErrorMessage = exception.Message;
+        persistedJob.ProgressMessage = "Job generate full course kết thúc với lỗi hệ thống.";
+        persistedJob.CompletedAt = DateTime.UtcNow;
+        persistedJob.UpdatedAt = DateTime.UtcNow;
+        await generationJobRepository.SaveChangesAsync();
     }
 
     private async Task UpdateStepStartProgressAsync(GenerationJob job, int lessonNumber, int totalLessons, string stepLabel, int processedSteps)
@@ -388,6 +460,19 @@ public class FullCourseGenerationService : IFullCourseGenerationService
     {
         var runningJobs = await _generationJobRepository.GetByCourseIdAsync(courseId);
         return runningJobs.Any(j => j.JobType == GenerateFullCourseJobType && (j.Status == "Pending" || j.Status == "GeneratingFullCourse"));
+    }
+
+    private static bool IsSystemicAudioFailure(LessonStepProgressResult result, Lesson lesson)
+    {
+        if (!string.Equals(result.FailedStepLabel, "audio", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var error = lesson.AudioGenerationError ?? string.Empty;
+        return error.Contains("edge-tts", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("NoAudioReceived", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("Timeout", StringComparison.OrdinalIgnoreCase);
     }
 
     private static int CountRemainingSteps(IReadOnlyList<(Module module, Lesson lesson)> lessonPairs)

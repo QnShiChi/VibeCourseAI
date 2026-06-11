@@ -26,6 +26,14 @@ var connectionString = builder.Configuration["CONNECTION_STRING"]
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Missing database connection string.");
 
+// đăng ký vào DI
+// Configure strongly-typed settings
+// appsettings.json là dữ liệu thô
+// GetSection("Jwt") là cắt đúng phần Jwt
+// Configure<JwtOptions>(...) là đổ phần đó vào class JwtOptions
+// IOptions<JwtOptions> là cách lấy object đó ở chỗ khác trong app
+// Cách lấy: constructor injection IOptions<JwtOptions> jwtOptions, 
+// rồi jwtOptions.Value là object JwtOptions đã được điền dữ liệu từ appsettings.json
 builder.Services.Configure<AdminSeedOptions>(builder.Configuration.GetSection("AdminSeed"));
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<OpenRouterOptions>(builder.Configuration.GetSection("OpenRouter"));
@@ -46,6 +54,19 @@ builder.Services.AddSignalR(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// 1. Transient
+// Mỗi lần inject/request service là tạo object mới.
+// Dùng cho service nhẹ, không giữ trạng thái, hoặc có trạng thái nhưng không cần chia sẻ giữa các request.
+// Ví dụ: IRenderService, IFFmpegService, IImageProvider - các service này thường chỉ dùng trong quá trình tạo video, không cần giữ trạng thái lâu dài
+// 2. Scoped
+// Tạo một instance cho mỗi scope (thường là mỗi request HTTP). Các service trong cùng một request sẽ chia sẻ cùng một instance.
+// Dùng cho service cần giữ trạng thái trong suốt một request, nhưng không cần chia sẻ giữa các request khác nhau.
+// Ví dụ: CourseService, QuizService, LessonService - các service này có thể cần giữ trạng thái trong suốt quá trình xử lý một request, như thông tin người dùng, dữ liệu tạm thời, nhưng không cần chia sẻ giữa các request khác nhau.
+// 3. Singleton
+// Chỉ tạo một instance duy nhất cho toàn bộ ứng dụng. Tất cả các request và service sẽ chia sẻ cùng một instance này.
+// Dùng cho service cần giữ trạng thái chung hoặc có chi phí tạo cao, hoặc cần chia sẻ dữ liệu giữa các request khác nhau.
+// Ví dụ: IStorageService, ITimelineService, LessonAudioJobQueue, LessonVideoJobQueue, FullCourseJobQueue - các service này có thể cần giữ trạng thái chung, như hàng đợi công việc, hoặc có chi phí tạo cao, như kết nối đến hệ thống lưu trữ, nên được đăng ký là singleton.
+
 // Video Worker Services
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IStorageService, StorageService>();
@@ -65,6 +86,7 @@ builder.Services.AddCors(options =>
         policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 });
 
+// CẤu hình như thế này thì app sẽ sử dụng cơ chế xác thực JWT Bearer
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -80,6 +102,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             NameClaimType = JwtRegisteredClaimNames.Sub,
             RoleClaimType = ClaimTypes.Role
         };
+        // Phần này để hỗ trợ lấy token từ query string khi kết nối SignalR, vì WebSocket không hỗ trợ header Authorization
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>

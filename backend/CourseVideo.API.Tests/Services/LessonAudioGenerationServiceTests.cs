@@ -46,7 +46,7 @@ public class LessonAudioGenerationServiceTests
             ]);
 
         audioPipelineService
-            .Setup(x => x.GenerateLessonAudioAsync(lesson.Id, It.IsAny<List<NarrationSegment>>(), CancellationToken.None))
+            .Setup(x => x.GenerateLessonAudioAsync(lesson.Id, It.IsAny<List<NarrationSegment>>(), It.IsAny<Func<int, int, Task>?>(), CancellationToken.None))
             .ReturnsAsync(new AudioWorkerLessonResponse
             {
                 AudioUrl = "/storage/audio/lesson-1.mp3",
@@ -79,6 +79,6 @@ public class LessonAudioGenerationServiceTests
         lesson.VideoGenerationStatus.Should().Be("NotGenerated");
         lesson.VideoUrl.Should().BeNull();
         narrationService.Verify(x => x.BuildNarrationSegments(lesson.TeachingScript!, lesson.SlideOutlineJson!, lesson.VoiceoverPlanJson!), Times.Once);
-        audioPipelineService.Verify(x => x.GenerateLessonAudioAsync(lesson.Id, It.IsAny<List<NarrationSegment>>(), CancellationToken.None), Times.Once);
+        audioPipelineService.Verify(x => x.GenerateLessonAudioAsync(lesson.Id, It.IsAny<List<NarrationSegment>>(), It.IsAny<Func<int, int, Task>?>(), CancellationToken.None), Times.Once);
     }
 }

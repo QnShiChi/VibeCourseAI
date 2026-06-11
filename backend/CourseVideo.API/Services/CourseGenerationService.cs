@@ -228,6 +228,10 @@ public class CourseGenerationService : ICourseGenerationService
         {
             return _courseStructureParser.Parse(syllabus.ExtractedText);
         }
+        catch (OpenRouterValidationException exception) when (exception.Message.Contains("qua it lesson", StringComparison.OrdinalIgnoreCase))
+        {
+            return _courseStructureParser.Parse(syllabus.ExtractedText);
+        }
     }
 
     private static string ResolveCourseTitle(Syllabus syllabus, ParsedCourseStructure structure)

@@ -17,7 +17,11 @@ public class AudioPipelineService : IAudioPipelineService
         _logger = logger;
     }
 
-    public async Task<AudioWorkerLessonResponse> GenerateLessonAudioAsync(Guid lessonId, List<NarrationSegment> narrationSegments, CancellationToken cancellationToken = default)
+    public async Task<AudioWorkerLessonResponse> GenerateLessonAudioAsync(
+        Guid lessonId,
+        List<NarrationSegment> narrationSegments,
+        Func<int, int, Task>? onSegmentCompleted = null,
+        CancellationToken cancellationToken = default)
     {
         var storageDir = _storageService.GetStorageDirectory();
         var audioDir = Path.Combine(storageDir, "audio");
@@ -26,10 +30,18 @@ public class AudioPipelineService : IAudioPipelineService
             Directory.CreateDirectory(audioDir);
         }
 
-        var maxParallelism = Math.Min(3, narrationSegments.Count);
+        var maxParallelism = Math.Min(1, narrationSegments.Count);
         using var semaphore = new SemaphoreSlim(maxParallelism);
+        var completedSegments = 0;
         var segmentTasks = narrationSegments
-            .Select((segment, index) => GenerateSegmentAudioAsync(lessonId, audioDir, segment, index, semaphore, cancellationToken))
+            .Select((segment, index) => GenerateSegmentAudioAsync(
+                lessonId,
+                audioDir,
+                segment,
+                index,
+                semaphore,
+                () => ReportSegmentCompletionAsync(onSegmentCompleted, narrationSegments.Count, ref completedSegments),
+                cancellationToken))
             .ToList();
 
         var generatedSegments = await Task.WhenAll(segmentTasks);
@@ -64,6 +76,7 @@ public class AudioPipelineService : IAudioPipelineService
         NarrationSegment segment,
         int index,
         SemaphoreSlim semaphore,
+        Func<Task> onCompleted,
         CancellationToken cancellationToken)
     {
         await semaphore.WaitAsync(cancellationToken);
@@ -91,8 +104,17 @@ public class AudioPipelineService : IAudioPipelineService
         }
         finally
         {
+            await onCompleted();
             semaphore.Release();
         }
+    }
+
+    private static Task ReportSegmentCompletionAsync(Func<int, int, Task>? onSegmentCompleted, int totalSegments, ref int completedSegments)
+    {
+        var completed = Interlocked.Increment(ref completedSegments);
+        return onSegmentCompleted is null
+            ? Task.CompletedTask
+            : onSegmentCompleted(completed, totalSegments);
     }
 
     private async Task ConcatenateAudioFilesAsync(List<string> filePaths, string outputPath, CancellationToken cancellationToken)

@@ -20,6 +20,7 @@ public class FullCourseGenerationServiceTests
         var lessonContentService = new Mock<ILessonContentGenerationService>();
         var lessonAudioService = new Mock<ILessonAudioGenerationService>();
         var lessonVideoService = new Mock<ILessonVideoGenerationService>();
+        var quizGenerationService = new Mock<IQuizGenerationService>();
 
         var course = CreateCourse();
         var module = course.Modules.Single();
@@ -68,7 +69,8 @@ public class FullCourseGenerationServiceTests
             queue.Object,
             lessonContentService.Object,
             lessonAudioService.Object,
-            lessonVideoService.Object);
+            lessonVideoService.Object,
+            quizGenerationService.Object);
 
         await service.ProcessJobAsync(job.Id, CancellationToken.None);
 
@@ -82,6 +84,8 @@ public class FullCourseGenerationServiceTests
         secondLesson.ContentGenerationStatus.Should().Be("Completed");
         secondLesson.AudioGenerationStatus.Should().Be("Completed");
         secondLesson.VideoGenerationStatus.Should().Be("Completed");
+        quizGenerationService.Verify(service => service.GenerateLessonQuizAsync(course.Id, firstLesson.Id, CancellationToken.None), Times.Once);
+        quizGenerationService.Verify(service => service.GenerateFinalQuizAsync(course.Id, CancellationToken.None), Times.Once);
     }
 
     private static Course CreateCourse()

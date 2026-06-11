@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
+import { getLessonQuiz, startQuizAttempt, submitQuizAttempt } from "../api/quizService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
+import FinalQuizCard from "../components/course/FinalQuizCard";
+import LessonQuizPanel from "../components/course/LessonQuizPanel";
+import LessonVoiceTutorFab from "../components/course/LessonVoiceTutorFab";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
+import { useLessonVoiceTutor } from "../hooks/useLessonVoiceTutor";
 import { useTheme } from "../theme/ThemeContext";
+import { saveCurrentLearningProgress } from "../utils/learningProgress";
 
 function sortByOrder(items) {
   return [...items].sort((left, right) => left.orderIndex - right.orderIndex);
@@ -45,12 +51,12 @@ function buildSingleExpandedState(modules, moduleId, shouldExpand = true) {
 }
 
 function getLessonStage(lesson, selectedLessonId, completedLessonIds) {
-  if (completedLessonIds.includes(lesson.lessonId)) {
-    return "complete";
-  }
-
   if (lesson.lessonId === selectedLessonId) {
     return "active";
+  }
+
+  if (completedLessonIds.includes(lesson.lessonId)) {
+    return "complete";
   }
 
   return "upcoming";
@@ -82,14 +88,26 @@ function getLessonActionLabel(stage) {
 
 function getVideoStatusLabel(selectedLesson) {
   if (selectedLesson.videoUrl) {
-    return "San sang hoc ngay";
+    return "Sẵn sàng học ngay";
   }
 
   if (selectedLesson.videoGenerationStatus === "Failed") {
-    return "Video dang gap loi";
+    return "Video đang gặp lỗi";
   }
 
-  return "Dang chuan bi video";
+  return "Đang chuẩn bị video";
+}
+
+function getCourseEyebrow(courseTitle = "") {
+  if (!courseTitle.trim()) {
+    return "AI Advanced";
+  }
+
+  if (courseTitle.length <= 32) {
+    return "AI Advanced";
+  }
+
+  return "Learning Experience";
 }
 
 export default function CourseLearnPage() {
@@ -101,6 +119,8 @@ export default function CourseLearnPage() {
   const [expandedModules, setExpandedModules] = useState({});
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const videoRef = useRef(null);
+  const pausedTimeRef = useRef(0);
   
   const [completedLessonIds, setCompletedLessonIds] = useState(() => {
     try {
@@ -187,6 +207,41 @@ export default function CourseLearnPage() {
   const nextLesson =
     currentLessonIndex >= 0 && currentLessonIndex < totalLessons - 1 ? flatLessons[currentLessonIndex + 1] : null;
   const isAdmin = user?.role === "Admin";
+  const currentModuleLessons = selectedModule?.lessons?.length ?? 0;
+  const completionLabel = `${completedLessons}/${totalLessons} bài học`;
+  const tutor = useLessonVoiceTutor({
+    lessonId: selectedLesson?.lessonId ?? "",
+    enabled: Boolean(selectedLesson?.videoUrl),
+    onPauseVideo(playbackTimeSeconds) {
+      pausedTimeRef.current = playbackTimeSeconds;
+      videoRef.current?.pause();
+    },
+    onResumeVideo() {
+      if (videoRef.current) {
+        videoRef.current.currentTime = pausedTimeRef.current;
+        const playPromise = videoRef.current.play?.();
+        if (playPromise?.catch) {
+          playPromise.catch(() => {});
+        }
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (!course?.courseId || !selectedLesson || totalLessons <= 0) {
+      return;
+    }
+
+    saveCurrentLearningProgress({
+      courseId: course.courseId,
+      courseTitle: course.courseTitle,
+      selectedLessonId: selectedLesson.lessonId,
+      selectedLessonTitle: selectedLesson.lessonTitle,
+      completedLessons,
+      totalLessons,
+      progressPercent
+    });
+  }, [course, selectedLesson, completedLessons, totalLessons, progressPercent]);
 
   return (
     <div className="learn-workspace" data-testid="course-learn-shell" data-theme={theme}>
@@ -219,8 +274,11 @@ export default function CourseLearnPage() {
                 <article className="learn-stage-card learn-stage-card--hero">
                   <div className="learn-stage-card__hero-copy">
                     <section className="learn-hero">
-                      <p className="learn-hero__eyebrow">Khóa học AI nâng cao</p>
+                      <p className="learn-hero__eyebrow">{getCourseEyebrow(course.courseTitle)}</p>
                       <h1>{course.courseTitle}</h1>
+                      <p className="learn-hero__dek">
+                        Không gian học tập tập trung cho từng lesson video, ghi chú bài học và thảo luận theo ngữ cảnh.
+                      </p>
                     </section>
 
                     <div className="learn-stage-card__meta-row">
@@ -238,11 +296,17 @@ export default function CourseLearnPage() {
                           : `Bài ${currentLessonIndex + 1}`}
                       </span>
                       {selectedLesson.videoUrl ? (
-                        <video controls preload="metadata" src={selectedLesson.videoUrl} onTimeUpdate={handleTimeUpdate}>
+                        <video
+                          ref={videoRef}
+                          controls
+                          preload="metadata"
+                          src={selectedLesson.videoUrl}
+                          onTimeUpdate={handleTimeUpdate}>
                           Trình duyệt của bạn không hỗ trợ phát video.
                         </video>
                       ) : (
                         <div className="learn-stage-card__placeholder">
+                          <span className="learn-stage-card__placeholder-icon">▶</span>
                           <strong>{selectedLesson.lessonTitle}</strong>
                           <span>
                             {selectedLesson.videoGenerationStatus === "Failed"
@@ -251,33 +315,90 @@ export default function CourseLearnPage() {
                           </span>
                         </div>
                       )}
+                      {selectedLesson.videoUrl ? (
+                        <LessonVoiceTutorFab
+                          state={tutor.state}
+                          errorMessage={tutor.errorMessage}
+                          onStartRecording={() => tutor.startRecording(videoRef.current?.currentTime ?? 0)}
+                          onStopRecording={tutor.stopRecording}
+                          onRequestFollowUp={() => tutor.requestFollowUp(pausedTimeRef.current)}
+                          onResumeLearning={tutor.resumeLearning}
+                        />
+                      ) : null}
                     </div>
                     <div className="learn-stage-card__video-meta">
                       <span>{getVideoStatusLabel(selectedLesson)}</span>
-                      <span>{selectedModule ? selectedModule.moduleTitle : "Dang cap nhat module"}</span>
-                      <span>{completedLessons}/{totalLessons} bài học</span>
+                      <span>{selectedModule ? selectedModule.moduleTitle : "Đang cập nhật module"}</span>
+                      <span>{completionLabel}</span>
                     </div>
                   </div>
 
                   <div className="learn-stage-card__summary">
-                    <p className="learn-stage-card__summary-label">Đang học</p>
-                    <h2>{selectedLesson.lessonTitle}</h2>
-                    <p>{selectedLesson.description || course.courseDescription}</p>
+                    <div className="learn-stage-card__summary-copy">
+                      <p className="learn-stage-card__summary-label">Đang học</p>
+                      <h2>{selectedLesson.lessonTitle}</h2>
+                      <p>{selectedLesson.description || course.courseDescription}</p>
+                    </div>
+
+                    <div className="learn-stage-card__location-strip">
+                      <div className="learn-stage-card__location-badge">
+                        {selectedModule
+                          ? `Bài ${selectedLesson.orderIndex}`
+                          : `Bài ${currentLessonIndex + 1}`}
+                      </div>
+
+                      <div className="learn-stage-card__location-copy">
+                        <strong>
+                          {selectedModule
+                            ? `Bạn đang học ở Module ${selectedModule.orderIndex}`
+                            : "Bạn đang học bài hiện tại"}
+                        </strong>
+                        <span>
+                          {selectedModule
+                            ? `${selectedModule.moduleTitle} • ${selectedLesson.lessonTitle}`
+                            : selectedLesson.lessonTitle}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </article>
 
                 <Card className="learn-reading-card" variant="shadowed">
                   <div className="learn-section-heading">
                     <div>
-                      <p>Nội dung bài học</p>
+                      <p>Đang học</p>
                       <h2>{selectedLesson.lessonTitle}</h2>
+                      <span className="learn-reading-card__lead">
+                        {selectedLesson.description || "Theo dõi phần ghi chú chi tiết và các ý chính của lesson hiện tại."}
+                      </span>
                     </div>
-                    <span className="learn-section-heading__meta">
-                      {selectedModule ? `Module ${selectedModule.orderIndex}` : "Lesson hiện tại"}
-                    </span>
+                    <div className="learn-reading-card__meta-stack">
+                      <span className="learn-section-heading__meta">
+                        {selectedModule ? `Module ${selectedModule.orderIndex}` : "Lesson hiện tại"}
+                      </span>
+                      <span className="learn-section-heading__meta">{getVideoStatusLabel(selectedLesson)}</span>
+                    </div>
                   </div>
-                  <pre className="text-preview learn-content-preview">{selectedLesson.contentSeed}</pre>
+
+                  <div className="learn-reading-card__body">
+                    <div className="learn-reading-card__label">
+                      <span className="learn-reading-card__icon">▣</span>
+                      <span>Ghi chú bài học</span>
+                    </div>
+                    <pre className="text-preview learn-content-preview">{selectedLesson.contentSeed}</pre>
+                  </div>
                 </Card>
+
+                <LessonQuizPanel
+                  initialStatus={selectedLesson.quizStatus}
+                  initialQuestionCount={selectedLesson.quizQuestionCount}
+                  lessonId={selectedLesson.lessonId}
+                  lessonTitle={selectedLesson.lessonTitle}
+                  quizId={selectedLesson.quizId}
+                  onLoadQuiz={getLessonQuiz}
+                  onStartAttempt={startQuizAttempt}
+                  onSubmitAttempt={submitQuizAttempt}
+                />
 
                 <Card className="learn-comments-card" variant="shadowed">
                   <LessonComments isAdmin={isAdmin} lessonId={selectedLesson.lessonId} />
@@ -309,12 +430,35 @@ export default function CourseLearnPage() {
                     <p>
                       {selectedModule ? `Đang ở ${selectedModule.moduleTitle}` : "Theo dõi toàn bộ lesson của khóa học."}
                     </p>
+
+                    <div className="learn-sidebar-panel__stats">
+                      <div className="learn-sidebar-panel__stat">
+                        <strong>{completionLabel}</strong>
+                        <span>Hoàn thành</span>
+                      </div>
+                      <div className="learn-sidebar-panel__stat">
+                        <strong>{currentModuleLessons} bài</strong>
+                        <span>Module hiện tại</span>
+                      </div>
+                    </div>
+
                     <div className="learn-progress">
+                      <div className="learn-progress__meta">
+                        <strong>{progressPercent}%</strong>
+                        <span>Tiến độ</span>
+                      </div>
                       <div aria-hidden="true" className="learn-progress__track">
                         <span className="learn-progress__value" style={{ width: `${progressPercent}%` }} />
                       </div>
-                      <p>Tiến độ: {progressPercent}%</p>
                     </div>
+                    {course.hasFinalQuiz ? (
+                      <FinalQuizCard
+                        courseId={course.courseId}
+                        questionCount={course.finalQuizQuestionCount}
+                        quizId={course.finalQuizId}
+                        status={course.finalQuizStatus}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="learn-sidebar-panel__modules">
@@ -330,14 +474,14 @@ export default function CourseLearnPage() {
                             type="button"
                           >
                             <div className="learn-module__header-copy">
-                              <span className="learn-module__index">{module.orderIndex}</span>
+                              <span className="learn-module__index">{String(module.orderIndex).padStart(2, "0")}</span>
                               <div>
                                 <p>Module {String(module.orderIndex).padStart(2, "0")}</p>
                                 <strong>{module.moduleTitle}</strong>
                                 <span>{module.lessons.length} bài học</span>
                               </div>
                             </div>
-                            <span>{isExpanded ? "⌃" : "⌄"}</span>
+                            <span className="learn-module__chevron">{isExpanded ? "⌃" : "⌄"}</span>
                           </button>
 
                           {isExpanded ? (
@@ -356,7 +500,7 @@ export default function CourseLearnPage() {
                                     </span>
                                     <span className="learn-lesson-button__body">
                                       <span className="learn-lesson-button__title">
-                                        {module.orderIndex}.{lesson.orderIndex} {lesson.lessonTitle}
+                                        Bài {lesson.orderIndex}: {lesson.lessonTitle}
                                       </span>
                                       <span className="learn-lesson-button__meta">
                                         {getLessonStageLabel(stage)}
@@ -371,6 +515,7 @@ export default function CourseLearnPage() {
                       );
                     })}
                   </div>
+
                 </div>
               </aside>
             </div>

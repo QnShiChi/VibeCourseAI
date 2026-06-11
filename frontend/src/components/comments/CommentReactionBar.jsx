@@ -33,9 +33,12 @@ export default function CommentReactionBar({ commentId, onSelectReaction, reacti
   }
 
   function handlePrimaryClick() {
-    const nextEmoji = selectedReaction ? null : "👍";
-    onSelectReaction(commentId, selectedReaction?.emoji ?? null, nextEmoji);
-    closePickerNow();
+    if (isPickerOpen) {
+      closePickerNow();
+      return;
+    }
+
+    openPicker();
   }
 
   function handlePickerSelect(emoji) {
@@ -62,7 +65,7 @@ export default function CommentReactionBar({ commentId, onSelectReaction, reacti
           type="button"
         >
           <span className={styles.commentReactionPrimaryIcon}>{selectedReaction?.emoji ?? "👍"}</span>
-          <span>{selectedReaction ? "Đã thả cảm xúc" : "Like"}</span>
+          <span>{selectedReaction ? "Cảm xúc" : "Like"}</span>
         </button>
 
         <div className={`${styles.commentReactionPopup}${isPickerOpen ? ` ${styles.commentReactionPopupOpen}` : ""}`}>

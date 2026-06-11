@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import AuthShell, { AuthField, LockIcon, MailIcon } from "../components/auth/AuthShell";
 import Button from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
@@ -35,11 +35,14 @@ function getVietnameseErrorMessage(error) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(false);
+  const oauthErrorMessage = location.state?.oauthError ?? "";
+  const googleAuthUrl = `${(import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api").replace(/\/api$/, "")}/api/auth/google/login`;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -48,7 +51,7 @@ export default function LoginPage() {
 
     try {
       const nextSession = await login(formData);
-      const nextPath = nextSession?.user?.role === "Admin" ? "/dashboard" : "/";
+      const nextPath = location.state?.from?.pathname ?? (nextSession?.user?.role === "Admin" ? "/dashboard" : "/");
       navigate(nextPath, {
         replace: true,
         state: {
@@ -72,6 +75,7 @@ export default function LoginPage() {
       footerLabel="Chưa có tài khoản?"
       footerLinkLabel="Đăng ký ngay"
       footerLinkTo="/register"
+      googleAuthUrl={googleAuthUrl}
       heading="Tài khoản / Đăng nhập"
       showcaseAudience="+2.5k học viên đang trực tuyến"
       showcaseDescription="Hệ thống tối ưu hóa quy trình học tập và giảng dạy bằng trí tuệ nhân tạo thế hệ mới."
@@ -117,7 +121,7 @@ export default function LoginPage() {
           <span className={styles.checkboxLabel}>Duy trì đăng nhập</span>
         </label>
 
-        {errorMessage ? (
+        {(errorMessage || oauthErrorMessage) ? (
           <div
             aria-live="polite"
             className={styles.authErrorAlert}
@@ -125,7 +129,7 @@ export default function LoginPage() {
             style={authErrorAlertBoxStyle}
           >
             <span className={styles.authErrorAlertText} style={authErrorAlertTextStyle}>
-              {errorMessage}
+              {errorMessage || oauthErrorMessage}
             </span>
           </div>
         ) : null}

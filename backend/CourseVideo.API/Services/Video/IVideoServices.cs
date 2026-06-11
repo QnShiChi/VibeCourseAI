@@ -19,15 +19,20 @@ public interface ITimelineService
 
 public interface IImageProvider
 {
-    Task<byte[]?> FetchImageForSlideAsync(string keyword);
+    Task<byte[]?> FetchImageForSlideAsync(string keyword, CancellationToken cancellationToken = default);
 }
 
 public interface IRenderService
 {
-    Task RenderSlidePngAsync(string outputPath, SlideItem slide);
+    Task RenderSlidePngAsync(string outputPath, SlideItem slide, CancellationToken cancellationToken = default);
 }
 
 public interface IFFmpegService
 {
-    Task<double> AssembleVideoAsync(List<string> slidePaths, List<double> durations, string audioPath, string outputPath);
+    Task<double> AssembleVideoAsync(
+        List<string> slidePaths,
+        List<double> durations,
+        string audioPath,
+        string outputPath,
+        CancellationToken cancellationToken = default);
 }

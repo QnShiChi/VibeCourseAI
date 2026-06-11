@@ -1,7 +1,16 @@
 import { Route, Routes } from "react-router-dom";
 import RequireAuth from "../auth/RequireAuth";
+import AdminLayout from "../components/layout/AdminLayout";
 import MainLayout from "../components/layout/MainLayout";
+import AdminCoursesPage from "../pages/AdminCoursesPage";
+import AdminCategoriesPage from "../pages/AdminCategoriesPage";
+import AdminFinancePage from "../pages/AdminFinancePage";
+import AdminProfilePage from "../pages/AdminProfilePage";
+import AdminSettingsPage from "../pages/AdminSettingsPage";
+import AdminUsersPage from "../pages/AdminUsersPage";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
+import CartPage from "../pages/CartPage";
+import CommentModerationPage from "../pages/CommentModerationPage";
 import CoursesPage from "../pages/CoursesPage";
 import CourseLearnPage from "../pages/CourseLearnPage";
 import CourseStructurePage from "../pages/CourseStructurePage";
@@ -10,8 +19,10 @@ import GenerationJobsPage from "../pages/GenerationJobsPage";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import GoogleAuthCallbackPage from "../pages/GoogleAuthCallbackPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import ProfilePage from "../pages/ProfilePage";
+import PaymentOrderPage from "../pages/PaymentOrderPage";
 import RegisterPage from "../pages/RegisterPage";
 import SyllabusesPage from "../pages/SyllabusesPage";
 
@@ -19,43 +30,31 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/google/callback" element={<GoogleAuthCallbackPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route
+        element={(
+          <RequireAuth requiredRole="Admin">
+            <AdminLayout />
+          </RequireAuth>
+        )}
+      >
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/admin/courses" element={<AdminCoursesPage />} />
+        <Route path="/admin/categories" element={<AdminCategoriesPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/finance" element={<AdminFinancePage />} />
+        <Route path="/admin/profile" element={<AdminProfilePage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
+        <Route path="/admin/syllabuses" element={<SyllabusesPage />} />
+        <Route path="/admin/generation-jobs" element={<GenerationJobsPage />} />
+        <Route path="/admin/comment-moderation" element={<CommentModerationPage />} />
+        <Route path="/admin/courses/:courseId" element={<CourseStructurePage />} />
+      </Route>
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <DashboardPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/syllabuses"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <SyllabusesPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/generation-jobs"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <GenerationJobsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/courses/:courseId"
-          element={
-            <RequireAuth requiredRole="Admin">
-              <CourseStructurePage />
-            </RequireAuth>
-          }
-        />
         <Route
           path="/profile"
           element={
@@ -72,19 +71,21 @@ export default function AppRoutes() {
             </RequireAuth>
           }
         />
-        <Route
-          path="/courses"
-          element={
-            <RequireAuth>
-              <CoursesPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/cart" element={<CartPage />} />
         <Route
           path="/courses/:courseId/learn"
           element={
             <RequireAuth>
               <CourseLearnPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/payment-orders/:orderId"
+          element={
+            <RequireAuth>
+              <PaymentOrderPage />
             </RequireAuth>
           }
         />

@@ -11,7 +11,12 @@ public class FFmpegService : IFFmpegService
         _logger = logger;
     }
 
-    public async Task<double> AssembleVideoAsync(List<string> slidePaths, List<double> durations, string audioPath, string outputPath)
+    public async Task<double> AssembleVideoAsync(
+        List<string> slidePaths,
+        List<double> durations,
+        string audioPath,
+        string outputPath,
+        CancellationToken cancellationToken = default)
     {
         if (slidePaths == null || slidePaths.Count == 0)
             throw new ArgumentException("Không có slide để render video.");
@@ -36,7 +41,7 @@ public class FFmpegService : IFFmpegService
         var safeLastPath = slidePaths.Last().Replace("'", "'\\''");
         manifestLines.Add($"file '{safeLastPath}'");
 
-        await File.WriteAllLinesAsync(manifestPath, manifestLines);
+        await File.WriteAllLinesAsync(manifestPath, manifestLines, cancellationToken);
 
         var args = new[]
         {
@@ -71,8 +76,22 @@ public class FFmpegService : IFFmpegService
         if (process == null)
             throw new Exception("Không thể khởi động FFmpeg process.");
 
-        var stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
+        using var cancellationRegistration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+            }
+        });
+
+        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
 
         if (process.ExitCode != 0)
         {

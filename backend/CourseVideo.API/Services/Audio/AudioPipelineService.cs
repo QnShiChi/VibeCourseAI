@@ -19,9 +19,6 @@ public class AudioPipelineService : IAudioPipelineService
 
     public async Task<AudioWorkerLessonResponse> GenerateLessonAudioAsync(Guid lessonId, List<NarrationSegment> narrationSegments, CancellationToken cancellationToken = default)
     {
-        var results = new List<AudioWorkerSegmentResponse>();
-        var audioPaths = new List<string>();
-
         var storageDir = _storageService.GetStorageDirectory();
         var audioDir = Path.Combine(storageDir, "audio");
         if (!Directory.Exists(audioDir))
@@ -29,37 +26,28 @@ public class AudioPipelineService : IAudioPipelineService
             Directory.CreateDirectory(audioDir);
         }
 
-        foreach (var segment in narrationSegments)
-        {
-            _logger.LogInformation($"Generating audio for slide {segment.SlideNumber}: '{segment.NarrationText}'");
-            var audioBytes = await _edgeTtsService.SynthesizeToBytesAsync(segment.NarrationText, cancellationToken);
-            
-            var fileName = $"{lessonId}-slide-{segment.SlideNumber}.mp3";
-            var filePath = Path.Combine(audioDir, fileName);
-            await File.WriteAllBytesAsync(filePath, audioBytes, cancellationToken);
-            
-            var duration = await GetAudioDurationAsync(filePath, cancellationToken);
-            
-            results.Add(new AudioWorkerSegmentResponse
-            {
-                SlideNumber = segment.SlideNumber,
-                Title = segment.Title,
-                NarrationText = segment.NarrationText,
-                AudioUrl = $"/storage/audio/{fileName}",
-                DurationSeconds = duration
-            });
+        var maxParallelism = Math.Min(3, narrationSegments.Count);
+        using var semaphore = new SemaphoreSlim(maxParallelism);
+        var segmentTasks = narrationSegments
+            .Select((segment, index) => GenerateSegmentAudioAsync(lessonId, audioDir, segment, index, semaphore, cancellationToken))
+            .ToList();
 
-            audioPaths.Add(filePath);
-            await Task.Delay(1500, cancellationToken);
-        }
+        var generatedSegments = await Task.WhenAll(segmentTasks);
+        var orderedSegments = generatedSegments
+            .OrderBy(segment => segment.Index)
+            .ToList();
+        var results = orderedSegments
+            .Select(segment => segment.Response)
+            .ToList();
+        var audioPaths = orderedSegments
+            .Select(segment => segment.FilePath)
+            .ToList();
 
-        results = results.OrderBy(r => r.SlideNumber).ToList();
-        
         var finalFileName = $"{lessonId}.mp3";
         var finalFilePath = Path.Combine(audioDir, finalFileName);
         
         await ConcatenateAudioFilesAsync(audioPaths, finalFilePath, cancellationToken);
-        var finalDuration = await GetAudioDurationAsync(finalFilePath, cancellationToken);
+        var finalDuration = results.Sum(item => item.DurationSeconds);
 
         return new AudioWorkerLessonResponse
         {
@@ -68,6 +56,43 @@ public class AudioPipelineService : IAudioPipelineService
             Segments = results,
             ErrorMessage = null
         };
+    }
+
+    private async Task<GeneratedAudioSegment> GenerateSegmentAudioAsync(
+        Guid lessonId,
+        string audioDir,
+        NarrationSegment segment,
+        int index,
+        SemaphoreSlim semaphore,
+        CancellationToken cancellationToken)
+    {
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            _logger.LogInformation("Generating audio for slide {SlideNumber}: '{NarrationText}'", segment.SlideNumber, segment.NarrationText);
+            var audioBytes = await _edgeTtsService.SynthesizeToBytesAsync(segment.NarrationText, cancellationToken: cancellationToken);
+
+            var fileName = $"{lessonId}-slide-{segment.SlideNumber}.mp3";
+            var filePath = Path.Combine(audioDir, fileName);
+            await File.WriteAllBytesAsync(filePath, audioBytes, cancellationToken);
+
+            var duration = await GetAudioDurationAsync(filePath, cancellationToken);
+            return new GeneratedAudioSegment(
+                index,
+                filePath,
+                new AudioWorkerSegmentResponse
+                {
+                    SlideNumber = segment.SlideNumber,
+                    Title = segment.Title,
+                    NarrationText = segment.NarrationText,
+                    AudioUrl = $"/storage/audio/{fileName}",
+                    DurationSeconds = duration
+                });
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     private async Task ConcatenateAudioFilesAsync(List<string> filePaths, string outputPath, CancellationToken cancellationToken)
@@ -117,4 +142,6 @@ public class AudioPipelineService : IAudioPipelineService
 
         return 0.0;
     }
+
+    private sealed record GeneratedAudioSegment(int Index, string FilePath, AudioWorkerSegmentResponse Response);
 }

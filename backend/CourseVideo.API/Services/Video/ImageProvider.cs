@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace CourseVideo.API.Services.Video;
@@ -16,14 +15,25 @@ public class ImageProvider : IImageProvider
         _logger = logger;
     }
 
-    public async Task<byte[]?> FetchImageForSlideAsync(string keyword)
+    public async Task<byte[]?> FetchImageForSlideAsync(string keyword, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(keyword)) return null;
 
         var unsplashKey = _configuration["UNSPLASH_API_KEY"];
+        var pexelsKey = _configuration["PEXELS_API_KEY"];
+        var pixabayKey = _configuration["PIXABAY_API_KEY"];
+
+        if (string.IsNullOrWhiteSpace(unsplashKey) &&
+            string.IsNullOrWhiteSpace(pexelsKey) &&
+            string.IsNullOrWhiteSpace(pixabayKey))
+        {
+            _logger.LogInformation("No image provider API key configured. Rendering slide without remote illustration for keyword '{Keyword}'.", keyword);
+            return null;
+        }
+
         if (!string.IsNullOrEmpty(unsplashKey))
         {
-            _logger.LogInformation($"Trying Unsplash for {keyword}");
+            _logger.LogInformation("Trying Unsplash for {Keyword}", keyword);
             try
             {
                 var url = $"https://api.unsplash.com/search/photos?query={Uri.EscapeDataString(keyword)}&per_page=1";
@@ -31,9 +41,9 @@ public class ImageProvider : IImageProvider
                 request.Headers.Add("Authorization", $"Client-ID {unsplashKey}");
                 request.Headers.Add("User-Agent", "Mozilla/5.0");
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await _httpClient.SendAsync(request, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                var json = await response.Content.ReadAsStringAsync();
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
                 using var doc = JsonDocument.Parse(json);
                 var results = doc.RootElement.GetProperty("results");
                 if (results.GetArrayLength() > 0)
@@ -41,20 +51,19 @@ public class ImageProvider : IImageProvider
                     var imgUrl = results[0].GetProperty("urls").GetProperty("regular").GetString();
                     if (imgUrl != null)
                     {
-                        return await _httpClient.GetByteArrayAsync(imgUrl);
+                        return await _httpClient.GetByteArrayAsync(imgUrl, cancellationToken);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Unsplash failed for {keyword}: {ex.Message}");
+                _logger.LogWarning(ex, "Unsplash failed for {Keyword}", keyword);
             }
         }
 
-        var pexelsKey = _configuration["PEXELS_API_KEY"];
         if (!string.IsNullOrEmpty(pexelsKey))
         {
-            _logger.LogInformation($"Trying Pexels for {keyword}");
+            _logger.LogInformation("Trying Pexels for {Keyword}", keyword);
             try
             {
                 var url = $"https://api.pexels.com/v1/search?query={Uri.EscapeDataString(keyword)}&per_page=1";
@@ -62,9 +71,9 @@ public class ImageProvider : IImageProvider
                 request.Headers.Add("Authorization", pexelsKey);
                 request.Headers.Add("User-Agent", "Mozilla/5.0");
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await _httpClient.SendAsync(request, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                var json = await response.Content.ReadAsStringAsync();
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
                 using var doc = JsonDocument.Parse(json);
                 var photos = doc.RootElement.GetProperty("photos");
                 if (photos.GetArrayLength() > 0)
@@ -72,29 +81,28 @@ public class ImageProvider : IImageProvider
                     var imgUrl = photos[0].GetProperty("src").GetProperty("medium").GetString();
                     if (imgUrl != null)
                     {
-                        return await _httpClient.GetByteArrayAsync(imgUrl);
+                        return await _httpClient.GetByteArrayAsync(imgUrl, cancellationToken);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Pexels failed for {keyword}: {ex.Message}");
+                _logger.LogWarning(ex, "Pexels failed for {Keyword}", keyword);
             }
         }
 
-        var pixabayKey = _configuration["PIXABAY_API_KEY"];
         if (!string.IsNullOrEmpty(pixabayKey))
         {
-            _logger.LogInformation($"Trying Pixabay for {keyword}");
+            _logger.LogInformation("Trying Pixabay for {Keyword}", keyword);
             try
             {
                 var url = $"https://pixabay.com/api/?key={pixabayKey}&q={Uri.EscapeDataString(keyword)}&image_type=photo&per_page=3";
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.Add("User-Agent", "Mozilla/5.0");
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await _httpClient.SendAsync(request, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                var json = await response.Content.ReadAsStringAsync();
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
                 using var doc = JsonDocument.Parse(json);
                 var hits = doc.RootElement.GetProperty("hits");
                 if (hits.GetArrayLength() > 0)
@@ -102,66 +110,17 @@ public class ImageProvider : IImageProvider
                     var imgUrl = hits[0].GetProperty("webformatURL").GetString();
                     if (imgUrl != null)
                     {
-                        return await _httpClient.GetByteArrayAsync(imgUrl);
+                        return await _httpClient.GetByteArrayAsync(imgUrl, cancellationToken);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Pixabay failed for {keyword}: {ex.Message}");
+                _logger.LogWarning(ex, "Pixabay failed for {Keyword}", keyword);
             }
         }
 
-        try
-        {
-            _logger.LogInformation($"Trying Pollinations AI for {keyword}");
-            var url = $"https://image.pollinations.ai/prompt/{Uri.EscapeDataString(keyword)}_abstract_education_style_flat?width=480&height=520&nologo=true";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("User-Agent", "Mozilla/5.0");
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-            var data = await response.Content.ReadAsByteArrayAsync();
-            await Task.Delay(1500); // Sleep briefly to avoid aggressive rate limiting
-            return data;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning($"Pollinations AI failed for {keyword}: {ex.Message}");
-        }
-
-        _logger.LogInformation($"Falling back to LoremFlickr for {keyword}");
-        try
-        {
-            var simpleKeyword = keyword.Split(' ').FirstOrDefault() ?? "education";
-            var url = $"https://loremflickr.com/480/520/{Uri.EscapeDataString(simpleKeyword)},abstract/all";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("User-Agent", "Mozilla/5.0");
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsByteArrayAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning($"LoremFlickr failed for {keyword}: {ex.Message}");
-        }
-
-        _logger.LogInformation($"Final fallback to dummy text image for {keyword}");
-        try
-        {
-            var url = $"https://dummyimage.com/480x520/1e1e2f/7b61ff.png&text={Uri.EscapeDataString(keyword)}";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("User-Agent", "Mozilla/5.0");
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsByteArrayAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning($"Dummy fallback failed for {keyword}: {ex.Message}");
-            return null;
-        }
+        _logger.LogInformation("No remote illustration available for keyword '{Keyword}'. Rendering slide without image.", keyword);
+        return null;
     }
 }

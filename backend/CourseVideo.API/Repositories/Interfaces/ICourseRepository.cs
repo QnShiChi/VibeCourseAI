@@ -10,5 +10,6 @@ public interface ICourseRepository
     Task<IReadOnlyList<Course>> GetPublishedAsync();
     Task<Course?> GetByIdAsync(Guid id);
     Task<Course?> GetByIdWithStructureAsync(Guid id);
+    Task<int> CountByCategoryIdAsync(Guid categoryId);
     Task SaveChangesAsync();
 }

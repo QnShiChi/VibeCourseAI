@@ -2,23 +2,18 @@ import styles from "./LessonComments.module.css";
 
 export default function CommentSortControl({ onChange, sort }) {
   return (
-    <div aria-label="Sắp xếp bình luận" className={styles.commentSortControl} role="group">
-      <button
-        aria-pressed={sort === "newest"}
-        className={sort === "newest" ? styles.commentSortButtonActive : styles.commentSortButton}
-        onClick={() => onChange("newest")}
-        type="button"
+    <label className={styles.commentSortControl}>
+      <span className={styles.commentSortLabel}>Sắp xếp:</span>
+      <select
+        aria-label="Sắp xếp bình luận"
+        className={styles.commentSortSelect}
+        onChange={(event) => onChange(event.target.value)}
+        value={sort}
       >
-        Mới nhất
-      </button>
-      <button
-        aria-pressed={sort === "featured"}
-        className={sort === "featured" ? styles.commentSortButtonActive : styles.commentSortButton}
-        onClick={() => onChange("featured")}
-        type="button"
-      >
-        Nổi bật
-      </button>
-    </div>
+        <option value="newest">Mới nhất</option>
+        <option value="oldest">Cũ nhất</option>
+        <option value="featured">Nổi bật</option>
+      </select>
+    </label>
   );
 }

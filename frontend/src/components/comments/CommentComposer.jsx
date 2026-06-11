@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styles from "./LessonComments.module.css";
 
 export default function CommentComposer({
+  avatarLabel,
   autoFocus = false,
   initialValue = "",
   isSubmitting = false,
@@ -31,14 +32,22 @@ export default function CommentComposer({
 
   return (
     <form className={styles.commentComposer} onSubmit={handleSubmit}>
-      <textarea
-        autoFocus={autoFocus}
-        className={styles.commentComposerInput}
-        onChange={(event) => setValue(event.target.value)}
-        placeholder={placeholder}
-        rows={3}
-        value={value}
-      />
+      <div className={`${styles.commentComposerRow}${!avatarLabel ? ` ${styles.commentComposerRowFull}` : ""}`}>
+        {avatarLabel ? (
+          <div className={styles.commentComposerAvatar} aria-hidden="true">
+            {avatarLabel}
+          </div>
+        ) : null}
+
+        <textarea
+          autoFocus={autoFocus}
+          className={styles.commentComposerInput}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          value={value}
+        />
+      </div>
 
       <div className={styles.commentComposerActions}>
         {onCancel ? (

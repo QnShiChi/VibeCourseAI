@@ -1,18 +1,36 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { addCartItem } from "../api/cartService";
+import { getVisibleCategories } from "../api/categoryService";
 import { useAuth } from "../auth/useAuth";
 import { getAdminCourses, getPublishedCourses, publishCourse, unpublishCourse } from "../api/courseService";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
-import { COURSE_CATEGORY_OPTIONS } from "../constants/coursePresentation";
 import { useTheme } from "../theme/ThemeContext";
+import { ensureGuestCartToken, getGuestCartToken } from "../utils/cartStorage";
 import styles from "../styles/CoursesPage.module.css";
 
 const ALL_COURSES_FILTER = "All";
+const FAVORITE_COURSE_IDS_STORAGE_KEY = "favorite-course-ids";
+
+function loadFavoriteCourseIds() {
+  try {
+    const rawValue = window.localStorage.getItem(FAVORITE_COURSE_IDS_STORAGE_KEY);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function CoursesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const isAdmin = user?.role === "Admin";
   const [courses, setCourses] = useState([]);
@@ -20,12 +38,18 @@ export default function CoursesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState(ALL_COURSES_FILTER);
-  const [favoriteCourseIds, setFavoriteCourseIds] = useState([]);
+  const [favoriteCourseIds, setFavoriteCourseIds] = useState(() => loadFavoriteCourseIds());
   const [sortOption, setSortOption] = useState("latest");
+  const [categoryOptions, setCategoryOptions] = useState([]);
 
   useEffect(() => {
-    loadCourses();
+    void loadCourses();
+    void loadCategories();
   }, [isAdmin]);
+
+  useEffect(() => {
+    window.localStorage.setItem(FAVORITE_COURSE_IDS_STORAGE_KEY, JSON.stringify(favoriteCourseIds));
+  }, [favoriteCourseIds]);
 
   async function loadCourses() {
     setIsLoading(true);
@@ -37,6 +61,14 @@ export default function CoursesPage() {
       setErrorMessage("Không thể tải danh sách khóa học.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadCategories() {
+    try {
+      setCategoryOptions(await getVisibleCategories());
+    } catch {
+      setCategoryOptions([]);
     }
   }
 
@@ -52,6 +84,43 @@ export default function CoursesPage() {
     } catch {
       setErrorMessage("Không thể cập nhật trạng thái publish của khóa học.");
     }
+  }
+
+  async function handleAddToCart(courseId) {
+    try {
+      const guestCartToken = user ? "" : (getGuestCartToken() || ensureGuestCartToken());
+      await addCartItem({
+        courseId,
+        guestCartToken
+      });
+      navigate("/cart");
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message ?? "Không thể thêm khóa học vào giỏ.");
+    }
+  }
+
+  function renderCourseAction(course, className) {
+    if (isAdmin) {
+      return (
+        <Button as={Link} to={`/courses/${course.id}/learn`} className={className}>
+          Xem khóa học
+        </Button>
+      );
+    }
+
+    if (course.alreadyOwned) {
+      return (
+        <Button as={Link} to={`/courses/${course.id}/learn`} className={className}>
+          Vào học ngay
+        </Button>
+      );
+    }
+
+    return (
+      <Button className={className} onClick={() => handleAddToCart(course.id)}>
+        Thêm vào giỏ
+      </Button>
+    );
   }
 
   function handleResetFilters() {
@@ -113,14 +182,14 @@ export default function CoursesPage() {
               >
                 Tất cả
               </button>
-              {COURSE_CATEGORY_OPTIONS.map((option) => (
+              {categoryOptions.map((option) => (
                 <button
-                  key={option.value}
+                  key={option.id}
                   type="button"
-                  className={`${styles.chip} ${activeCategory === option.value ? styles.chipActive : ""}`}
-                  onClick={() => setActiveCategory(option.value)}
+                  className={`${styles.chip} ${activeCategory === option.name ? styles.chipActive : ""}`}
+                  onClick={() => setActiveCategory(option.name)}
                 >
-                  {option.label}
+                  {option.name}
                 </button>
               ))}
             </div>
@@ -165,9 +234,7 @@ export default function CoursesPage() {
                           <span>{heroCourse.moduleCount} modules</span>
                           <span>{heroCourse.lessonCount} bài học</span>
                         </div>
-                        <Button as={Link} to={`/courses/${heroCourse.id}/learn`} className={styles.featureButton}>
-                          Đăng ký ngay
-                        </Button>
+                        {renderCourseAction(heroCourse, styles.featureButton)}
                       </div>
                     </article>
 
@@ -207,9 +274,7 @@ export default function CoursesPage() {
                         <strong>"{recommendationCourse.title}"</strong>.
                       </p>
                     </div>
-                    <Button as={Link} to={`/courses/${recommendationCourse.id}/learn`} className={styles.recommendButton}>
-                      Xem gợi ý
-                    </Button>
+                    {renderCourseAction(recommendationCourse, styles.recommendButton)}
                   </div>
                 </section>
               ) : null}
@@ -258,7 +323,7 @@ export default function CoursesPage() {
                         </button>
                       </div>
                       <div className={styles.cardBody}>
-                        <span className={styles.cardCategoryLabel}>{getCategoryLabel(course.category)}</span>
+                        <span className={styles.cardCategoryLabel}>{course.category || "Chưa phân loại"}</span>
                         <h3>{course.title}</h3>
                         <p>{course.description}</p>
                         <div className={styles.cardMetaRow}>
@@ -267,11 +332,9 @@ export default function CoursesPage() {
                         </div>
                       </div>
                       <div className={styles.cardFooter}>
-                        <div className={styles.cardPrice}>Từ 599.000đ</div>
+                        <div className={styles.cardPrice}>{formatCurrency(course.price)}</div>
                         <div className={styles.cardActions}>
-                          <Button as={Link} to={`/courses/${course.id}/learn`} className={styles.primaryAction}>
-                            Xem khóa học
-                          </Button>
+                          {renderCourseAction(course, styles.primaryAction)}
                           {isAdmin ? (
                             <Button onClick={() => handleTogglePublish(course)} variant="ghost" className={styles.secondaryAction}>
                               {course.isPublished ? "Unpublish" : "Publish"}
@@ -291,10 +354,6 @@ export default function CoursesPage() {
   );
 }
 
-function getCategoryLabel(categoryValue) {
-  return COURSE_CATEGORY_OPTIONS.find((option) => option.value === categoryValue)?.label ?? categoryValue ?? "Uncategorized";
-}
-
 function sortCourses(courses, sortOption) {
   const items = [...courses];
 
@@ -307,4 +366,12 @@ function sortCourses(courses, sortOption) {
     default:
       return items;
   }
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(value ?? 0);
 }

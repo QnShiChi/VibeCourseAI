@@ -15,26 +15,35 @@ public class CourseService : ICourseService
     };
 
     private readonly ICourseRepository _courseRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly ILessonContentGenerationService _lessonContentGenerationService;
     private readonly ILessonAudioGenerationService _lessonAudioGenerationService;
     private readonly ILessonVideoGenerationService _lessonVideoGenerationService;
     private readonly IFullCourseGenerationService _fullCourseGenerationService;
+    private readonly IQuizGenerationService _quizGenerationService;
     private readonly IWebHostEnvironment _environment;
+    private readonly IPaymentService _paymentService;
 
     public CourseService(
         ICourseRepository courseRepository,
+        ICategoryRepository categoryRepository,
         ILessonContentGenerationService lessonContentGenerationService,
         ILessonAudioGenerationService lessonAudioGenerationService,
         ILessonVideoGenerationService lessonVideoGenerationService,
         IFullCourseGenerationService fullCourseGenerationService,
-        IWebHostEnvironment environment)
+        IQuizGenerationService quizGenerationService,
+        IWebHostEnvironment environment,
+        IPaymentService paymentService)
     {
         _courseRepository = courseRepository;
+        _categoryRepository = categoryRepository;
         _lessonContentGenerationService = lessonContentGenerationService;
         _lessonAudioGenerationService = lessonAudioGenerationService;
         _lessonVideoGenerationService = lessonVideoGenerationService;
         _fullCourseGenerationService = fullCourseGenerationService;
+        _quizGenerationService = quizGenerationService;
         _environment = environment;
+        _paymentService = paymentService;
     }
 
     public async Task<IReadOnlyList<CourseResponse>> GetAllAsync()
@@ -56,10 +65,22 @@ public class CourseService : ICourseService
         return courses.Select(MapAdminListItem).ToList();
     }
 
-    public async Task<IReadOnlyList<PublishedCourseListItemResponse>> GetPublishedCoursesAsync()
+    public async Task<IReadOnlyList<PublishedCourseListItemResponse>> GetPublishedCoursesAsync(Guid? currentUserId = null, CancellationToken cancellationToken = default)
     {
         var courses = await _courseRepository.GetPublishedAsync();
-        return courses.Select(MapPublishedListItem).ToList();
+        if (!currentUserId.HasValue)
+        {
+            return courses.Select(course => MapPublishedListItem(course, false)).ToList();
+        }
+
+        var results = new List<PublishedCourseListItemResponse>(courses.Count);
+        foreach (var course in courses)
+        {
+            var alreadyOwned = await _paymentService.HasCourseAccessAsync(currentUserId.Value, course.Id, cancellationToken);
+            results.Add(MapPublishedListItem(course, alreadyOwned));
+        }
+
+        return results;
     }
 
     public async Task<AdminCourseListItemResponse?> PublishAsync(Guid id)
@@ -90,7 +111,7 @@ public class CourseService : ICourseService
         return MapAdminListItem(course);
     }
 
-    public async Task<CourseStructureResponse?> UpdateCategoryAsync(Guid id, string category)
+    public async Task<CourseStructureResponse?> UpdateCategoryAsync(Guid id, Guid categoryId)
     {
         var course = await _courseRepository.GetByIdAsync(id);
         if (course is null)
@@ -98,12 +119,38 @@ public class CourseService : ICourseService
             return null;
         }
 
-        if (!Enum.TryParse<CourseCategory>(category, true, out var parsedCategory))
+        var category = await _categoryRepository.GetByIdAsync(categoryId);
+        if (category is null)
         {
             throw new InvalidOperationException("Category khóa học không hợp lệ.");
         }
 
-        course.Category = parsedCategory;
+        if (category.Status != CategoryStatus.Visible)
+        {
+            throw new InvalidOperationException("Chỉ có thể gán category đang hiển thị cho khóa học.");
+        }
+
+        course.CategoryId = category.Id;
+        course.Category = category;
+        course.UpdatedAt = DateTime.UtcNow;
+        await _courseRepository.SaveChangesAsync();
+        return await GetStructureAsync(id);
+    }
+
+    public async Task<CourseStructureResponse?> UpdatePriceAsync(Guid id, int price)
+    {
+        if (price < 0)
+        {
+            throw new InvalidOperationException("Giá khóa học không được nhỏ hơn 0.");
+        }
+
+        var course = await _courseRepository.GetByIdAsync(id);
+        if (course is null)
+        {
+            return null;
+        }
+
+        course.Price = price;
         course.UpdatedAt = DateTime.UtcNow;
         await _courseRepository.SaveChangesAsync();
         return await GetStructureAsync(id);
@@ -181,7 +228,17 @@ public class CourseService : ICourseService
         return _lessonVideoGenerationService.GenerateLessonVideoAsync(courseId, lessonId, createdByUserId, cancellationToken);
     }
 
-    public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, bool canPreviewDraft)
+    public Task GenerateLessonQuizAsync(Guid courseId, Guid lessonId, CancellationToken cancellationToken = default)
+    {
+        return _quizGenerationService.GenerateLessonQuizAsync(courseId, lessonId, cancellationToken);
+    }
+
+    public Task GenerateFinalQuizAsync(Guid courseId, CancellationToken cancellationToken = default)
+    {
+        return _quizGenerationService.GenerateFinalQuizAsync(courseId, cancellationToken);
+    }
+
+    public async Task<CourseLearnResponse?> GetLearnPayloadAsync(Guid id, Guid? currentUserId, bool canPreviewDraft, CancellationToken cancellationToken = default)
     {
         var course = await _courseRepository.GetByIdWithStructureAsync(id);
         if (course is null)
@@ -194,6 +251,19 @@ public class CourseService : ICourseService
             return null;
         }
 
+        if (!canPreviewDraft && course.Price > 0)
+        {
+            if (!currentUserId.HasValue || !await _paymentService.HasCourseAccessAsync(currentUserId.Value, id, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("Bạn cần thanh toán khóa học trước khi học.");
+            }
+        }
+
+        var lessonQuizLookup = course.Quizzes
+            .Where(quiz => quiz.LessonId.HasValue)
+            .ToDictionary(quiz => quiz.LessonId!.Value, quiz => quiz);
+        var finalQuiz = course.Quizzes.FirstOrDefault(quiz => quiz.CourseId == course.Id && quiz.Type == "Final");
+
         var modules = course.Modules
             .OrderBy(module => module.OrderIndex)
             .Select(module => new CourseLearnModuleResponse
@@ -204,7 +274,7 @@ public class CourseService : ICourseService
                 OrderIndex = module.OrderIndex,
                 Lessons = module.Lessons
                     .OrderBy(lesson => lesson.OrderIndex)
-                    .Select(MapLearnLesson)
+                    .Select(lesson => MapLearnLesson(lesson, lessonQuizLookup))
                     .ToList()
             })
             .ToList();
@@ -222,6 +292,10 @@ public class CourseService : ICourseService
             IsPublished = course.IsPublished,
             SelectedLessonId = selectedLesson?.LessonId,
             SelectedLesson = selectedLesson,
+            FinalQuizId = finalQuiz?.Id,
+            HasFinalQuiz = finalQuiz is not null,
+            FinalQuizStatus = finalQuiz?.Status ?? string.Empty,
+            FinalQuizQuestionCount = finalQuiz?.QuestionCount ?? 0,
             Modules = modules
         };
     }
@@ -237,10 +311,13 @@ public class CourseService : ICourseService
         return new CourseStructureResponse
         {
             Id = course.Id,
+            CategoryId = course.CategoryId,
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
-            Category = course.Category.ToString(),
+            Price = course.Price,
+            Category = course.Category?.Name ?? "Chưa phân loại",
+            CategoryStatus = course.Category?.Status.ToString() ?? string.Empty,
             IsPublished = course.IsPublished,
             CreatedAt = course.CreatedAt,
             Modules = course.Modules
@@ -280,35 +357,43 @@ public class CourseService : ICourseService
         return new AdminCourseListItemResponse
         {
             Id = course.Id,
+            CategoryId = course.CategoryId,
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
-            Category = course.Category.ToString(),
+            Category = course.Category?.Name ?? "Chưa phân loại",
+            CategoryStatus = course.Category?.Status.ToString() ?? string.Empty,
             IsPublished = course.IsPublished,
+            Price = course.Price,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),
             CreatedAt = course.CreatedAt
         };
     }
 
-    private static PublishedCourseListItemResponse MapPublishedListItem(Course course)
+    private static PublishedCourseListItemResponse MapPublishedListItem(Course course, bool alreadyOwned)
     {
         return new PublishedCourseListItemResponse
         {
             Id = course.Id,
+            CategoryId = course.CategoryId,
             Title = course.Title,
             Description = course.Description,
             ThumbnailUrl = course.ThumbnailUrl,
-            Category = course.Category.ToString(),
+            Category = course.Category?.Name ?? "Chưa phân loại",
             IsPublished = course.IsPublished,
+            AlreadyOwned = alreadyOwned,
+            Price = course.Price,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),
             CreatedAt = course.CreatedAt
         };
     }
 
-    private static CourseLearnLessonResponse MapLearnLesson(Lesson lesson)
+    private static CourseLearnLessonResponse MapLearnLesson(Lesson lesson, IReadOnlyDictionary<Guid, Quiz> lessonQuizLookup)
     {
+        lessonQuizLookup.TryGetValue(lesson.Id, out var quiz);
+
         return new CourseLearnLessonResponse
         {
             LessonId = lesson.Id,
@@ -316,10 +401,16 @@ public class CourseService : ICourseService
             Description = lesson.Description,
             OrderIndex = lesson.OrderIndex,
             ContentSeed = lesson.ContentSeed,
+            AudioGenerationStatus = lesson.AudioGenerationStatus,
+            AudioGenerationError = lesson.AudioGenerationError ?? string.Empty,
+            AudioUrl = lesson.AudioUrl ?? string.Empty,
             VideoUrl = lesson.VideoUrl,
             VideoGenerationStatus = lesson.VideoGenerationStatus,
             VideoGenerationError = lesson.VideoGenerationError ?? string.Empty,
-            Duration = lesson.Duration
+            Duration = lesson.Duration,
+            QuizId = quiz?.Id,
+            QuizStatus = quiz?.Status ?? string.Empty,
+            QuizQuestionCount = quiz?.QuestionCount ?? 0
         };
     }
 }

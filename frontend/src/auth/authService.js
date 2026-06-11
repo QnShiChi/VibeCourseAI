@@ -28,6 +28,11 @@ export async function changePassword(payload) {
   await axiosClient.post("/auth/change-password", payload);
 }
 
+export async function updateAdminPaymentProfile(payload) {
+  const { data } = await axiosClient.put("/auth/me/payment-profile", payload);
+  return data;
+}
+
 export async function forgotPassword(payload) {
   const { data } = await axiosClient.post("/auth/forgot-password", payload);
   return data;

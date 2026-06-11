@@ -6,6 +6,11 @@ public class User : BaseEntity
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
+    public string? PaymentBankCode { get; set; }
+    public string? PaymentBankName { get; set; }
+    public string? PaymentBankAccountNumber { get; set; }
+    public string? PaymentAccountHolderName { get; set; }
+    public DateTime? PaymentSettingsUpdatedAt { get; set; }
     public bool IsActive { get; set; } = true;
     public int RoleId { get; set; }
     public Role? Role { get; set; }

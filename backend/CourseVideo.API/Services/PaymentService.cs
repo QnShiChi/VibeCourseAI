@@ -313,9 +313,15 @@ public class PaymentService : IPaymentService
         return MapPaymentOrder(order, order.Course?.Title ?? string.Empty);
     }
 
-    public async Task HandleSepayWebhookAsync(SepayWebhookPayload payload, string rawPayload, string? apiKeyHeader, CancellationToken cancellationToken = default)
+    public async Task HandleSepayWebhookAsync(
+        SepayWebhookPayload payload,
+        string rawPayload,
+        string? apiKeyHeader,
+        CancellationToken cancellationToken = default,
+        bool validateWebhookCredential = true)
     {
-        if (!string.IsNullOrWhiteSpace(_sepayOptions.WebhookApiKey)
+        if (validateWebhookCredential
+            && !string.IsNullOrWhiteSpace(_sepayOptions.WebhookApiKey)
             && !IsValidWebhookCredential(apiKeyHeader))
         {
             throw new UnauthorizedAccessException("Webhook API key không hợp lệ.");
@@ -454,11 +460,41 @@ public class PaymentService : IPaymentService
             ReferenceCode = matchedTransaction.ReferenceNumber
         };
 
-        await HandleSepayWebhookAsync(payload, body, null, cancellationToken);
+        await HandleSepayWebhookAsync(payload, body, null, cancellationToken, validateWebhookCredential: false);
     }
 
     private async Task<(string BankCode, string BankName, string AccountNumber, string AccountHolderName)> GetActiveBankAccountAsync(CancellationToken cancellationToken)
     {
+        var isSandbox = string.Equals(_sepayOptions.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase);
+        var configuredAdminPaymentProfile = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive
+                && user.RoleId == 1
+                && !string.IsNullOrWhiteSpace(user.PaymentBankCode)
+                && !string.IsNullOrWhiteSpace(user.PaymentBankAccountNumber)
+                && !string.IsNullOrWhiteSpace(user.PaymentAccountHolderName))
+            .OrderByDescending(user => user.PaymentSettingsUpdatedAt ?? user.UpdatedAt ?? user.CreatedAt)
+            .Select(user => new
+            {
+                BankCode = user.PaymentBankCode!,
+                BankName = user.PaymentBankName,
+                AccountNumber = user.PaymentBankAccountNumber!,
+                AccountHolderName = user.PaymentAccountHolderName!
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (configuredAdminPaymentProfile is not null)
+        {
+            return (
+                configuredAdminPaymentProfile.BankCode.Trim(),
+                string.IsNullOrWhiteSpace(configuredAdminPaymentProfile.BankName)
+                    ? configuredAdminPaymentProfile.BankCode.Trim()
+                    : configuredAdminPaymentProfile.BankName.Trim(),
+                configuredAdminPaymentProfile.AccountNumber.Trim(),
+                configuredAdminPaymentProfile.AccountHolderName.Trim()
+            );
+        }
+
         if (!string.IsNullOrWhiteSpace(_sepayOptions.BankCode)
             && !string.IsNullOrWhiteSpace(_sepayOptions.BankAccountNumber)
             && !string.IsNullOrWhiteSpace(_sepayOptions.AccountHolderName))
@@ -473,11 +509,20 @@ public class PaymentService : IPaymentService
 
         if (string.IsNullOrWhiteSpace(_sepayOptions.ApiToken))
         {
+            if (isSandbox)
+            {
+                return (
+                    "MB",
+                    "MB Bank",
+                    "970422000000001",
+                    "SEPAY SANDBOX"
+                );
+            }
+
             throw new InvalidOperationException("Thiếu cấu hình SePay API token hoặc thông tin tài khoản ngân hàng.");
         }
 
         var client = _httpClientFactory.CreateClient();
-        var isSandbox = string.Equals(_sepayOptions.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase);
         client.BaseAddress = new Uri(isSandbox ? "https://userapi-sandbox.sepay.vn/v2/" : "https://userapi.sepay.vn/v2/");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _sepayOptions.ApiToken);
         client.DefaultRequestHeaders.Accept.ParseAdd("application/json");

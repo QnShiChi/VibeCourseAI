@@ -11,6 +11,11 @@ public interface IPaymentService
     Task<CartResponse> MergeCartAsync(Guid userId, string guestCartToken, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PaymentOrderResponse>> CreateOrdersAsync(Guid userId, IReadOnlyList<Guid> courseIds, CancellationToken cancellationToken = default);
     Task<PaymentOrderResponse?> GetOrderAsync(Guid userId, Guid orderId, bool isAdmin, CancellationToken cancellationToken = default);
-    Task HandleSepayWebhookAsync(SepayWebhookPayload payload, string rawPayload, string? apiKeyHeader, CancellationToken cancellationToken = default);
+    Task HandleSepayWebhookAsync(
+        SepayWebhookPayload payload,
+        string rawPayload,
+        string? apiKeyHeader,
+        CancellationToken cancellationToken = default,
+        bool validateWebhookCredential = true);
     Task<bool> HasCourseAccessAsync(Guid userId, Guid courseId, CancellationToken cancellationToken = default);
 }

@@ -26,10 +26,19 @@ function getInitials(name = "") {
 }
 
 export default function AdminProfilePage() {
-  const { user } = useAuth();
+  const { user, updateAdminPaymentProfile } = useAuth();
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState("");
+  const [isSavingPaymentProfile, setIsSavingPaymentProfile] = useState(false);
+  const [paymentProfileForm, setPaymentProfileForm] = useState({
+    bankCode: "",
+    bankName: "",
+    bankAccountNumber: "",
+    accountHolderName: ""
+  });
 
   useEffect(() => {
     async function loadData() {
@@ -48,6 +57,20 @@ export default function AdminProfilePage() {
     void loadData();
   }, []);
 
+  useEffect(() => {
+    setPaymentProfileForm({
+      bankCode: user?.paymentBankCode || "",
+      bankName: user?.paymentBankName || "",
+      bankAccountNumber: user?.paymentBankAccountNumber || "",
+      accountHolderName: user?.paymentAccountHolderName || ""
+    });
+  }, [
+    user?.paymentBankCode,
+    user?.paymentBankName,
+    user?.paymentBankAccountNumber,
+    user?.paymentAccountHolderName
+  ]);
+
   const publishedCourses = courses.filter((course) => course.isPublished).length;
   const topCategories = useMemo(() => {
     const counts = new Map();
@@ -60,6 +83,29 @@ export default function AdminProfilePage() {
   }, [courses]);
 
   const latestCourses = [...courses].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)).slice(0, 3);
+
+  async function handleSavePaymentProfile(event) {
+    event.preventDefault();
+    setPaymentMessage("");
+    setPaymentErrorMessage("");
+    setIsSavingPaymentProfile(true);
+
+    try {
+      await updateAdminPaymentProfile(paymentProfileForm);
+      setPaymentMessage("Đã lưu tài khoản nhận thanh toán. Checkout sẽ dùng đúng tài khoản này.");
+    } catch (error) {
+      setPaymentErrorMessage(error?.response?.data?.message ?? "Không thể lưu tài khoản nhận thanh toán.");
+    } finally {
+      setIsSavingPaymentProfile(false);
+    }
+  }
+
+  function handlePaymentProfileChange(field, value) {
+    setPaymentProfileForm((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
 
   return (
     <Section className="admin-page admin-page--stack">
@@ -90,6 +136,67 @@ export default function AdminProfilePage() {
             <div><span>Người dùng hệ thống</span><strong>{stats?.usersCount ?? "--"}</strong></div>
             <div><span>Generation jobs</span><strong>{stats?.generationJobsCount ?? "--"}</strong></div>
           </div>
+        </Card>
+
+        <Card className="admin-panel" variant="shadowed">
+          <p className="admin-page__eyebrow">Thanh toán</p>
+          <h2>Tài khoản nhận tiền</h2>
+          <p className="admin-panel__description">
+            Hệ thống checkout sẽ ưu tiên dùng đúng tài khoản ngân hàng admin cấu hình tại đây.
+          </p>
+
+          <form className="admin-form" onSubmit={handleSavePaymentProfile}>
+            <label className="admin-form-field">
+              <span>Mã ngân hàng</span>
+              <input
+                className="ui-input"
+                type="text"
+                value={paymentProfileForm.bankCode}
+                onChange={(event) => handlePaymentProfileChange("bankCode", event.target.value)}
+                placeholder="Ví dụ: VCB, TPB, MB"
+              />
+            </label>
+
+            <label className="admin-form-field">
+              <span>Tên ngân hàng</span>
+              <input
+                className="ui-input"
+                type="text"
+                value={paymentProfileForm.bankName}
+                onChange={(event) => handlePaymentProfileChange("bankName", event.target.value)}
+                placeholder="Ví dụ: MB Bank"
+              />
+            </label>
+
+            <label className="admin-form-field">
+              <span>Số tài khoản</span>
+              <input
+                className="ui-input"
+                type="text"
+                value={paymentProfileForm.bankAccountNumber}
+                onChange={(event) => handlePaymentProfileChange("bankAccountNumber", event.target.value)}
+                placeholder="Nhập số tài khoản nhận tiền"
+              />
+            </label>
+
+            <label className="admin-form-field">
+              <span>Chủ tài khoản</span>
+              <input
+                className="ui-input"
+                type="text"
+                value={paymentProfileForm.accountHolderName}
+                onChange={(event) => handlePaymentProfileChange("accountHolderName", event.target.value)}
+                placeholder="Tên chủ tài khoản"
+              />
+            </label>
+
+            {paymentMessage ? <p className="ui-alert ui-alert--success">{paymentMessage}</p> : null}
+            {paymentErrorMessage ? <p className="ui-alert ui-alert--error">{paymentErrorMessage}</p> : null}
+
+            <Button type="submit" disabled={isSavingPaymentProfile}>
+              {isSavingPaymentProfile ? "Đang lưu..." : "Lưu tài khoản nhận tiền"}
+            </Button>
+          </form>
         </Card>
       </div>
 

@@ -54,6 +54,10 @@ public class AppDbContext : DbContext
             entity.Property(user => user.FullName).HasMaxLength(150).IsRequired();
             entity.Property(user => user.Email).HasMaxLength(255).IsRequired();
             entity.Property(user => user.PasswordHash).HasMaxLength(255).IsRequired();
+            entity.Property(user => user.PaymentBankCode).HasMaxLength(50);
+            entity.Property(user => user.PaymentBankName).HasMaxLength(200);
+            entity.Property(user => user.PaymentBankAccountNumber).HasMaxLength(50);
+            entity.Property(user => user.PaymentAccountHolderName).HasMaxLength(200);
             entity.HasIndex(user => user.Email).IsUnique();
             entity.HasOne(user => user.Role)
                 .WithMany(role => role.Users)

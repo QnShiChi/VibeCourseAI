@@ -5,6 +5,9 @@ namespace CourseVideo.API.Services.Audio;
 
 public class EdgeTtsService : IEdgeTtsService
 {
+    private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(20);
+    private const int MaxDirectTtsChars = 220;
+    private const int DefaultChunkChars = 80;
     private readonly ILogger<EdgeTtsService> _logger;
     private readonly string _defaultVoice;
 
@@ -22,30 +25,89 @@ public class EdgeTtsService : IEdgeTtsService
             throw new ArgumentException("Text to speech không nhận được nội dung narration hợp lệ.");
         }
 
+        if (normalizedText.Length <= MaxDirectTtsChars)
+        {
+            try
+            {
+                return await SynthesizeWithRetriesAsync(normalizedText, voice, cancellationToken);
+            }
+            catch (Exception)
+            {
+                var fallbackChunks = SplitSentenceIntoFallbackChunks(normalizedText);
+                if (fallbackChunks.Count <= 1)
+                {
+                    throw;
+                }
+
+                return await SynthesizeChunkedAsync(fallbackChunks, voice, cancellationToken, continueOnSentenceFailure: false);
+            }
+        }
+
+        return await SynthesizeParagraphAsync(normalizedText, voice, cancellationToken);
+    }
+
+    private async Task<byte[]> SynthesizeParagraphAsync(string text, string? voice, CancellationToken cancellationToken)
+    {
+        var sentenceChunks = SplitIntoChunksForSynthesis(text);
+        return await SynthesizeChunkedAsync(sentenceChunks, voice, cancellationToken, continueOnSentenceFailure: true);
+    }
+
+    private async Task<byte[]> SynthesizeChunkedAsync(
+        List<string> chunks,
+        string? voice,
+        CancellationToken cancellationToken,
+        bool continueOnSentenceFailure)
+    {
+        var audioParts = new List<byte[]>();
+        foreach (var chunk in chunks.Where(chunk => !string.IsNullOrWhiteSpace(chunk)))
+        {
+            try
+            {
+                audioParts.Add(await SynthesizeChunkWithFallbackAsync(chunk, voice, cancellationToken));
+            }
+            catch (Exception ex) when (continueOnSentenceFailure)
+            {
+                _logger.LogWarning(ex, "Skipping sentence during audio synthesis after repeated edge-tts failures. Text: {Text}", chunk);
+                continue;
+            }
+
+            await Task.Delay(300, cancellationToken);
+        }
+
+        if (audioParts.Count == 0)
+        {
+            throw new Exception("edge-tts không synthesize được bất kỳ câu narration nào.");
+        }
+
+        return CombineAudio(audioParts);
+    }
+
+    private async Task<byte[]> SynthesizeChunkWithFallbackAsync(string text, string? voice, CancellationToken cancellationToken)
+    {
         try
         {
-            return await SynthesizeWithRetriesAsync(normalizedText, voice, cancellationToken);
+            return await SynthesizeWithRetriesAsync(text, voice, cancellationToken);
         }
         catch (Exception)
         {
-            var chunks = SplitIntoChunks(normalizedText);
-            if (chunks.Count <= 1)
+            var fallbackChunks = SplitSentenceIntoFallbackChunks(text);
+            if (fallbackChunks.Count <= 1)
             {
                 throw;
             }
 
             var audioParts = new List<byte[]>();
-            foreach (var chunk in chunks)
+            foreach (var fallbackChunk in fallbackChunks)
             {
-                audioParts.Add(await SynthesizeWithRetriesAsync(chunk, voice, cancellationToken));
-                await Task.Delay(1500, cancellationToken);
+                audioParts.Add(await SynthesizeWithRetriesAsync(fallbackChunk, voice, cancellationToken));
+                await Task.Delay(200, cancellationToken);
             }
 
             return CombineAudio(audioParts);
         }
     }
 
-    private async Task<byte[]> SynthesizeWithRetriesAsync(string text, string? overrideVoice, CancellationToken cancellationToken, int attemptsPerVoice = 2)
+    private async Task<byte[]> SynthesizeWithRetriesAsync(string text, string? overrideVoice, CancellationToken cancellationToken, int attemptsPerVoice = 4)
     {
         Exception? lastException = null;
         var voices = GetVoiceCandidates(overrideVoice);
@@ -63,7 +125,7 @@ public class EdgeTtsService : IEdgeTtsService
                     lastException = exception;
                     if (attempt < attemptsPerVoice - 1)
                     {
-                        await Task.Delay(750 * (attempt + 1), cancellationToken);
+                        await Task.Delay(500 * (attempt + 1), cancellationToken);
                     }
                 }
             }
@@ -93,7 +155,18 @@ public class EdgeTtsService : IEdgeTtsService
                 throw new InvalidOperationException("Không thể khởi động tiến trình edge-tts.");
             }
 
-            await process.WaitForExitAsync(cancellationToken);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(ProcessTimeout);
+
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                TryKillProcess(process);
+                throw new TimeoutException($"edge-tts vượt quá thời gian chờ {ProcessTimeout.TotalSeconds:0} giây.");
+            }
 
             if (process.ExitCode != 0)
             {
@@ -114,6 +187,20 @@ public class EdgeTtsService : IEdgeTtsService
             {
                 File.Delete(tempFile);
             }
+        }
+    }
+
+    private static void TryKillProcess(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch
+        {
         }
     }
 
@@ -142,55 +229,107 @@ public class EdgeTtsService : IEdgeTtsService
         return normalized;
     }
 
-    private static List<string> SplitIntoChunks(string text, int maxChars = 220)
-    {
-        var sentenceParts = Regex.Split(text, @"(?<=[.!?;:])\s+")
-            .Select(NormalizeText)
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .ToList();
-
-        if (sentenceParts.Count > 1)
-        {
-            return sentenceParts;
-        }
-
-        return SplitLongPart(text, maxChars);
-    }
-
-    private static List<string> SplitLongPart(string text, int maxChars)
+    internal static List<string> SplitIntoChunksForSynthesis(string text, int maxChars = DefaultChunkChars)
     {
         var normalized = NormalizeText(text);
-        var phraseParts = Regex.Split(normalized, @"(?<=[,])\s+")
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return new List<string>();
+        }
+
+        return Regex.Split(normalized, @"(?<=[.!?;:])\s+")
+            .Select(NormalizeText)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+    }
+
+    private static List<string> SplitSentenceIntoFallbackChunks(string text, int maxChars = DefaultChunkChars)
+    {
+        var normalized = NormalizeText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return new List<string>();
+        }
+
+        var chunks = new List<string>();
+        SplitLongPart(normalized, maxChars, chunks);
+        return chunks;
+    }
+
+    private static void SplitLongPart(string text, int maxChars, List<string> chunks)
+    {
+        var normalized = NormalizeText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return;
+        }
+
+        if (normalized.Length <= maxChars)
+        {
+            chunks.Add(normalized);
+            return;
+        }
+
+        var phraseParts = Regex.Split(normalized, @"(?<=[,\-])\s+")
             .Select(NormalizeText)
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .ToList();
 
-        if (phraseParts.Count > 1)
+        if (phraseParts.Count == 0)
         {
-            return phraseParts;
+            phraseParts.Add(normalized);
         }
 
-        if (normalized.Length > maxChars)
+        foreach (var phrasePart in phraseParts)
         {
-            var chunks = new List<string>();
-            for (int i = 0; i < normalized.Length; i += maxChars)
-            {
-                chunks.Add(normalized.Substring(i, Math.Min(maxChars, normalized.Length - i)).Trim());
-            }
-            return chunks;
+            SplitLongFallbackPart(phrasePart, maxChars, chunks);
+        }
+    }
+
+    private static void SplitLongFallbackPart(string text, int maxChars, List<string> chunks)
+    {
+        var normalized = NormalizeText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return;
+        }
+
+        if (normalized.Length <= maxChars)
+        {
+            chunks.Add(normalized);
+            return;
         }
 
         var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length <= 1)
         {
-            return new List<string> { normalized };
+            for (int i = 0; i < normalized.Length; i += maxChars)
+            {
+                chunks.Add(normalized.Substring(i, Math.Min(maxChars, normalized.Length - i)).Trim());
+            }
+            return;
         }
 
-        int midpoint = Math.Max(1, words.Length / 2);
-        var firstHalf = string.Join(" ", words.Take(midpoint)).Trim();
-        var secondHalf = string.Join(" ", words.Skip(midpoint)).Trim();
+        var buffer = new List<string>();
+        var currentLength = 0;
+        foreach (var word in words)
+        {
+            var nextLength = buffer.Count == 0 ? word.Length : currentLength + 1 + word.Length;
+            if (buffer.Count > 0 && nextLength > maxChars)
+            {
+                chunks.Add(string.Join(" ", buffer));
+                buffer.Clear();
+                currentLength = 0;
+            }
 
-        return new List<string> { firstHalf, secondHalf }.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
+            buffer.Add(word);
+            currentLength = buffer.Count == 1 ? word.Length : currentLength + 1 + word.Length;
+        }
+
+        if (buffer.Count > 0)
+        {
+            chunks.Add(string.Join(" ", buffer));
+        }
     }
 
     private static byte[] CombineAudio(List<byte[]> parts)

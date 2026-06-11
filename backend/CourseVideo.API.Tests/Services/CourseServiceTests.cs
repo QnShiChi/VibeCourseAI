@@ -77,6 +77,7 @@ public class CourseServiceTests
     public async Task GetPublishedCoursesAsync_MapsCategoryAndThumbnailUrl()
     {
         var repository = new Mock<ICourseRepository>();
+        var category = new Category { Id = Guid.NewGuid(), Name = "AiAndData", Status = CategoryStatus.Visible };
         repository.Setup(x => x.GetPublishedAsync()).ReturnsAsync(new List<Course>
         {
             new()
@@ -85,7 +86,8 @@ public class CourseServiceTests
                 Title = "AI Prompting",
                 Description = "Desc",
                 IsPublished = true,
-                Category = CourseCategory.AiAndData,
+                CategoryId = category.Id,
+                Category = category,
                 ThumbnailUrl = "/storage/course-thumbnails/ai.png"
             }
         });
@@ -194,12 +196,14 @@ public class CourseServiceTests
     {
         var repository = new Mock<ICourseRepository>();
         var courseId = Guid.NewGuid();
+        var category = new Category { Id = Guid.NewGuid(), Name = "UiUxDesign", Status = CategoryStatus.Visible };
         repository.Setup(x => x.GetByIdWithStructureAsync(courseId)).ReturnsAsync(new Course
         {
             Id = courseId,
             Title = "UI Systems",
             Description = "Desc",
-            Category = CourseCategory.UiUxDesign,
+            CategoryId = category.Id,
+            Category = category,
             ThumbnailUrl = "/storage/course-thumbnails/ui.png"
         });
 
@@ -216,17 +220,22 @@ public class CourseServiceTests
     public async Task UpdateCategoryAsync_PersistsParsedCategory()
     {
         var repository = new Mock<ICourseRepository>();
-        var course = new Course { Id = Guid.NewGuid(), Category = CourseCategory.UiUxDesign };
+        var categoryRepository = new Mock<ICategoryRepository>();
+        var currentCategory = new Category { Id = Guid.NewGuid(), Name = "UiUxDesign", Status = CategoryStatus.Visible };
+        var updatedCategory = new Category { Id = Guid.NewGuid(), Name = "Development", Status = CategoryStatus.Visible };
+        var course = new Course { Id = Guid.NewGuid(), CategoryId = currentCategory.Id, Category = currentCategory };
         repository.Setup(x => x.GetByIdAsync(course.Id)).ReturnsAsync(course);
         repository.Setup(x => x.SaveChangesAsync()).Returns(Task.CompletedTask);
         repository.Setup(x => x.GetByIdWithStructureAsync(course.Id)).ReturnsAsync(course);
+        categoryRepository.Setup(x => x.GetByIdAsync(updatedCategory.Id)).ReturnsAsync(updatedCategory);
 
-        var service = CreateCourseService(repository);
+        var service = CreateCourseService(repository, categoryRepository: categoryRepository);
 
-        var result = await service.UpdateCategoryAsync(course.Id, "Development");
+        var result = await service.UpdateCategoryAsync(course.Id, updatedCategory.Id);
 
         result.Should().NotBeNull();
-        course.Category.Should().Be(CourseCategory.Development);
+        course.CategoryId.Should().Be(updatedCategory.Id);
+        course.Category.Should().BeSameAs(updatedCategory);
         result!.Category.Should().Be("Development");
     }
 
@@ -301,13 +310,17 @@ public class CourseServiceTests
         result.Modules[0].Lessons[0].QuizStatus.Should().Be("Ready");
     }
 
-    private static CourseService CreateCourseService(Mock<ICourseRepository> repository, Mock<IQuizGenerationService>? quizGenerationService = null)
+    private static CourseService CreateCourseService(
+        Mock<ICourseRepository> repository,
+        Mock<IQuizGenerationService>? quizGenerationService = null,
+        Mock<ICategoryRepository>? categoryRepository = null)
     {
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns("/tmp/vibecourseai-course-service-tests");
 
         return new CourseService(
             repository.Object,
+            categoryRepository?.Object ?? Mock.Of<ICategoryRepository>(),
             Mock.Of<ILessonContentGenerationService>(),
             Mock.Of<ILessonAudioGenerationService>(),
             Mock.Of<ILessonVideoGenerationService>(),

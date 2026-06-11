@@ -132,6 +132,7 @@ export default function AdminLayout() {
 
           <nav className="admin-shell__nav" aria-label="Điều hướng quản trị">
             <AdminNavItem end icon="◫" label="Dashboard" to="/dashboard" />
+            <AdminNavItem icon="◍" label="Khu học tập" to="/" />
             <AdminNavItem icon="▤" label="Quản lý khóa học" to="/admin/courses" />
             <AdminNavItem icon="◈" label="Quản lý danh mục" to="/admin/categories" />
             <AdminNavItem icon="◌" label="Quản lý người dùng" to="/admin/users" />

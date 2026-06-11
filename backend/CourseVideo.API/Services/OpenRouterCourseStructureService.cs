@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using CourseVideo.API.Configuration;
 using CourseVideo.API.DTOs.OpenRouter;
 using CourseVideo.API.Services.Interfaces;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace CourseVideo.API.Services;
 
-public class OpenRouterCourseStructureService : IOpenRouterCourseStructureService
+public partial class OpenRouterCourseStructureService : IOpenRouterCourseStructureService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly HttpClient _httpClient;
@@ -95,11 +96,11 @@ public class OpenRouterCourseStructureService : IOpenRouterCourseStructureServic
             throw new OpenRouterValidationException("JSON cấu trúc khóa học từ OpenRouter không hợp lệ.", exception);
         }
 
-        ValidateStructure(structure);
+        ValidateStructure(structure, extractedText);
         return structure!;
     }
 
-    private static void ValidateStructure(ParsedCourseStructure? structure)
+    private static void ValidateStructure(ParsedCourseStructure? structure, string extractedText)
     {
         if (structure is null)
         {
@@ -138,6 +139,49 @@ public class OpenRouterCourseStructureService : IOpenRouterCourseStructureServic
                 }
             }
         }
+
+        ValidateLessonDensity(structure, extractedText);
+    }
+
+    private static void ValidateLessonDensity(ParsedCourseStructure structure, string extractedText)
+    {
+        if (string.IsNullOrWhiteSpace(extractedText))
+        {
+            return;
+        }
+
+        var totalLessons = structure.Modules.Sum(module => module.Lessons.Count);
+        var teachingUnitMarkers = CountTeachingUnitMarkers(extractedText);
+        var extractedLines = CountMeaningfulLines(extractedText);
+        var averageLessonsPerModule = structure.Modules.Count == 0
+            ? 0
+            : (double)totalLessons / structure.Modules.Count;
+        var markerCoverageTooLow = teachingUnitMarkers >= 4 && totalLessons * 2 < teachingUnitMarkers;
+        var textDensityTooLow =
+            extractedText.Length >= 3500 &&
+            extractedLines >= 18 &&
+            averageLessonsPerModule < 2;
+
+        if (!markerCoverageTooLow && !textDensityTooLow)
+        {
+            return;
+        }
+
+        throw new OpenRouterValidationException(
+            $"OpenRouter tra ve cau truc qua it lesson cho de cuong dau vao (co {totalLessons} lesson cho {structure.Modules.Count} module).");
+    }
+
+    private static int CountTeachingUnitMarkers(string extractedText)
+    {
+        return TeachingUnitRegex().Matches(extractedText).Count;
+    }
+
+    private static int CountMeaningfulLines(string extractedText)
+    {
+        return extractedText
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.TrimEntries)
+            .Count(line => !string.IsNullOrWhiteSpace(line));
     }
 
     private static Exception CreateExceptionFromStatusCode(HttpStatusCode statusCode, string? message)
@@ -155,6 +199,9 @@ public class OpenRouterCourseStructureService : IOpenRouterCourseStructureServic
             _ => new OpenRouterTechnicalException(resolvedMessage)
         };
     }
+
+    [GeneratedRegex(@"^(tuan|tuần|buoi|buổi|chu de|chủ đề|topic|session|week)\b", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex TeachingUnitRegex();
 }
 
 public class OpenRouterConfigurationException : Exception

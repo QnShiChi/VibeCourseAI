@@ -43,7 +43,7 @@ public class GoogleAuthService : IGoogleAuthService
     public string BuildAuthorizationUrl(string backendCallbackUrl)
     {
         var state = _stateStore.Create();
-        return QueryHelpers.AddQueryString(_options.AuthorizationEndpoint, new Dictionary<string, string?>
+        return QueryHelpers.AddQueryString(_options.AuthorizationEndpoint, new Dictionary<string, string?> // Sử dụng QueryHelpers để xây dựng URL với các tham số truy vấn cần thiết cho quá trình xác thực OAuth2 với Google
         {
             ["client_id"] = _options.ClientId,
             ["redirect_uri"] = backendCallbackUrl,
@@ -116,7 +116,7 @@ public class GoogleAuthService : IGoogleAuthService
         var authResponse = await _authService.IssueAuthResponseAsync(authUser, ipAddress);
         return _exchangeStore.Store(authResponse);
     }
-
+    // Cho phép client lấy kết quả xác thực (token, thông tin người dùng) bằng cách sử dụng exchange token mà server đã tạo ra sau khi xử lý callback từ Google, nếu exchange token hợp lệ thì trả về AuthResponse chứa token và thông tin người dùng, nếu không hợp lệ thì ném ra lỗi UnauthorizedAccessException
     public Task<AuthResponse> ExchangeAsync(string exchangeToken, CancellationToken cancellationToken = default)
     {
         var response = _exchangeStore.Take(exchangeToken);

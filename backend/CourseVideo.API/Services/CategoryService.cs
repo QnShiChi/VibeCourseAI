@@ -17,7 +17,7 @@ public class CategoryService : ICategoryService
     public async Task<IReadOnlyList<AdminCategoryListItemResponse>> GetAdminCategoriesAsync(string? status, string? search, string? sort)
     {
         var categories = await _categoryRepository.GetAllWithCoursesAsync();
-        var filtered = categories.AsEnumerable();
+        var filtered = categories.AsEnumerable(); // AsEnumerable để có thể áp dụng các phép lọc và sắp xếp LINQ trên bộ sưu tập trong bộ nhớ
 
         if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
@@ -26,7 +26,7 @@ public class CategoryService : ICategoryService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var keyword = search.Trim().ToLowerInvariant();
+            var keyword = search.Trim().ToLowerInvariant(); 
             filtered = filtered.Where(category =>
                 category.Name.ToLowerInvariant().Contains(keyword)
                 || category.Description.ToLowerInvariant().Contains(keyword));
@@ -56,7 +56,7 @@ public class CategoryService : ICategoryService
 
     public async Task<AdminCategoryListItemResponse> CreateAsync(UpsertCategoryRequest request)
     {
-        var name = NormalizeName(request.Name);
+        var name = NormalizeName(request.Name); 
         var description = NormalizeDescription(request.Description);
         var status = ParseStatus(request.Status);
 
@@ -66,7 +66,7 @@ public class CategoryService : ICategoryService
         }
 
         var existing = await _categoryRepository.GetAllWithCoursesAsync();
-        var nextSortOrder = existing.Count == 0 ? 100 : existing.Max(category => category.SortOrder) + 100;
+        var nextSortOrder = existing.Count == 0 ? 100 : existing.Max(category => category.SortOrder) + 100; 
         var category = new Category
         {
             Name = name,
@@ -115,9 +115,9 @@ public class CategoryService : ICategoryService
         }
 
         var categories = await _categoryRepository.GetAllWithCoursesAsync();
-        var lookup = categories.ToDictionary(category => category.Id);
+        var lookup = categories.ToDictionary(category => category.Id); // Tạo một dictionary để tra cứu nhanh category theo ID, giúp kiểm tra tính hợp lệ của danh sách ID và cập nhật thứ tự sắp xếp một cách hiệu quả
 
-        if (categoryIds.Any(id => !lookup.ContainsKey(id)))
+        if (categoryIds.Any(id => !lookup.ContainsKey(id))) // Kiểm tra xem tất cả ID trong danh sách có tồn tại trong cơ sở dữ liệu hay không, nếu có ID nào không tồn tại thì ném ra lỗi
         {
             throw new InvalidOperationException("Danh sách category sắp xếp không hợp lệ.");
         }
@@ -125,7 +125,7 @@ public class CategoryService : ICategoryService
         for (var index = 0; index < categoryIds.Count; index += 1)
         {
             var category = lookup[categoryIds[index]];
-            category.SortOrder = (index + 1) * 100;
+            category.SortOrder = (index + 1) * 100; // Cập nhật thứ tự sắp xếp của category dựa trên vị trí của nó trong danh sách, nhân với 100 để dễ dàng chèn thêm category mới vào giữa các category hiện có mà không cần phải cập nhật lại toàn bộ thứ tự sắp xếp
             category.UpdatedAt = DateTime.UtcNow;
         }
 
@@ -166,7 +166,7 @@ public class CategoryService : ICategoryService
 
     private static CategoryStatus ParseStatus(string value)
     {
-        if (!Enum.TryParse<CategoryStatus>(value, true, out var status))
+        if (!Enum.TryParse<CategoryStatus>(value, true, out var status)) // TryParse với ignoreCase = true để cho phép người dùng nhập trạng thái không phân biệt chữ hoa chữ thường, nếu giá trị không hợp lệ thì ném ra lỗi
         {
             throw new InvalidOperationException("Trạng thái category không hợp lệ.");
         }

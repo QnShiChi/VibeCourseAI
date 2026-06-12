@@ -6,6 +6,7 @@ import CourseLearnPage from "./CourseLearnPage";
 
 const mockGetCourseLearnPayload = vi.fn();
 const mockGetLessonQuiz = vi.fn();
+const mockGetFinalQuiz = vi.fn();
 const mockStartQuizAttempt = vi.fn();
 const mockSubmitQuizAttempt = vi.fn();
 const mockGetLessonComments = vi.fn();
@@ -17,6 +18,7 @@ vi.mock("../api/courseService", () => ({
 
 vi.mock("../api/quizService", () => ({
   getLessonQuiz: (...args) => mockGetLessonQuiz(...args),
+  getFinalQuiz: (...args) => mockGetFinalQuiz(...args),
   startQuizAttempt: (...args) => mockStartQuizAttempt(...args),
   submitQuizAttempt: (...args) => mockSubmitQuizAttempt(...args)
 }));
@@ -144,6 +146,25 @@ describe("CourseLearnPage", () => {
         }
       ]
     });
+    mockGetFinalQuiz.mockResolvedValue({
+      quizId: "final-quiz-1",
+      title: "Quiz tong ket khoa hoc",
+      status: "Ready",
+      questionCount: 1,
+      questions: [
+        {
+          questionId: "fq1",
+          questionText: "OOP tap trung vao dieu gi?",
+          explanation: "OOP tap trung vao du lieu va hanh vi.",
+          options: [
+            { optionId: "fo1", optionText: "Du lieu va hanh vi" },
+            { optionId: "fo2", optionText: "Chi co ham" },
+            { optionId: "fo3", optionText: "Chi co bien" },
+            { optionId: "fo4", optionText: "Chi co UI" }
+          ]
+        }
+      ]
+    });
     mockStartQuizAttempt.mockResolvedValue({ attemptId: "attempt-1", startedAt: "2026-05-28T00:00:00Z" });
     mockSubmitQuizAttempt.mockResolvedValue({
       attemptId: "attempt-1",
@@ -196,7 +217,27 @@ describe("CourseLearnPage", () => {
     expect(await screen.findAllByText("Tổng quan về AI")).not.toHaveLength(0);
     expect(await screen.findByText("Noi dung lesson 1")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Thảo luận bài học" })).toBeInTheDocument();
-    expect(await screen.findByText("Quiz tong ket khoa hoc")).toBeInTheDocument();
+    expect(screen.queryByText("Quiz tong ket khoa hoc")).not.toBeInTheDocument();
+  });
+
+  it("shows and starts the final quiz only after completing the course", async () => {
+    window.localStorage.setItem("course_progress_course-1", JSON.stringify(["lesson-1", "lesson-2"]));
+    mockGetCourseLearnPayload.mockResolvedValue(buildLearnPayload());
+
+    render(
+      <MemoryRouter initialEntries={["/courses/course-1/learn"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/courses/:courseId/learn" element={<CourseLearnPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Làm quiz tổng kết" }));
+
+    expect(await screen.findByText("OOP tap trung vao dieu gi?")).toBeInTheDocument();
+    expect(mockGetFinalQuiz).toHaveBeenCalledWith("course-1");
   });
 
   it("submits the lesson quiz inline", async () => {

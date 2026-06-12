@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using CourseVideo.API.Configuration;
 using CourseVideo.API.DTOs.OpenRouter;
 using CourseVideo.API.Models;
@@ -16,6 +17,17 @@ namespace CourseVideo.API.Services;
 public class OpenRouterLessonContentService : IOpenRouterLessonContentService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string[] ForbiddenTeachingScriptPhrases =
+    [
+        "slide này",
+        "ở slide này",
+        "trong slide này",
+        "slide tiếp theo",
+        "slide cuối cùng",
+        "trang chiếu",
+        "trên màn hình",
+        "nhìn vào"
+    ];
     private readonly HttpClient _httpClient;
     private readonly OpenRouterOptions _options;
     private readonly ILogger<OpenRouterLessonContentService> _logger;
@@ -39,14 +51,42 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
             throw new OpenRouterConfigurationException("Thiếu cấu hình OPENROUTER_MODEL.");
         }
 
+        var timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds > 0 ? _options.TimeoutSeconds : 30);
+        LessonContentGenerationException? lastRetryableException = null;
+
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            try
+            {
+                return await GenerateOnceAsync(course, module, lesson, timeout, cancellationToken);
+            }
+            catch (LessonContentGenerationException exception) when (attempt < 2 && IsRetryableLessonContentFailure(exception))
+            {
+                lastRetryableException = exception;
+                _logger.LogWarning(
+                    exception,
+                    "Retrying lesson content generation for lesson {LessonId} after invalid OpenRouter response on attempt {Attempt}.",
+                    lesson.Id,
+                    attempt);
+            }
+        }
+
+        throw lastRetryableException ?? new LessonContentGenerationException("Không thể sinh nội dung lesson từ OpenRouter.");
+    }
+
+    private async Task<OpenRouterLessonContentResult> GenerateOnceAsync(
+        Course course,
+        Module module,
+        Lesson lesson,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
         var requestBody = CreateRequest(_options.Model, course, module, lesson);
-        var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
         {
             Content = new StringContent(JsonSerializer.Serialize(requestBody, JsonOptions), Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
-
-        var timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds > 0 ? _options.TimeoutSeconds : 30);
 
         try
         {
@@ -114,6 +154,7 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
                 _logger.LogWarning(exception, "Lesson content schema validation failed for lesson {LessonId}. Raw content: {RawContent}", lesson.Id, TruncateForLog(content));
                 throw;
             }
+
             return result!;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -186,6 +227,11 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
         {
             throw new LessonContentGenerationException("OpenRouter trả về lesson content không đúng schema nghiệp vụ.");
         }
+
+        if (ContainsForbiddenTeachingScriptLanguage(result.TeachingScript))
+        {
+            throw new LessonContentGenerationException("OpenRouter trả về lesson content không đúng schema nghiệp vụ.");
+        }
     }
 
     private static OpenRouterChatCompletionRequest CreateRequest(string model, Course course, Module module, Lesson lesson)
@@ -248,9 +294,13 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
 
                     Quy tac:
                     - giu tieng Viet sach, de giang
+                    - teachingScript la loi thuyet minh DUY NHAT se duoc doc thanh audio cho video
+                    - teachingScript phai chia thanh nhieu doan, moi doan cach nhau bang MOT dong trong, tong so doan phai tuong ung voi tong so phan tu trong slideOutline
+                    - moi doan teachingScript phai la loi giang tu nhien, giong giang vien dang noi trong video, khong phai ghi chu dan canh
+                    - tuyet doi khong dung cac cum tu nhu: "slide", "trang chieu", "o slide nay", "trong slide nay", "slide tiep theo", "tren man hinh", "nhin vao"
                     - imageKeyword: BẮT BUỘC PHẢI CÓ. 1 câu lệnh (prompt) bằng tiếng Anh miêu tả bức tranh minh họa cho slide. QUAN TRỌNG: AI vẽ tranh không biết viết chữ, nên bạn TUYỆT ĐỐI KHÔNG miêu tả các vật thể có chữ (như: code snippets, screens with text, labeled diagrams, charts, books with text). Hãy miêu tả bằng ẨN DỤ THỊ GIÁC TRỪU TƯỢNG (Abstract visual metaphors). Phải có các từ khóa: "Flat vector illustration, minimalist corporate style, completely abstract, purely visual, NO TEXT, NO NUMBERS, NO WORDS". Ví dụ ĐÚNG: "Flat vector illustration, minimalist corporate style, a glowing evolution path showing interconnected digital nodes, clean aesthetics, NO TEXT, NO NUMBERS, NO WORDS"
                     - slide bullet points ngan gon
-                    - speakerNotes phai bo sung dien giai cho slide
+                    - speakerNotes phai bo sung dien giai cho slide de ho tro he thong, khong duoc viet nhu loi doc voiceover va khong duoc chep nguyen van teachingScript
                     - teachingScript phai doc duoc thanh tieng noi
                     """
                 }
@@ -352,6 +402,29 @@ public class OpenRouterLessonContentService : IOpenRouterLessonContentService
         return normalized.Length <= maxLength
             ? normalized
             : $"{normalized[..maxLength].Trim()}...";
+    }
+
+    private static bool IsRetryableLessonContentFailure(LessonContentGenerationException exception)
+    {
+        return exception.Message is
+            "JSON lesson content từ OpenRouter không hợp lệ."
+            or "OpenRouter trả về lesson content không đúng schema nghiệp vụ."
+            or "OpenRouter không trả về dữ liệu lesson content.";
+    }
+
+    private static bool ContainsForbiddenTeachingScriptLanguage(string teachingScript)
+    {
+        var normalized = teachingScript.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return false;
+        }
+
+        return ForbiddenTeachingScriptPhrases.Any(phrase =>
+            Regex.IsMatch(
+                normalized,
+                $@"\b{Regex.Escape(phrase)}\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
     }
 }
 

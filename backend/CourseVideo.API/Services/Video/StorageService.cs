@@ -1,13 +1,16 @@
+using Microsoft.Extensions.Hosting;
+
 namespace CourseVideo.API.Services.Video;
 
 public class StorageService : IStorageService
 {
-    private readonly string _storageRoot = "/app/storage";
+    private readonly string _storageRoot;
     private readonly string _storageVideoDir;
     private readonly string _storageVideoFramesDir;
 
-    public StorageService()
+    public StorageService(IHostEnvironment environment)
     {
+        _storageRoot = Path.Combine(environment.ContentRootPath, "storage");
         _storageVideoDir = Path.Combine(_storageRoot, "video");
         _storageVideoFramesDir = Path.Combine(_storageVideoDir, "frames");
     }

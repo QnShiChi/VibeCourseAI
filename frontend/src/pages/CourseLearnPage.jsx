@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getCourseLearnPayload } from "../api/courseService";
-import { getLessonQuiz, startQuizAttempt, submitQuizAttempt } from "../api/quizService";
+import { getFinalQuiz, getLessonQuiz, startQuizAttempt, submitQuizAttempt } from "../api/quizService";
 import { useAuth } from "../auth/AuthContext";
 import LessonComments from "../components/comments/LessonComments";
 import FinalQuizCard from "../components/course/FinalQuizCard";
@@ -119,6 +119,7 @@ export default function CourseLearnPage() {
   const [expandedModules, setExpandedModules] = useState({});
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isFinalQuizVisible, setIsFinalQuizVisible] = useState(false);
   const videoRef = useRef(null);
   const pausedTimeRef = useRef(0);
   
@@ -151,6 +152,7 @@ export default function CourseLearnPage() {
       setCourse(data);
       setSelectedLessonId(data.selectedLessonId);
       setExpandedModules(buildExpandedModuleState(sortByOrder(data.modules ?? []), data.selectedLessonId));
+      setIsFinalQuizVisible(false);
     } catch {
       setErrorMessage("Không thể tải trang học của khóa học này.");
     } finally {
@@ -203,6 +205,7 @@ export default function CourseLearnPage() {
   const validCompletedLessons = completedLessonIds.filter(id => flatLessons.some(l => l.lessonId === id));
   const progressPercent = totalLessons ? Math.round((validCompletedLessons.length / totalLessons) * 100) : 0;
   const completedLessons = validCompletedLessons.length;
+  const isFinalQuizUnlocked = totalLessons > 0 && completedLessons === totalLessons;
   const previousLesson = currentLessonIndex > 0 ? flatLessons[currentLessonIndex - 1] : null;
   const nextLesson =
     currentLessonIndex >= 0 && currentLessonIndex < totalLessons - 1 ? flatLessons[currentLessonIndex + 1] : null;
@@ -400,6 +403,23 @@ export default function CourseLearnPage() {
                   onSubmitAttempt={submitQuizAttempt}
                 />
 
+                {course.hasFinalQuiz && isFinalQuizUnlocked && isFinalQuizVisible ? (
+                  <LessonQuizPanel
+                    autoStart
+                    initialQuestionCount={course.finalQuizQuestionCount}
+                    initialStatus={course.finalQuizStatus}
+                    launchButtonLabel="Làm quiz tổng kết"
+                    lessonId={course.courseId}
+                    lessonTitle="Quiz tổng kết khóa học"
+                    metaLabel="Quiz tổng kết"
+                    notFoundMessage="Quiz tổng kết của khóa học này chưa sẵn sàng. Vui lòng thử lại sau."
+                    onLoadQuiz={getFinalQuiz}
+                    onStartAttempt={startQuizAttempt}
+                    onSubmitAttempt={submitQuizAttempt}
+                    quizId={course.finalQuizId}
+                  />
+                ) : null}
+
                 <Card className="learn-comments-card" variant="shadowed">
                   <LessonComments isAdmin={isAdmin} lessonId={selectedLesson.lessonId} />
                 </Card>
@@ -451,9 +471,10 @@ export default function CourseLearnPage() {
                         <span className="learn-progress__value" style={{ width: `${progressPercent}%` }} />
                       </div>
                     </div>
-                    {course.hasFinalQuiz ? (
+                    {course.hasFinalQuiz && isFinalQuizUnlocked ? (
                       <FinalQuizCard
                         courseId={course.courseId}
+                        onStart={() => setIsFinalQuizVisible(true)}
                         questionCount={course.finalQuizQuestionCount}
                         quizId={course.finalQuizId}
                         status={course.finalQuizStatus}

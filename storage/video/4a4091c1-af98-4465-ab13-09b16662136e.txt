@@ -1,0 +1,7 @@
+file '/app/storage/video/frames/4a4091c1-af98-4465-ab13-09b16662136e/slide-001.png'
+duration 13.176
+file '/app/storage/video/frames/4a4091c1-af98-4465-ab13-09b16662136e/slide-002.png'
+duration 15.744
+file '/app/storage/video/frames/4a4091c1-af98-4465-ab13-09b16662136e/slide-003.png'
+duration 13.968
+file '/app/storage/video/frames/4a4091c1-af98-4465-ab13-09b16662136e/slide-003.png'

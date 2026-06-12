@@ -31,6 +31,33 @@ public class OpenRouterLessonContentServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_RetriesOnce_WhenFirstResponseContainsInvalidJson()
+    {
+        var lesson = CreateLesson();
+        var attempts = 0;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            var content = attempts == 1
+                ? "{\"lessonId\":\"broken\""
+                : BuildLessonJson(lesson.Id.ToString());
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(BuildEnvelope(content), Encoding.UTF8, "application/json")
+            };
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GenerateAsync(CreateCourse(lesson), CreateModule(lesson), lesson, CancellationToken.None);
+
+        attempts.Should().Be(2);
+        result.LessonId.Should().Be(lesson.Id);
+        result.LessonTitle.Should().Be(lesson.Title);
+    }
+
+    [Fact]
     public async Task GenerateAsync_UsesRequestedLessonId_WhenModelReturnsMalformedGuidString()
     {
         var lesson = CreateLesson();
@@ -82,6 +109,55 @@ public class OpenRouterLessonContentServiceTests
                 .WaitAsync(TimeSpan.FromSeconds(2)));
 
         exception.Message.Should().Be("OpenRouter request timeout.");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SendsPromptThatForbidsSlideLanguageInTeachingScript()
+    {
+        var lesson = CreateLesson();
+        string? requestBody = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(BuildEnvelope(BuildLessonJson(lesson.Id.ToString())), Encoding.UTF8, "application/json")
+            };
+        });
+
+        var service = CreateService(handler);
+
+        await service.GenerateAsync(CreateCourse(lesson), CreateModule(lesson), lesson, CancellationToken.None);
+
+        requestBody.Should().NotBeNull();
+        requestBody.Should().Contain("teachingScript la loi thuyet minh DUY NHAT se duoc doc thanh audio cho video");
+        requestBody.Should().Contain("tuyet doi khong dung cac cum tu nhu: \"slide\"");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_RetriesWhenTeachingScriptContainsForbiddenSlideLanguage()
+    {
+        var lesson = CreateLesson();
+        var attempts = 0;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            var content = attempts == 1
+                ? BuildLessonJson(lesson.Id.ToString(), "Slide này giới thiệu khái niệm cốt lõi của bài học.")
+                : BuildLessonJson(lesson.Id.ToString(), "Chúng ta bắt đầu với khái niệm cốt lõi của bài học.");
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(BuildEnvelope(content), Encoding.UTF8, "application/json")
+            };
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GenerateAsync(CreateCourse(lesson), CreateModule(lesson), lesson, CancellationToken.None);
+
+        attempts.Should().Be(2);
+        result.TeachingScript.Should().Be("Chúng ta bắt đầu với khái niệm cốt lõi của bài học.");
     }
 
     private static OpenRouterLessonContentService CreateService(HttpMessageHandler handler, int timeoutSeconds = 30)
@@ -157,13 +233,13 @@ public class OpenRouterLessonContentServiceTests
         """;
     }
 
-    private static string BuildLessonJson(string lessonId)
+    private static string BuildLessonJson(string lessonId, string teachingScript = "Noi dung bai giang")
     {
         return $$"""
         {
           "lessonId": "{{lessonId}}",
           "lessonTitle": "Cac phuong thuc Generic",
-          "teachingScript": "Noi dung bai giang",
+          "teachingScript": {{System.Text.Json.JsonSerializer.Serialize(teachingScript)}},
           "slideOutline": [
             {
               "slideNumber": 1,

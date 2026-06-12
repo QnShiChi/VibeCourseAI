@@ -1,0 +1,9 @@
+file '/app/storage/video/frames/cace5340-7112-4c93-8329-125e56e2340c/slide-001.png'
+duration 14.808
+file '/app/storage/video/frames/cace5340-7112-4c93-8329-125e56e2340c/slide-002.png'
+duration 16.104
+file '/app/storage/video/frames/cace5340-7112-4c93-8329-125e56e2340c/slide-003.png'
+duration 17.808
+file '/app/storage/video/frames/cace5340-7112-4c93-8329-125e56e2340c/slide-004.png'
+duration 13.896
+file '/app/storage/video/frames/cace5340-7112-4c93-8329-125e56e2340c/slide-004.png'

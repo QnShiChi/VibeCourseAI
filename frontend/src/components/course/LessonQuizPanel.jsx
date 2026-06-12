@@ -31,7 +31,14 @@ export default function LessonQuizPanel({
   initialStatus,
   onLoadQuiz,
   onStartAttempt,
-  onSubmitAttempt
+  onSubmitAttempt,
+  autoStart = false,
+  launchButtonLabel = "Làm quiz",
+  notFoundMessage = "Quiz cho bài học này chưa sẵn sàng. Vui lòng thử lại sau.",
+  loadErrorMessage = "Không thể tải quiz lúc này. Vui lòng thử lại sau.",
+  submitErrorMessage = "Không thể nộp bài lúc này. Vui lòng thử lại.",
+  retakeErrorMessage = "Không thể tạo lượt làm mới lúc này. Vui lòng thử lại.",
+  metaLabel = "Quiz theo lesson"
 }) {
   const [quiz, setQuiz] = useState(null);
   const [attemptId, setAttemptId] = useState("");
@@ -51,6 +58,14 @@ export default function LessonQuizPanel({
     setCurrentQuestionIndex(0);
   }, [lessonId, quizId]);
 
+  useEffect(() => {
+    if (!autoStart || !quizId || quiz || result || isLoading) {
+      return;
+    }
+
+    void handleStart();
+  }, [autoStart, quizId, quiz, result, isLoading]);
+
   async function handleStart() {
     setIsLoading(true);
     setErrorMessage("");
@@ -64,9 +79,9 @@ export default function LessonQuizPanel({
       setCurrentQuestionIndex(0);
     } catch (error) {
       if (error?.response?.status === 404) {
-        setErrorMessage("Quiz cho bài học này chưa sẵn sàng. Vui lòng thử lại sau.");
+        setErrorMessage(notFoundMessage);
       } else {
-        setErrorMessage("Không thể tải quiz lúc này. Vui lòng thử lại sau.");
+        setErrorMessage(loadErrorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -87,7 +102,7 @@ export default function LessonQuizPanel({
       const submittedResult = await onSubmitAttempt(quiz.quizId, attemptId, payload);
       setResult(submittedResult);
     } catch {
-      setErrorMessage("Không thể nộp bài lúc này. Vui lòng thử lại.");
+      setErrorMessage(submitErrorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -108,7 +123,7 @@ export default function LessonQuizPanel({
       setResult(null);
       setCurrentQuestionIndex(0);
     } catch {
-      setErrorMessage("Không thể tạo lượt làm mới lúc này. Vui lòng thử lại.");
+      setErrorMessage(retakeErrorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -152,10 +167,10 @@ export default function LessonQuizPanel({
           </div>
           <div className="lesson-quiz-panel__launch-meta">
             {totalQuestions ? <span className="lesson-quiz-panel__meta-pill">{totalQuestions} câu hỏi</span> : null}
-            <span className="lesson-quiz-panel__meta-pill">Quiz theo lesson</span>
+            <span className="lesson-quiz-panel__meta-pill">{metaLabel}</span>
           </div>
           <button className="lesson-quiz-panel__primary-action" disabled={isLoading} onClick={handleStart} type="button">
-            {isLoading ? "Đang tải quiz..." : "Làm quiz"}
+            {isLoading ? "Đang tải quiz..." : launchButtonLabel}
           </button>
         </>
       ) : result ? (

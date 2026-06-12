@@ -141,11 +141,11 @@ public class AuthService : IAuthService
 
     public async Task<CurrentUserResponse> GetCurrentUserAsync(ClaimsPrincipal principal)
     {
-        var subject = principal.FindFirst("sub")?.Value
+        var subject = principal.FindFirst("sub")?.Value // sub là claim chuẩn cho user ID trong JWT, nhưng nếu không có thì fallback sang NameIdentifier
             ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng.");
 
-        var userId = Guid.Parse(subject);
+        var userId = Guid.Parse(subject); 
         var user = await _userRepository.GetByIdAsync(userId)
             ?? throw new UnauthorizedAccessException("Không tìm thấy người dùng.");
 
@@ -212,14 +212,14 @@ public class AuthService : IAuthService
             return;
         }
 
-        var tokenBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-        user.ResetPasswordToken = Convert.ToBase64String(tokenBytes);
+        var tokenBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32); // Tạo token ngẫu nhiên 32 bytes
+        user.ResetPasswordToken = Convert.ToBase64String(tokenBytes); // Mã hóa token thành chuỗi Base64 để dễ dàng truyền qua URL
         user.ResetPasswordTokenExpiry = DateTime.UtcNow.AddMinutes(15);
         
         await _userRepository.SaveChangesAsync();
-
-        var encodedToken = Uri.EscapeDataString(user.ResetPasswordToken);
-        var encodedEmail = Uri.EscapeDataString(user.Email);
+        // EscapeDataString là hàm mã hóa URL để đảm bảo rằng token và email được truyền qua URL một cách an toàn, tránh các vấn đề với ký tự đặc biệt
+        var encodedToken = Uri.EscapeDataString(user.ResetPasswordToken); 
+        var encodedEmail = Uri.EscapeDataString(user.Email); 
         var resetLink = $"{originUrl}?token={encodedToken}&email={encodedEmail}";
 
         var htmlBody = $@"

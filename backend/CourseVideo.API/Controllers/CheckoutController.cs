@@ -41,6 +41,28 @@ public class CheckoutController : ControllerBase
         return response is null ? NotFound() : Ok(response);
     }
 
+    [Authorize]
+    [HttpGet("payment-orders")]
+    public async Task<ActionResult<IReadOnlyList<PurchaseHistoryItemResponse>>> GetPurchaseHistory(CancellationToken cancellationToken)
+    {
+        return Ok(await _paymentService.GetPurchaseHistoryAsync(GetCurrentUserId(), cancellationToken));
+    }
+
+    [Authorize]
+    [HttpPost("payment-orders/{id:guid}/cancel")]
+    public async Task<ActionResult<PaymentOrderResponse>> CancelOrder(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _paymentService.CancelOrderAsync(GetCurrentUserId(), id, User.IsInRole("Admin"), cancellationToken);
+            return response is null ? NotFound() : Ok(response);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
+
     private Guid GetCurrentUserId()
     {
         return Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);

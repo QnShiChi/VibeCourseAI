@@ -26,7 +26,7 @@ public class CategoryService : ICategoryService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var keyword = search.Trim().ToLowerInvariant(); 
+            var keyword = search.Trim().ToLowerInvariant();
             filtered = filtered.Where(category =>
                 category.Name.ToLowerInvariant().Contains(keyword)
                 || category.Description.ToLowerInvariant().Contains(keyword));
@@ -56,7 +56,7 @@ public class CategoryService : ICategoryService
 
     public async Task<AdminCategoryListItemResponse> CreateAsync(UpsertCategoryRequest request)
     {
-        var name = NormalizeName(request.Name); 
+        var name = NormalizeName(request.Name);
         var description = NormalizeDescription(request.Description);
         var status = ParseStatus(request.Status);
 
@@ -66,7 +66,7 @@ public class CategoryService : ICategoryService
         }
 
         var existing = await _categoryRepository.GetAllWithCoursesAsync();
-        var nextSortOrder = existing.Count == 0 ? 100 : existing.Max(category => category.SortOrder) + 100; 
+        var nextSortOrder = existing.Count == 0 ? 100 : existing.Max(category => category.SortOrder) + 100;
         var category = new Category
         {
             Name = name,

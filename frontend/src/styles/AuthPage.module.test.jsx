@@ -19,4 +19,13 @@ describe("AuthPage autofill styling", () => {
     expect(authCss).toMatch(/\.authShell\[data-theme="dark"\]\s+:global\(\.ui-alert--error\)\s*\{/);
     expect(authCss).toMatch(/\.authErrorAlertText\s*\{/);
   });
+
+  it("defines auth success alert colors for both light and dark themes", () => {
+    expect(authCss).toMatch(/--auth-success-bg:\s*#eefbdd;/);
+    expect(authCss).toMatch(/--auth-success-border:\s*rgba\(77,\s*124,\s*15,\s*0\.26\);/);
+    expect(authCss).toMatch(/--auth-success-text:\s*#365314;/);
+    expect(authCss).toMatch(/--auth-success-bg:\s*rgba\(54,\s*83,\s*20,\s*0\.42\);/);
+    expect(authCss).toMatch(/--auth-success-border:\s*rgba\(163,\s*230,\s*53,\s*0\.38\);/);
+    expect(authCss).toMatch(/--auth-success-text:\s*#f1f5c8;/);
+  });
 });

@@ -17,7 +17,7 @@ public class SepayQrImageBuilderTests
         var result = SepayQrImageBuilder.Build(order, "VibeCourseAI", "Live");
 
         result.Should().StartWith("https://qr.sepay.vn/img?");
-        result.Should().Contain("bank=Vietcombank");
+        result.Should().Contain("bank=VCB");
         result.Should().Contain("des=VC50845524BA31");
     }
 

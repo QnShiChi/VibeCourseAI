@@ -267,10 +267,20 @@
   width: 12px;
   height: 12px;
   border-radius: 999px;
-  background: var(--checkout-accent);
   border: 1px solid var(--checkout-border);
-  box-shadow: 0 0 0 5px rgba(163, 230, 53, 0.18), 0 0 16px rgba(163, 230, 53, 0.28);
   animation: checkout-status-pulse 1.65s ease-in-out infinite;
+}
+
+.paymentStatusPending::before,
+.paymentStatusSuccess::before {
+  background: var(--checkout-accent);
+  box-shadow: 0 0 0 5px rgba(163, 230, 53, 0.18), 0 0 16px rgba(163, 230, 53, 0.28);
+}
+
+.paymentStatusError::before {
+  background: #f87171;
+  box-shadow: 0 0 0 5px rgba(248, 113, 113, 0.18), 0 0 16px rgba(248, 113, 113, 0.32);
+  animation-name: checkout-status-pulse-error;
 }
 
 .countdownPill {
@@ -307,6 +317,131 @@
 .paymentInfoNote p {
   margin: 0;
   color: var(--checkout-muted);
+}
+
+.paymentRetryActions {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+}
+
+.paymentCancelActions {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+}
+
+.paymentCancelActions .ui-button {
+  min-width: 220px;
+}
+
+.statusModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.34);
+  backdrop-filter: blur(12px);
+}
+
+.statusModalCard {
+  position: relative;
+  width: min(100%, 560px);
+  display: grid;
+  gap: 24px;
+  padding: 32px;
+  justify-items: center;
+  text-align: center;
+  background: var(--checkout-panel-bg);
+}
+
+.statusModalCardSuccess {
+  box-shadow: 0 24px 60px rgba(34, 197, 94, 0.18);
+}
+
+.statusModalCardExpired {
+  box-shadow: 0 24px 60px rgba(248, 113, 113, 0.18);
+}
+
+.statusModalClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 999px;
+  background: var(--checkout-bg);
+  color: var(--checkout-ink);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.statusModalIcon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  border: 1px solid var(--checkout-border);
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.statusModalIconSuccess {
+  background: rgba(163, 230, 53, 0.2);
+  color: #166534;
+}
+
+.statusModalIconExpired {
+  background: rgba(248, 113, 113, 0.18);
+  color: #b91c1c;
+}
+
+.statusModalCopy {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  width: 100%;
+}
+
+.statusModalEyebrow {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--checkout-muted);
+}
+
+.statusModalCopy h2 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1.08;
+  color: var(--checkout-ink);
+  text-align: center;
+}
+
+.statusModalCopy p:last-child {
+  margin: 0;
+  margin-inline: auto;
+  color: var(--checkout-muted);
+  max-width: 42ch;
+  line-height: 1.6;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.statusModalActions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .orderDetailCard {
@@ -474,6 +609,19 @@
   50% {
     transform: scale(1.08);
     box-shadow: 0 0 0 7px rgba(163, 230, 53, 0.22), 0 0 18px rgba(163, 230, 53, 0.32);
+  }
+}
+
+@keyframes checkout-status-pulse-error {
+  0%,
+  100% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.16), 0 0 10px rgba(248, 113, 113, 0.2);
+  }
+
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 7px rgba(248, 113, 113, 0.22), 0 0 18px rgba(248, 113, 113, 0.32);
   }
 }
 
@@ -690,6 +838,15 @@
 
   .countdownPill {
     border-radius: 16px;
+  }
+
+  .statusModalCard {
+    padding: 24px;
+  }
+
+  .statusModalActions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .amountPanel strong {

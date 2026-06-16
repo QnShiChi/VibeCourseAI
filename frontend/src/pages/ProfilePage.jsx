@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getAdminCourses, getPublishedCourses } from "../api/courseService";
+import { getPurchaseHistory } from "../api/paymentService";
 import { useAuth } from "../auth/useAuth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -83,6 +84,38 @@ function buildActivityTicks(maxSeconds) {
   });
 }
 
+function formatCourseOwnershipDate(course) {
+  if (course.grantedAt) {
+    return `Mua ngày ${new Date(course.grantedAt).toLocaleDateString("vi-VN")}`;
+  }
+
+  return `Tạo ngày ${new Date(course.createdAt).toLocaleDateString("vi-VN")}`;
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(value ?? 0);
+}
+
+function formatPurchaseDateTime(value) {
+  return new Date(value).toLocaleString("vi-VN");
+}
+
+function getPurchaseStatusLabel(status) {
+  if (status === "LatePaid") {
+    return "Thanh toán muộn";
+  }
+
+  if (status === "Paid") {
+    return "Đã thanh toán";
+  }
+
+  return status || "Không xác định";
+}
+
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth();
   const isAdmin = user?.role === "Admin";
@@ -96,6 +129,9 @@ export default function ProfilePage() {
   const [favoriteCourseIds, setFavoriteCourseIds] = useState(() => loadFavoriteCourseIds());
   const [isLoadingCourses, setIsLoadingCourses] = useState(true);
   const [courseErrorMessage, setCourseErrorMessage] = useState("");
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [isLoadingPurchaseHistory, setIsLoadingPurchaseHistory] = useState(!isAdmin);
+  const [purchaseHistoryErrorMessage, setPurchaseHistoryErrorMessage] = useState("");
   const [webActivityFilter, setWebActivityFilter] = useState("7D");
   const [webActivity, setWebActivity] = useState(() => readWebActivitySeries("7D"));
   const [currentLearningProgress, setCurrentLearningProgress] = useState(() => readCurrentLearningProgress());
@@ -107,27 +143,67 @@ export default function ProfilePage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadCourses() {
+    async function loadProfileData() {
       setIsLoadingCourses(true);
       setCourseErrorMessage("");
+      setCourses([]);
+      setPurchaseHistoryErrorMessage("");
+      setPurchaseHistory([]);
 
-      try {
-        const items = isAdmin ? await getAdminCourses() : await getPublishedCourses();
-        if (isMounted) {
-          setCourses(items);
+      if (isAdmin) {
+        setPurchaseHistory([]);
+        setIsLoadingPurchaseHistory(false);
+      } else {
+        setIsLoadingPurchaseHistory(true);
+      }
+
+      if (isAdmin) {
+        try {
+          const items = await getAdminCourses();
+          if (isMounted) {
+            setCourses(items);
+          }
+        } catch {
+          if (isMounted) {
+            setCourseErrorMessage("Không thể tải dữ liệu khóa học để hiển thị trên hồ sơ.");
+          }
+        } finally {
+          if (isMounted) {
+            setIsLoadingCourses(false);
+          }
         }
-      } catch {
-        if (isMounted) {
-          setCourseErrorMessage("Không thể tải dữ liệu khóa học để hiển thị trên hồ sơ.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingCourses(false);
-        }
+
+        return;
+      }
+
+      const [coursesResult, purchaseHistoryResult] = await Promise.allSettled([
+        getPublishedCourses(),
+        getPurchaseHistory()
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (coursesResult.status === "fulfilled") {
+        setCourses(coursesResult.value);
+      } else {
+        setCourseErrorMessage("Không thể tải dữ liệu khóa học để hiển thị trên hồ sơ.");
+      }
+
+      if (purchaseHistoryResult.status === "fulfilled") {
+        setPurchaseHistory(purchaseHistoryResult.value);
+      } else {
+        setPurchaseHistoryErrorMessage("Không thể tải lịch sử mua hàng của bạn.");
+      }
+
+      if (isMounted) {
+        setIsLoadingCourses(false);
+        setIsLoadingPurchaseHistory(false);
       }
     }
 
-    loadCourses();
+    loadProfileData();
 
     function handleStorageChange() {
       setFavoriteCourseIds(loadFavoriteCourseIds());
@@ -151,6 +227,14 @@ export default function ProfilePage() {
   const newestCourses = [...courses]
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
     .slice(0, 3);
+  const recentlyOwnedCourses = [...courses]
+    .filter((course) => course.alreadyOwned)
+    .sort((left, right) => new Date(right.grantedAt ?? right.createdAt).getTime() - new Date(left.grantedAt ?? left.createdAt).getTime())
+    .slice(0, 3);
+  const ownedCourseCount = isAdmin ? courses.length : courses.filter((course) => course.alreadyOwned).length;
+  const featuredCourses = recentlyOwnedCourses.length > 0 ? recentlyOwnedCourses : newestCourses;
+  const featuredSectionEyebrow = recentlyOwnedCourses.length > 0 ? "Khóa học của bạn" : "Khóa học mới";
+  const featuredSectionTitle = recentlyOwnedCourses.length > 0 ? "Tiếp tục học" : "Tiếp tục khám phá";
   const savedCourses = courses.filter((course) => favoriteCourseIds.includes(course.id)).slice(0, 4);
   const maxActivitySeconds = webActivity.reduce((current, item) => Math.max(current, item.seconds), 0);
   const totalActivitySeconds = webActivity.reduce((current, item) => current + item.seconds, 0);
@@ -232,8 +316,8 @@ export default function ProfilePage() {
 
             <Card className="profile-stat-card" variant="shadowed">
               <span className="profile-stat-card__label">Khóa học khả dụng</span>
-              <strong>{courses.length}</strong>
-              <p>Dữ liệu lấy từ danh sách khóa học thật</p>
+              <strong>{ownedCourseCount}</strong>
+              <p>{isAdmin ? "Dữ liệu lấy từ danh sách khóa học thật" : "Số khóa học bạn đã mua thành công"}</p>
             </Card>
 
           </div>
@@ -291,7 +375,11 @@ export default function ProfilePage() {
               <Link className="profile-action-card" to="/courses">
                 <span className="profile-action-card__label">Khám phá khóa học</span>
                 <strong>Thư viện khóa học</strong>
-                <p>Hiện có {courses.length} khóa học khả dụng để truy cập.</p>
+                <p>
+                  {isAdmin
+                    ? `Hiện có ${courses.length} khóa học khả dụng để truy cập.`
+                    : `Bạn hiện sở hữu ${ownedCourseCount} khóa học đã mua.`}
+                </p>
               </Link>
 
               <Link className="profile-action-card" to="/change-password">
@@ -304,6 +392,7 @@ export default function ProfilePage() {
         </div>
 
         {courseErrorMessage ? <p className="ui-alert ui-alert--error">{courseErrorMessage}</p> : null}
+        {purchaseHistoryErrorMessage ? <p className="ui-alert ui-alert--error">{purchaseHistoryErrorMessage}</p> : null}
 
         <div className="profile-analytics-grid">
           <Card className="profile-panel profile-panel--chart" variant="shadowed">
@@ -450,8 +539,8 @@ export default function ProfilePage() {
         <div className="profile-course-section">
           <div className="profile-section-heading">
             <div>
-              <p className="profile-panel__eyebrow">Khóa học mới</p>
-              <h3>Tiếp tục khám phá</h3>
+              <p className="profile-panel__eyebrow">{featuredSectionEyebrow}</p>
+              <h3>{featuredSectionTitle}</h3>
             </div>
           </div>
 
@@ -459,13 +548,13 @@ export default function ProfilePage() {
             <Card className="profile-panel" variant="shadowed">
               <p>Đang tải danh sách khóa học...</p>
             </Card>
-          ) : newestCourses.length === 0 ? (
+          ) : featuredCourses.length === 0 ? (
             <Card className="profile-panel" variant="shadowed">
               <p>Chưa có khóa học nào để hiển thị.</p>
             </Card>
           ) : (
             <div className="profile-course-grid profile-course-grid--featured">
-              {newestCourses.map((course) => (
+              {featuredCourses.map((course) => (
                 <article className="profile-course-card profile-course-card--featured" key={course.id}>
                   <div className="profile-course-card__media">
                     {course.thumbnailUrl ? (
@@ -484,7 +573,7 @@ export default function ProfilePage() {
                   <div className="profile-course-card__footer">
                     <div className="profile-course-card__meta">
                       <span>{course.moduleCount} module</span>
-                      <span>{new Date(course.createdAt).toLocaleDateString("vi-VN")}</span>
+                      <span>{formatCourseOwnershipDate(course)}</span>
                     </div>
                     <Button as={Link} className="profile-course-card__action" to={`/courses/${course.id}/learn`}>
                       Vào học
@@ -543,6 +632,68 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {!isAdmin ? (
+          <div className="profile-course-section">
+            <div className="profile-section-heading">
+              <div>
+                <p className="profile-panel__eyebrow">Lịch sử thanh toán</p>
+                <h3>Lịch sử mua hàng</h3>
+              </div>
+            </div>
+
+            {isLoadingPurchaseHistory ? (
+              <Card className="profile-panel" variant="shadowed">
+                <p>Đang tải lịch sử mua hàng...</p>
+              </Card>
+            ) : purchaseHistory.length === 0 ? (
+              <Card className="profile-panel" variant="shadowed">
+                <p>Bạn chưa có giao dịch thanh toán thành công nào.</p>
+              </Card>
+            ) : (
+              <Card className="profile-panel profile-purchase-panel" variant="shadowed">
+                <div className="profile-purchase-list">
+                  {purchaseHistory.map((item) => (
+                    <article className="profile-purchase-item" key={item.paymentOrderId}>
+                      <div className="profile-purchase-item__media">
+                        {item.courseThumbnailUrl ? (
+                          <img alt={item.courseTitle} className="profile-purchase-item__image" src={item.courseThumbnailUrl} />
+                        ) : (
+                          <div className="profile-purchase-item__fallback">{item.courseTitle}</div>
+                        )}
+                      </div>
+
+                      <div className="profile-purchase-item__body">
+                        <div className="profile-purchase-item__header">
+                          <div>
+                            <p className="profile-course-card__eyebrow">Đơn hàng {item.orderCode}</p>
+                            <h4>{item.courseTitle}</h4>
+                          </div>
+                        </div>
+
+                        <div className="profile-purchase-item__meta">
+                          <span>Số tiền {formatCurrency(item.amount)}</span>
+                          <span>Mua lúc {formatPurchaseDateTime(item.purchasedAt)}</span>
+                          <span>{item.paidAt ? `Thanh toán lúc ${formatPurchaseDateTime(item.paidAt)}` : "Đã ghi nhận thanh toán"}</span>
+                        </div>
+                      </div>
+
+                      <div className="profile-purchase-item__status-wrap">
+                        <span className="profile-purchase-item__status">{getPurchaseStatusLabel(item.status)}</span>
+                      </div>
+
+                      <div className="profile-purchase-item__actions">
+                        <Button as={Link} to={`/courses/${item.courseId}/learn`}>
+                          Vào học
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        ) : null}
       </div>
     </Section>
   );

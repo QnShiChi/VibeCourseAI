@@ -840,10 +840,10 @@ export default function CourseStructurePage() {
                       {categoryOptions
                         .filter((option) => option.status === "Visible" || option.id === course.categoryId)
                         .map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.name}{option.status !== "Visible" ? ` (${option.status})` : ""}
-                        </option>
-                      ))}
+                          <option key={option.id} value={option.id}>
+                            {option.name}{option.status !== "Visible" ? ` (${option.status})` : ""}
+                          </option>
+                        ))}
                     </select>
                   </FormField>
                   <div className="quick-actions course-presentation-form__actions">

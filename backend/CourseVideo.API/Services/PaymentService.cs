@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Globalization;
 using CourseVideo.API.Configuration;
 using CourseVideo.API.Data;
 using CourseVideo.API.DTOs.Carts;
@@ -15,6 +16,7 @@ namespace CourseVideo.API.Services;
 public class PaymentService : IPaymentService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
     private readonly AppDbContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -56,6 +58,19 @@ public class PaymentService : IPaymentService
                 .Select(enrollment => enrollment.CourseId)
                 .ToListAsync(cancellationToken))
                 .ToHashSet();
+
+            var staleOwnedCartItems = items
+                .Where(item => ownedCourseIds.Contains(item.CourseId))
+                .ToList();
+
+            if (staleOwnedCartItems.Count > 0)
+            {
+                _dbContext.CartItems.RemoveRange(staleOwnedCartItems);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                items = items
+                    .Where(item => !ownedCourseIds.Contains(item.CourseId))
+                    .ToList();
+            }
         }
 
         return new CartResponse
@@ -63,7 +78,7 @@ public class PaymentService : IPaymentService
             GuestCartToken = normalizedToken,
             Items = items
                 .Where(item => item.Course is not null && item.Course.IsPublished)
-                .Select(item => MapCartItem(item.Course!, ownedCourseIds.Contains(item.CourseId)))
+                .Select(item => MapCartItem(item.Course!, false))
                 .ToList()
         };
     }
@@ -313,6 +328,65 @@ public class PaymentService : IPaymentService
         return MapPaymentOrder(order, order.Course?.Title ?? string.Empty);
     }
 
+    public async Task<PaymentOrderResponse?> CancelOrderAsync(Guid userId, Guid orderId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        var order = await _dbContext.PaymentOrders
+            .Include(item => item.Course)
+            .FirstOrDefaultAsync(item => item.Id == orderId, cancellationToken);
+
+        if (order is null)
+        {
+            return null;
+        }
+
+        if (!isAdmin && order.UserId != userId)
+        {
+            return null;
+        }
+
+        if (order.Status == "Pending" && order.ExpiresAt <= DateTime.UtcNow)
+        {
+            order.Status = "Expired";
+            order.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            throw new InvalidOperationException("Đơn hàng đã hết hạn, không thể hủy thanh toán nữa.");
+        }
+
+        if (order.Status != "Pending")
+        {
+            throw new InvalidOperationException("Chỉ có thể hủy thanh toán khi đơn hàng đang chờ thanh toán.");
+        }
+
+        order.Status = "Cancelled";
+        order.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return MapPaymentOrder(order, order.Course?.Title ?? string.Empty);
+    }
+
+    public async Task<IReadOnlyList<PurchaseHistoryItemResponse>> GetPurchaseHistoryAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.CourseEnrollments
+            .AsNoTracking()
+            .Where(enrollment => enrollment.UserId == userId)
+            .Include(enrollment => enrollment.Course)
+            .Include(enrollment => enrollment.PaymentOrder)
+            .OrderByDescending(enrollment => enrollment.GrantedAt)
+            .Select(enrollment => new PurchaseHistoryItemResponse
+            {
+                PaymentOrderId = enrollment.PaymentOrderId,
+                OrderCode = enrollment.PaymentOrder != null ? enrollment.PaymentOrder.OrderCode : string.Empty,
+                CourseId = enrollment.CourseId,
+                CourseTitle = enrollment.Course != null ? enrollment.Course.Title : string.Empty,
+                CourseThumbnailUrl = enrollment.Course != null ? enrollment.Course.ThumbnailUrl : null,
+                Amount = enrollment.PaymentOrder != null ? enrollment.PaymentOrder.Amount : 0,
+                Status = enrollment.PaymentOrder != null ? enrollment.PaymentOrder.Status : "Paid",
+                PurchasedAt = enrollment.GrantedAt,
+                PaidAt = enrollment.PaymentOrder != null ? enrollment.PaymentOrder.PaidAt : null
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task HandleSepayWebhookAsync(
         SepayWebhookPayload payload,
         string rawPayload,
@@ -370,8 +444,7 @@ public class PaymentService : IPaymentService
             .FirstOrDefaultAsync(
                 item => normalizedContent.Contains(item.OrderCode)
                     && item.Amount == payload.TransferAmount
-                    && item.Status != "Paid"
-                    && item.Status != "LatePaid",
+                    && (item.Status == "Pending" || item.Status == "Expired"),
                 cancellationToken);
 
         if (order is null)
@@ -412,6 +485,19 @@ public class PaymentService : IPaymentService
         return _dbContext.CourseEnrollments.AnyAsync(
             item => item.UserId == userId && item.CourseId == courseId,
             cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, DateTime>> GetOwnedCourseGrantedAtLookupAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.CourseEnrollments
+            .Where(item => item.UserId == userId)
+            .GroupBy(item => item.CourseId)
+            .Select(group => new
+            {
+                CourseId = group.Key,
+                GrantedAt = group.Max(item => item.GrantedAt)
+            })
+            .ToDictionaryAsync(item => item.CourseId, item => item.GrantedAt, cancellationToken);
     }
 
     private async Task TrySyncOrderWithSepayAsync(PaymentOrder order, CancellationToken cancellationToken)
@@ -597,14 +683,31 @@ public class PaymentService : IPaymentService
         return value == 0 ? 1 : value;
     }
 
-    private static DateTime ParseVietnamTime(string? transactionDate)
+    internal static DateTime ParseVietnamTime(string? transactionDate)
     {
-        if (!DateTime.TryParse(transactionDate, out var parsed))
+        if (!DateTime.TryParse(transactionDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
         {
             return DateTime.UtcNow;
         }
 
-        return DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified).AddHours(-7);
+        var vietnamLocalTime = DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(vietnamLocalTime, VietnamTimeZone);
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
     }
 
     private bool IsValidWebhookCredential(string? providedHeader)

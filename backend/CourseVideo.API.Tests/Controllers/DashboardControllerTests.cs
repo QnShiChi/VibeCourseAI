@@ -83,6 +83,91 @@ public class DashboardControllerTests
         olderVisibleNegative.Sentiment.Should().Be("negative");
     }
 
+    [Fact]
+    public async Task GetPaymentOverview_ShouldAggregateStatusesAndReturnRecentOrders()
+    {
+        await using var dbContext = BuildDbContext();
+        SeedDashboardEntities(dbContext);
+        var user = dbContext.Users.Single();
+        var course = dbContext.Courses.Single();
+
+        dbContext.PaymentOrders.AddRange(
+            new PaymentOrder
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CourseId = course.Id,
+                Amount = 3000,
+                Status = "Paid",
+                OrderCode = "VCPAID001",
+                CreatedAt = new DateTime(2026, 6, 16, 8, 0, 0, DateTimeKind.Utc),
+                PaidAt = new DateTime(2026, 6, 16, 8, 5, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 6, 16, 8, 15, 0, DateTimeKind.Utc)
+            },
+            new PaymentOrder
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CourseId = course.Id,
+                Amount = 3000,
+                Status = "Pending",
+                OrderCode = "VCPENDING001",
+                CreatedAt = new DateTime(2026, 6, 16, 9, 0, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 6, 16, 9, 15, 0, DateTimeKind.Utc)
+            },
+            new PaymentOrder
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CourseId = course.Id,
+                Amount = 3000,
+                Status = "Expired",
+                OrderCode = "VCEXPIRED001",
+                CreatedAt = new DateTime(2026, 6, 16, 10, 0, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 6, 16, 10, 15, 0, DateTimeKind.Utc)
+            },
+            new PaymentOrder
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CourseId = course.Id,
+                Amount = 3000,
+                Status = "Cancelled",
+                OrderCode = "VCCANCEL001",
+                CreatedAt = new DateTime(2026, 6, 16, 10, 30, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 6, 16, 10, 45, 0, DateTimeKind.Utc)
+            },
+            new PaymentOrder
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CourseId = course.Id,
+                Amount = 3000,
+                Status = "LatePaid",
+                OrderCode = "VCLATE001",
+                CreatedAt = new DateTime(2026, 6, 16, 11, 0, 0, DateTimeKind.Utc),
+                PaidAt = new DateTime(2026, 6, 16, 11, 25, 0, DateTimeKind.Utc),
+                ExpiresAt = new DateTime(2026, 6, 16, 11, 15, 0, DateTimeKind.Utc)
+            });
+        await dbContext.SaveChangesAsync();
+
+        var controller = new DashboardController(dbContext);
+
+        var result = await controller.GetPaymentOverview();
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = ok.Value.Should().BeOfType<DashboardPaymentOverviewResponse>().Subject;
+        response.TotalOrders.Should().Be(4);
+        response.PaidOrders.Should().Be(2);
+        response.PendingOrders.Should().Be(0);
+        response.FailedOrExpiredOrders.Should().Be(2);
+        response.RecentOrders.Should().HaveCount(4);
+        response.RecentOrders[0].OrderCode.Should().Be("VCLATE001");
+        response.RecentOrders[1].OrderCode.Should().Be("VCCANCEL001");
+        response.RecentOrders[2].OrderCode.Should().Be("VCEXPIRED001");
+        response.RecentOrders[3].OrderCode.Should().Be("VCPAID001");
+    }
+
     private static AppDbContext BuildDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

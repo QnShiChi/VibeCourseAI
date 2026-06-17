@@ -16,9 +16,9 @@ const authErrorAlertBoxStyle = {
 const authSuccessAlertBoxStyle = {
   margin: 0,
   padding: "12px 16px",
-  border: "1px solid #c3e6cb",
+  border: "1px solid var(--auth-success-border)",
   borderRadius: "16px",
-  backgroundColor: "#d4edda"
+  backgroundColor: "var(--auth-success-bg)"
 };
 
 const authErrorAlertTextStyle = {
@@ -28,8 +28,8 @@ const authErrorAlertTextStyle = {
 };
 
 const authSuccessAlertTextStyle = {
-  color: "#155724",
-  WebkitTextFillColor: "#155724",
+  color: "var(--auth-success-text)",
+  WebkitTextFillColor: "var(--auth-success-text)",
   opacity: 1
 };
 

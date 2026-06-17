@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using CourseVideo.API.Configuration;
 using CourseVideo.API.Models;
 using CourseVideo.API.Services;
@@ -130,8 +131,11 @@ public class OpenRouterLessonContentServiceTests
         await service.GenerateAsync(CreateCourse(lesson), CreateModule(lesson), lesson, CancellationToken.None);
 
         requestBody.Should().NotBeNull();
-        requestBody.Should().Contain("teachingScript la loi thuyet minh DUY NHAT se duoc doc thanh audio cho video");
-        requestBody.Should().Contain("tuyet doi khong dung cac cum tu nhu: \"slide\"");
+        using var document = JsonDocument.Parse(requestBody!);
+        var userPrompt = document.RootElement.GetProperty("messages")[1].GetProperty("content").GetString();
+
+        userPrompt.Should().Contain("teachingScript la loi thuyet minh DUY NHAT se duoc doc thanh audio cho video");
+        userPrompt.Should().Contain("tuyet doi khong dung cac cum tu nhu: \"slide\"");
     }
 
     [Fact]

@@ -70,14 +70,15 @@ public class CourseService : ICourseService
         var courses = await _courseRepository.GetPublishedAsync();
         if (!currentUserId.HasValue)
         {
-            return courses.Select(course => MapPublishedListItem(course, false)).ToList();
+            return courses.Select(course => MapPublishedListItem(course, false, null)).ToList();
         }
 
+        var grantedAtLookup = await _paymentService.GetOwnedCourseGrantedAtLookupAsync(currentUserId.Value, cancellationToken);
         var results = new List<PublishedCourseListItemResponse>(courses.Count);
         foreach (var course in courses)
         {
-            var alreadyOwned = await _paymentService.HasCourseAccessAsync(currentUserId.Value, course.Id, cancellationToken);
-            results.Add(MapPublishedListItem(course, alreadyOwned));
+            var alreadyOwned = grantedAtLookup.TryGetValue(course.Id, out var grantedAt);
+            results.Add(MapPublishedListItem(course, alreadyOwned, alreadyOwned ? grantedAt : null));
         }
 
         return results;
@@ -371,7 +372,7 @@ public class CourseService : ICourseService
         };
     }
 
-    private static PublishedCourseListItemResponse MapPublishedListItem(Course course, bool alreadyOwned)
+    private static PublishedCourseListItemResponse MapPublishedListItem(Course course, bool alreadyOwned, DateTime? grantedAt)
     {
         return new PublishedCourseListItemResponse
         {
@@ -386,7 +387,8 @@ public class CourseService : ICourseService
             Price = course.Price,
             ModuleCount = course.Modules.Count,
             LessonCount = course.Modules.Sum(module => module.Lessons.Count),
-            CreatedAt = course.CreatedAt
+            CreatedAt = course.CreatedAt,
+            GrantedAt = grantedAt
         };
     }
 

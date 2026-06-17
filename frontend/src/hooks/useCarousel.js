@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useCarousel({ totalSlides, autoRotateMs = 5000 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const lastDirectionRef = useRef("none");
 
   function normalizeIndex(index) {
     if (totalSlides <= 0) {
@@ -13,14 +14,20 @@ export function useCarousel({ totalSlides, autoRotateMs = 5000 }) {
   }
 
   function goToIndex(index) {
-    setActiveIndex(normalizeIndex(index));
+    setActiveIndex((current) => {
+      const nextIndex = normalizeIndex(index);
+      lastDirectionRef.current = nextIndex === current ? "none" : nextIndex > current ? "next" : "previous";
+      return nextIndex;
+    });
   }
 
   function goToNext() {
+    lastDirectionRef.current = "next";
     setActiveIndex((current) => normalizeIndex(current + 1));
   }
 
   function goToPrevious() {
+    lastDirectionRef.current = "previous";
     setActiveIndex((current) => normalizeIndex(current - 1));
   }
 
@@ -30,6 +37,7 @@ export function useCarousel({ totalSlides, autoRotateMs = 5000 }) {
     }
 
     const timerId = window.setInterval(() => {
+      lastDirectionRef.current = "next";
       setActiveIndex((current) => normalizeIndex(current + 1));
     }, autoRotateMs);
 
@@ -45,6 +53,7 @@ export function useCarousel({ totalSlides, autoRotateMs = 5000 }) {
     goToIndex,
     goToNext,
     goToPrevious,
+    lastDirection: lastDirectionRef.current,
     pause() {
       setIsPaused(true);
     },

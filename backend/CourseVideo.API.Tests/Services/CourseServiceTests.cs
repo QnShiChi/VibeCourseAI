@@ -147,7 +147,7 @@ public class CourseServiceTests
 
         var service = CreateCourseService(repository);
 
-        var result = await service.GetLearnPayloadAsync(course.Id, canPreviewDraft: false);
+        var result = await service.GetLearnPayloadAsync(course.Id, currentUserId: null, canPreviewDraft: false);
 
         result.Should().BeNull();
     }
@@ -183,7 +183,7 @@ public class CourseServiceTests
 
         var service = CreateCourseService(repository);
 
-        var result = await service.GetLearnPayloadAsync(course.Id, canPreviewDraft: true);
+        var result = await service.GetLearnPayloadAsync(course.Id, currentUserId: null, canPreviewDraft: true);
 
         result.Should().NotBeNull();
         result!.SelectedLessonId.Should().Be(course.Modules.First().Lessons.First().Id);
@@ -301,7 +301,7 @@ public class CourseServiceTests
 
         var service = CreateCourseService(repository);
 
-        var result = await service.GetLearnPayloadAsync(courseId, true);
+        var result = await service.GetLearnPayloadAsync(courseId, currentUserId: null, canPreviewDraft: true);
 
         result.Should().NotBeNull();
         result!.HasFinalQuiz.Should().BeTrue();
@@ -313,7 +313,8 @@ public class CourseServiceTests
     private static CourseService CreateCourseService(
         Mock<ICourseRepository> repository,
         Mock<IQuizGenerationService>? quizGenerationService = null,
-        Mock<ICategoryRepository>? categoryRepository = null)
+        Mock<ICategoryRepository>? categoryRepository = null,
+        Mock<IPaymentService>? paymentService = null)
     {
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns("/tmp/vibecourseai-course-service-tests");
@@ -326,6 +327,7 @@ public class CourseServiceTests
             Mock.Of<ILessonVideoGenerationService>(),
             Mock.Of<IFullCourseGenerationService>(),
             quizGenerationService?.Object ?? Mock.Of<IQuizGenerationService>(),
-            environment.Object);
+            environment.Object,
+            paymentService?.Object ?? Mock.Of<IPaymentService>());
     }
 }

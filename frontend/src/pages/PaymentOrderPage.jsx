@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { getPaymentOrder } from "../api/paymentService";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { cancelPaymentOrder, getPaymentOrder } from "../api/paymentService";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
@@ -8,11 +8,17 @@ import styles from "../styles/CheckoutPage.module.css";
 
 export default function PaymentOrderPage() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [qrFailed, setQrFailed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [copiedField, setCopiedField] = useState("");
+  const [activeModal, setActiveModal] = useState("");
+  const [dismissedModalKinds, setDismissedModalKinds] = useState([]);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const lastObservedStatusRef = useRef("");
 
   useEffect(() => {
     if (!orderId) {
@@ -69,12 +75,74 @@ export default function PaymentOrderPage() {
     return () => window.clearTimeout(timeoutId);
   }, [copiedField]);
 
+  useEffect(() => {
+    if (!order?.status) {
+      return;
+    }
+
+    const previousStatus = lastObservedStatusRef.current;
+    lastObservedStatusRef.current = order.status;
+
+    if (!previousStatus) {
+      const initialModalKind = resolveInitialModalKind(order.status);
+      if (initialModalKind && !dismissedModalKinds.includes(initialModalKind)) {
+        setActiveModal(initialModalKind);
+      }
+      return;
+    }
+
+    if (previousStatus === order.status) {
+      return;
+    }
+
+    const nextModalKind = resolveModalKind(previousStatus, order.status);
+    if (!nextModalKind || dismissedModalKinds.includes(nextModalKind)) {
+      return;
+    }
+
+    setActiveModal(nextModalKind);
+  }, [dismissedModalKinds, order?.status]);
+
   async function handleCopy(value, field) {
     try {
       await navigator.clipboard.writeText(value);
       setCopiedField(field);
     } catch {
       setCopiedField("");
+    }
+  }
+
+  function handleDismissModal() {
+    if (!activeModal) {
+      return;
+    }
+
+    setDismissedModalKinds((current) => (current.includes(activeModal) ? current : [...current, activeModal]));
+    setActiveModal("");
+  }
+
+  async function handleConfirmCancelPayment() {
+    if (!orderId) {
+      return;
+    }
+
+    setIsCancelling(true);
+    setErrorMessage("");
+
+    try {
+      const cancelledOrder = await cancelPaymentOrder(orderId);
+      navigate("/cart", {
+        replace: true,
+        state: {
+          paymentCancelled: {
+            orderCode: cancelledOrder.orderCode
+          }
+        }
+      });
+    } catch (error) {
+      setErrorMessage(error?.response?.data?.message ?? "Không thể hủy thanh toán lúc này.");
+      setIsCancelling(false);
+      setIsCancelConfirmOpen(false);
     }
   }
 
@@ -125,7 +193,7 @@ export default function PaymentOrderPage() {
               </div>
 
               <div className={styles.paymentStatusArea}>
-                <span className={styles.paymentStatus}>{buildStatusHeadline(order.status)}</span>
+                <span className={`${styles.paymentStatus} ${buildStatusToneClass(order.status, styles)}`.trim()}>{buildStatusHeadline(order.status)}</span>
                 <div className={styles.countdownPill}>
                   <strong>{formatCountdown(order.expiresAt, order.status, now)}</strong>
                   <span>{buildCountdownLabel(order)}</span>
@@ -135,6 +203,18 @@ export default function PaymentOrderPage() {
               <div className={styles.paymentInfoNote}>
                 <p>Hệ thống sẽ tự động xác nhận sau khi nhận được tiền thông qua webhook. Vui lòng không đóng trang này cho đến khi nhận được thông báo hoàn tất.</p>
               </div>
+
+              {shouldAllowCancelPayment(order) ? (
+                <div className={styles.paymentCancelActions}>
+                  <Button onClick={() => setIsCancelConfirmOpen(true)} variant="ghost">Hủy thanh toán</Button>
+                </div>
+              ) : null}
+
+              {shouldShowRetryCheckoutAction(order, activeModal) ? (
+                <div className={styles.paymentRetryActions}>
+                  <Button as={Link} to="/cart">Về giỏ hàng để tạo lại thanh toán</Button>
+                </div>
+              ) : null}
             </Card>
           </div>
 
@@ -207,6 +287,8 @@ export default function PaymentOrderPage() {
 
                 {order.status === "Paid" || order.status === "LatePaid" ? (
                   <Button as={Link} to={`/courses/${order.courseId}/learn`}>Vào học ngay</Button>
+                ) : order.status === "Cancelled" ? (
+                  <Button as={Link} to="/cart">Về giỏ hàng</Button>
                 ) : order.isExpired ? (
                   <p className="ui-alert ui-alert--warning">Order đã hết hạn. Nếu bạn chuyển tiền muộn, backend vẫn sẽ cập nhật sang thanh toán thành công khi webhook hợp lệ về.</p>
                 ) : (
@@ -217,8 +299,154 @@ export default function PaymentOrderPage() {
           </div>
         </div>
       )}
+
+      {order && activeModal ? (
+        <div
+          aria-labelledby="payment-status-modal-title"
+          aria-modal="true"
+          className={styles.statusModalOverlay}
+          role="dialog"
+        >
+          <Card className={`${styles.statusModalCard} ${activeModal === "success" ? styles.statusModalCardSuccess : styles.statusModalCardExpired}`.trim()} variant="shadowed">
+            <button
+              aria-label="Đóng thông báo"
+              className={styles.statusModalClose}
+              onClick={handleDismissModal}
+              type="button"
+            >
+              ×
+            </button>
+
+            <div className={`${styles.statusModalIcon} ${activeModal === "success" ? styles.statusModalIconSuccess : styles.statusModalIconExpired}`.trim()} aria-hidden="true">
+              {activeModal === "success" ? "✓" : "!"}
+            </div>
+
+            <div className={styles.statusModalCopy}>
+              <p className={styles.statusModalEyebrow}>
+                {activeModal === "success" ? "Thanh toán hoàn tất" : "Đơn hàng hết hạn"}
+              </p>
+              <h2 id="payment-status-modal-title">
+                {activeModal === "success"
+                  ? order.status === "LatePaid"
+                    ? "Đã ghi nhận thanh toán muộn"
+                    : "Thanh toán thành công"
+                  : "Đơn hàng đã hết thời gian thanh toán"}
+              </h2>
+              <p>
+                {activeModal === "success"
+                  ? "Hệ thống đã xác nhận giao dịch. Bạn có thể vào học ngay bây giờ."
+                  : "Vui lòng quay lại giỏ hàng để tạo thanh toán mới nếu bạn vẫn muốn đăng ký khóa học này."}
+              </p>
+            </div>
+
+            <div className={styles.statusModalActions}>
+              {activeModal === "success" ? (
+                <Button as={Link} to={`/courses/${order.courseId}/learn`}>Vào học ngay</Button>
+              ) : (
+                <Button as={Link} to="/cart">Về giỏ hàng</Button>
+              )}
+              <Button onClick={handleDismissModal} variant="ghost">Xem lại đơn hàng</Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {order && isCancelConfirmOpen ? (
+        <div
+          aria-labelledby="cancel-payment-modal-title"
+          aria-modal="true"
+          className={styles.statusModalOverlay}
+          role="dialog"
+        >
+          <Card className={styles.statusModalCard} variant="shadowed">
+            <button
+              aria-label="Đóng xác nhận hủy thanh toán"
+              className={styles.statusModalClose}
+              onClick={() => setIsCancelConfirmOpen(false)}
+              type="button"
+            >
+              ×
+            </button>
+
+            <div className={`${styles.statusModalIcon} ${styles.statusModalIconExpired}`.trim()} aria-hidden="true">
+              !
+            </div>
+
+            <div className={styles.statusModalCopy}>
+              <p className={styles.statusModalEyebrow}>Xác nhận hủy thanh toán</p>
+              <h2 id="cancel-payment-modal-title">Bạn có chắc muốn hủy thanh toán này không?</h2>
+              <p>
+                Đơn hàng sẽ được chuyển sang trạng thái đã hủy thanh toán và bạn sẽ quay về giỏ hàng để tạo thanh toán mới.
+              </p>
+            </div>
+
+            <div className={styles.statusModalActions}>
+              <Button onClick={() => void handleConfirmCancelPayment()}>
+                {isCancelling ? "Đang hủy..." : "Xác nhận hủy"}
+              </Button>
+              <Button onClick={() => setIsCancelConfirmOpen(false)} variant="ghost">Tiếp tục thanh toán</Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </Section>
   );
+}
+
+function resolveModalKind(previousStatus, nextStatus) {
+  if (isPaidStatus(nextStatus) && !isPaidStatus(previousStatus)) {
+    return "success";
+  }
+
+  if (previousStatus === "Pending" && nextStatus === "Expired") {
+    return "expired";
+  }
+
+  return "";
+}
+
+function resolveInitialModalKind(status) {
+  if (isPaidStatus(status)) {
+    return "success";
+  }
+
+  if (status === "Expired") {
+    return "expired";
+  }
+
+  return "";
+}
+
+function isPaidStatus(status) {
+  return status === "Paid" || status === "LatePaid";
+}
+
+function isErrorStatus(status) {
+  return status === "Expired" || status === "Failed";
+}
+
+function shouldShowRetryCheckoutAction(order, activeModal) {
+  return Boolean(order?.isExpired || order?.status === "Expired" || order?.status === "Failed" || order?.status === "Cancelled") && activeModal !== "expired";
+}
+
+function shouldAllowCancelPayment(order) {
+  return order?.status === "Pending" && !order?.isExpired;
+}
+
+function buildStatusToneClass(status, styles) {
+  if (isPaidStatus(status)) {
+    return styles.paymentStatusSuccess;
+  }
+
+  if (isErrorStatus(status)) {
+    return styles.paymentStatusError;
+  }
+
+  if (status === "Cancelled") {
+    return styles.paymentStatusError;
+  }
+
+  return styles.paymentStatusPending;
 }
 
 function isSandboxMockBank(order) {
@@ -270,6 +498,8 @@ function translateStatus(status) {
       return "Thanh toán muộn";
     case "Expired":
       return "Hết hạn";
+    case "Cancelled":
+      return "Đã hủy thanh toán";
     case "Pending":
     default:
       return "Chờ thanh toán";
@@ -277,8 +507,12 @@ function translateStatus(status) {
 }
 
 function buildCountdownLabel(order) {
-  if (order.status === "Paid" || order.status === "LatePaid") {
+  if (isPaidStatus(order.status)) {
     return "Giao dịch đã được xác nhận";
+  }
+
+  if (order.status === "Cancelled") {
+    return "Đơn hàng đã bị hủy";
   }
 
   return order.isExpired ? "Đơn hàng đã hết hạn" : "Đơn hàng sẽ hết hạn";
@@ -292,6 +526,8 @@ function buildStatusHeadline(status) {
       return "Đã ghi nhận thanh toán muộn";
     case "Expired":
       return "Đơn hàng đã hết hạn";
+    case "Cancelled":
+      return "Đã hủy thanh toán";
     case "Pending":
     default:
       return "Đang chờ thanh toán...";
@@ -299,8 +535,12 @@ function buildStatusHeadline(status) {
 }
 
 function formatCountdown(expiresAt, status, now) {
-  if (status === "Paid" || status === "LatePaid") {
+  if (isPaidStatus(status)) {
     return "Đã thanh toán";
+  }
+
+  if (status === "Cancelled") {
+    return "Đã hủy";
   }
 
   const expiresAtMs = parseUtcDate(expiresAt).getTime();

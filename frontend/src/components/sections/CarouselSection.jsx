@@ -1,19 +1,56 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCarousel } from "../../hooks/useCarousel";
 import styles from "../../styles/HomePage.module.css";
 
 export default function CarouselSection({ items = [], className = "" }) {
+  const transitionDurationMs = 820;
   const slides = useMemo(() => items, [items]);
-  const { activeIndex, goToIndex, goToNext, goToPrevious, pause, resume } = useCarousel({
+  const { activeIndex, goToIndex, goToNext, goToPrevious, lastDirection, pause, resume } = useCarousel({
     totalSlides: slides.length,
     autoRotateMs: 5000
   });
+  const previousActiveIndexRef = useRef(0);
+  const [transitionState, setTransitionState] = useState(null);
+
+  useEffect(() => {
+    const previousActiveIndex = previousActiveIndexRef.current;
+
+    if (previousActiveIndex === activeIndex) {
+      return undefined;
+    }
+
+    const nextTransitionState = {
+      fromIndex: previousActiveIndex,
+      toIndex: activeIndex,
+      direction: lastDirection === "previous" ? "previous" : "next"
+    };
+
+    previousActiveIndexRef.current = activeIndex;
+    setTransitionState(nextTransitionState);
+
+    const timerId = window.setTimeout(() => {
+      setTransitionState((current) => (
+        current?.fromIndex === nextTransitionState.fromIndex && current?.toIndex === nextTransitionState.toIndex
+          ? null
+          : current
+      ));
+    }, transitionDurationMs);
+
+    return () => window.clearTimeout(timerId);
+  }, [activeIndex, lastDirection]);
 
   if (!slides.length) {
     return null;
   }
 
   const activeSlide = slides[activeIndex];
+  const isTransitioning = transitionState?.toIndex === activeIndex;
+  const enterOffset = !isTransitioning
+    ? 0
+    : transitionState.direction === "previous"
+      ? 22
+      : -22;
+  const outgoingSlide = isTransitioning ? slides[transitionState.fromIndex] : null;
 
   function handleKeyDown(event) {
     if (event.key === "ArrowRight") {
@@ -43,7 +80,21 @@ export default function CarouselSection({ items = [], className = "" }) {
       </div>
 
       <div className={styles.carouselFrame} onMouseEnter={pause} onMouseLeave={resume}>
-        <img alt={activeSlide.alt} className={styles.carouselImage} src={activeSlide.image} />
+        <div className={styles.carouselMediaStack}>
+          {outgoingSlide ? (
+            <img
+              alt={outgoingSlide.alt}
+              className={`${styles.carouselImage} ${styles.carouselImageOutgoing}`.trim()}
+              data-testid="carousel-outgoing-image"
+              src={outgoingSlide.image}
+            />
+          ) : null}
+          <img
+            alt={activeSlide.alt}
+            className={`${styles.carouselImage} ${isTransitioning ? styles.carouselImageIncoming : ""}`.trim()}
+            src={activeSlide.image}
+          />
+        </div>
         <div className={styles.carouselGlow} aria-hidden="true" />
         {activeSlide.accentPill ? (
           <span
@@ -69,16 +120,22 @@ export default function CarouselSection({ items = [], className = "" }) {
       </div>
 
       <div className={styles.carouselDots}>
-        {slides.map((item, index) => (
-          <button
-            key={item.id}
-            aria-label={`Đi tới slide ${index + 1}`}
-            aria-pressed={index === activeIndex}
-            className={`${styles.carouselDot}${index === activeIndex ? ` ${styles.carouselDotActive}` : ""}`}
-            onClick={() => goToIndex(index)}
-            type="button"
-          />
-        ))}
+        {slides.map((item, index) => {
+          const isActive = index === activeIndex;
+
+          return (
+            <button
+              key={item.id}
+              aria-label={`Đi tới slide ${index + 1}`}
+              aria-pressed={isActive}
+              className={`${styles.carouselDot}${isActive ? ` ${styles.carouselDotActive}` : ""}`}
+              data-transfer-state={isActive && isTransitioning ? "arriving" : undefined}
+              style={isActive ? { "--carousel-enter-offset": `${enterOffset}px` } : undefined}
+              onClick={() => goToIndex(index)}
+              type="button"
+            />
+          );
+        })}
       </div>
     </section>
   );

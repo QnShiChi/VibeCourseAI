@@ -81,7 +81,7 @@ describe("HomePage", () => {
     const homepage = container.firstChild;
     const particleCanvas = screen.getByTestId("homepage-particle-canvas");
 
-    expect(homepage.firstChild).toBe(particleCanvas);
+    expect(homepage.querySelector("canvas")).toBe(particleCanvas);
     expect(particleCanvas).toHaveStyle({
       position: "fixed"
     });

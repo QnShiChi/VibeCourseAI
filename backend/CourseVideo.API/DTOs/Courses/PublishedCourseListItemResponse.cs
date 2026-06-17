@@ -14,4 +14,5 @@ public class PublishedCourseListItemResponse
     public int ModuleCount { get; set; }
     public int LessonCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? GrantedAt { get; set; }
 }

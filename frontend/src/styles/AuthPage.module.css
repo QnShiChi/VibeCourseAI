@@ -15,6 +15,9 @@
   --auth-error-bg: #fff0f0;
   --auth-error-border: rgba(185, 28, 28, 0.22);
   --auth-error-text: #7f1d1d;
+  --auth-success-bg: #eefbdd;
+  --auth-success-border: rgba(77, 124, 15, 0.26);
+  --auth-success-text: #365314;
   --auth-showcase-card: rgba(255, 255, 255, 0.72);
   --auth-showcase-overlay:
     linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(247, 249, 251, 0.22)),
@@ -41,6 +44,9 @@
   --auth-error-bg: rgba(248, 113, 113, 0.14);
   --auth-error-border: rgba(248, 113, 113, 0.32);
   --auth-error-text: #fecaca;
+  --auth-success-bg: rgba(54, 83, 20, 0.42);
+  --auth-success-border: rgba(163, 230, 53, 0.38);
+  --auth-success-text: #f1f5c8;
   --auth-showcase-card: rgba(2, 6, 23, 0.52);
   --auth-showcase-overlay:
     linear-gradient(180deg, rgba(2, 6, 23, 0.42), rgba(15, 23, 42, 0.18)),

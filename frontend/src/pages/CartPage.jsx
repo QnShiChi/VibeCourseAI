@@ -13,6 +13,10 @@ export default function CartPage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [bannerMessage, setBannerMessage] = useState(() => {
+    const cancelledOrderCode = location.state?.paymentCancelled?.orderCode;
+    return cancelledOrderCode ? `Đã hủy thanh toán cho đơn ${cancelledOrderCode}.` : "";
+  });
   const [cart, setCart] = useState({ guestCartToken: "", items: [] });
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -22,6 +26,14 @@ export default function CartPage() {
   useEffect(() => {
     void loadCart();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!location.state?.paymentCancelled) {
+      return;
+    }
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   async function loadCart() {
     setIsLoading(true);
@@ -96,6 +108,7 @@ export default function CartPage() {
         <Button as={Link} to="/courses" variant="ghost">Tiếp tục xem khóa học</Button>
       </div>
 
+      {bannerMessage ? <p className="ui-alert ui-alert--cancelled">{bannerMessage}</p> : null}
       {errorMessage ? <p className="ui-alert ui-alert--error">{errorMessage}</p> : null}
 
       {isLoading ? (
@@ -103,7 +116,7 @@ export default function CartPage() {
       ) : cart.items.length === 0 ? (
         <Card variant="shadowed">
           <h2>Giỏ hàng đang trống</h2>
-          <p>Thêm khóa học từ trang catalog để bắt đầu checkout.</p>
+          <p>Chưa có khóa học nào cần thanh toán. Hãy quay lại danh sách khóa học để chọn thêm nội dung phù hợp.</p>
         </Card>
       ) : (
         <div className={styles.cartGrid}>

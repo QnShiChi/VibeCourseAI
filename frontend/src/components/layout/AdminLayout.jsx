@@ -43,6 +43,8 @@ export default function AdminLayout() {
       ? "Tìm kiếm khóa học..."
       : location.pathname.startsWith("/admin/comment-moderation")
         ? "Tìm kiếm moderation queue..."
+      : location.pathname.startsWith("/admin/payments")
+        ? "Tìm kiếm hóa đơn..."
       : location.pathname.startsWith("/admin/categories")
         ? "Tìm kiếm danh mục..."
         : location.pathname.startsWith("/admin/settings")
@@ -137,6 +139,7 @@ export default function AdminLayout() {
             <AdminNavItem icon="◈" label="Quản lý danh mục" to="/admin/categories" />
             <AdminNavItem icon="◌" label="Quản lý người dùng" to="/admin/users" />
             <AdminNavItem icon="⚑" label="Điều phối bình luận" to="/admin/comment-moderation" />
+            <AdminNavItem icon="◨" label="Quản lý hóa đơn" to="/admin/payments" />
             <AdminNavItem icon="◧" label="Báo cáo hệ thống" to="/admin/finance" />
             <AdminNavItem icon="◎" label="Admin Profile" to="/admin/profile" />
             <AdminNavItem icon="✦" label="Cài đặt hệ thống" to="/admin/settings" />

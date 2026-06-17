@@ -81,13 +81,13 @@ public class CoursesControllerTests
     public async Task GetPublishedCourses_ReturnsOk()
     {
         var courseService = new Mock<ICourseService>();
-        courseService.Setup(x => x.GetPublishedCoursesAsync()).ReturnsAsync(new List<PublishedCourseListItemResponse>
+        courseService.Setup(x => x.GetPublishedCoursesAsync(It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(new List<PublishedCourseListItemResponse>
         {
             new() { Id = Guid.NewGuid(), Title = "Published", IsPublished = true }
         });
         var controller = CreateUserController(courseService);
 
-        var result = await controller.GetPublishedCourses();
+        var result = await controller.GetPublishedCourses(CancellationToken.None);
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeAssignableTo<IReadOnlyList<PublishedCourseListItemResponse>>();
@@ -123,7 +123,7 @@ public class CoursesControllerTests
     {
         var courseService = new Mock<ICourseService>();
         var courseId = Guid.NewGuid();
-        courseService.Setup(x => x.GetLearnPayloadAsync(courseId, false))
+        courseService.Setup(x => x.GetLearnPayloadAsync(courseId, null, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync((CourseLearnResponse?)null);
         var controller = CreateUserController(courseService);
 
@@ -137,7 +137,7 @@ public class CoursesControllerTests
     {
         var courseService = new Mock<ICourseService>();
         var courseId = Guid.NewGuid();
-        courseService.Setup(x => x.GetLearnPayloadAsync(courseId, true))
+        courseService.Setup(x => x.GetLearnPayloadAsync(courseId, null, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CourseLearnResponse
             {
                 CourseId = courseId,

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import CarouselSection from "../components/sections/CarouselSection";
 import Button from "../components/ui/Button";
@@ -180,6 +180,13 @@ const homepageParticles = createHomepageParticles();
 export default function HomePage() {
   const { theme, toggleTheme } = useTheme();
   const particleCanvasRef = useRef(null);
+  const animationFrameRef = useRef(0);
+  const [statsAnimationSeed, setStatsAnimationSeed] = useState(0);
+  const [statsAnimationProgress, setStatsAnimationProgress] = useState(0);
+
+  const restartStatsAnimation = () => {
+    setStatsAnimationSeed((current) => current + 1);
+  };
 
   useEffect(() => {
     const canvas = particleCanvasRef.current;
@@ -265,6 +272,49 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    const duration = 1100;
+    let startTime = null;
+
+    setStatsAnimationProgress(0);
+    cancelAnimationFrame(animationFrameRef.current);
+
+    const tick = (timestamp) => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const nextProgress = Math.min((timestamp - startTime) / duration, 1);
+      setStatsAnimationProgress(nextProgress);
+
+      if (nextProgress < 1) {
+        animationFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(animationFrameRef.current);
+  }, [statsAnimationSeed]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        restartStatsAnimation();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  const easedStatsAnimationProgress = easeOutCubic(statsAnimationProgress);
+  const animatedStats = stats.map((item) => ({
+    ...item,
+    displayValue: animateHomepageStatValue(item.value, easedStatsAnimationProgress)
+  }));
+
   return (
     <div className={styles.homepage} data-theme={theme}>
       <canvas
@@ -275,78 +325,80 @@ export default function HomePage() {
         style={{ inset: 0, position: "fixed" }}
       />
       <section className={styles.heroSection}>
-        <div className={styles.heroBody}>
-          <div className={styles.heroTopbar}>
-            <span className={`${styles.heroEyebrow} ui-badge`.trim()}>
-              <span className={styles.heroEyebrowText}>AI course operating system</span>
-            </span>
-            <button
-              aria-label={`Chuyển sang ${theme === "light" ? "dark" : "light"} mode`}
-              className={styles.themeToggle}
-              onClick={toggleTheme}
-              type="button"
-            >
-              <span aria-hidden="true" className={styles.themeToggleDot} />
-              <span className={styles.themeToggleText}>{theme === "light" ? "Dark mode" : "Light mode"}</span>
-            </button>
-          </div>
-          <div className={styles.heroCopy}>
-            <h1>Tạo khóa học AI-ready từ syllabus đến video bài giảng.</h1>
-            <p>
-              VibeCourseAI giúp đội ngũ giáo dục biến đề cương thành course structure, lesson content,
-              narration và learner-ready experience trong một flow vận hành sáng sủa hơn.
-            </p>
-          </div>
-
-          <div className={styles.heroActions}>
-            <Button as={Link} to="/register">Bắt đầu miễn phí</Button>
-            <Button as={Link} to="/courses" variant="ghost">Xem khóa học</Button>
-          </div>
-
-          <div className={styles.heroMeta}>
-            <span>Import syllabus có cấu trúc</span>
-            <span>Generate lesson và video workflow</span>
-            <span>Phát hành course cho learner</span>
-          </div>
-
-          <div className={styles.heroSignals} aria-label="Tín hiệu hệ thống đang hoạt động">
-            <article className={styles.heroSignalCard}>
-              <span className={styles.heroSignalLabel}>Realtime pipeline</span>
-              <strong>Import to publish</strong>
-              <p>Luồng generate được theo dõi xuyên suốt trên cùng một bề mặt vận hành.</p>
-            </article>
-            <article className={styles.heroSignalCard}>
-              <span className={styles.heroSignalLabel}>AI readiness</span>
-              <strong>Lesson, voice, video</strong>
-              <p>Biến đề cương thành đầu ra học tập có thể phát hành mà không tách rời workflow.</p>
-            </article>
-          </div>
-        </div>
-
-        <div className={styles.heroMediaWrap}>
-          <div className={styles.heroMediaAccentTop} aria-hidden="true" />
-          <div className={styles.heroMediaAccentBottom} aria-hidden="true" />
-          <div className={styles.heroLiveCards} aria-label="Live system highlights">
-            {liveSystemCards.map((card) => (
-              <article
-                key={card.title}
-                className={`${styles.heroLiveCard} ${styles[`heroLiveCard--${card.tone}`]} ${styles[`heroLiveCard--${card.position}`]}`}
+        <div className={styles.heroLayout}>
+          <div className={styles.heroBody}>
+            <div className={styles.heroTopbar}>
+              <span className={`${styles.heroEyebrow} ui-badge`.trim()}>
+                <span className={styles.heroEyebrowText}>AI course operating system</span>
+              </span>
+              <button
+                aria-label={`Chuyển sang ${theme === "light" ? "dark" : "light"} mode`}
+                className={styles.themeToggle}
+                onClick={toggleTheme}
+                type="button"
               >
-                <span className={styles.heroLiveCardSignal} aria-hidden="true" />
-                <div className={styles.heroLiveCardCopy}>
-                  <strong>{card.title}</strong>
-                  <p>{card.description}</p>
-                </div>
+                <span aria-hidden="true" className={styles.themeToggleDot} />
+                <span className={styles.themeToggleText}>{theme === "light" ? "Dark mode" : "Light mode"}</span>
+              </button>
+            </div>
+            <div className={styles.heroCopy}>
+              <h1>Tạo khóa học AI-ready từ syllabus đến video bài giảng.</h1>
+              <p>
+                VibeCourseAI giúp đội ngũ giáo dục biến đề cương thành course structure, lesson content,
+                narration và learner-ready experience trong một flow vận hành sáng sủa hơn.
+              </p>
+            </div>
+
+            <div className={styles.heroActions}>
+              <Button as={Link} to="/register">Bắt đầu miễn phí</Button>
+              <Button as={Link} to="/courses" variant="ghost">Xem khóa học</Button>
+            </div>
+
+            <div className={styles.heroMeta}>
+              <span>Import syllabus có cấu trúc</span>
+              <span>Generate lesson và video workflow</span>
+              <span>Phát hành course cho learner</span>
+            </div>
+
+            <div className={styles.heroSignals} aria-label="Tín hiệu hệ thống đang hoạt động">
+              <article className={styles.heroSignalCard}>
+                <span className={styles.heroSignalLabel}>Realtime pipeline</span>
+                <strong>Import to publish</strong>
+                <p>Luồng generate được theo dõi xuyên suốt trên cùng một bề mặt vận hành.</p>
               </article>
-            ))}
+              <article className={styles.heroSignalCard}>
+                <span className={styles.heroSignalLabel}>AI readiness</span>
+                <strong>Lesson, voice, video</strong>
+                <p>Biến đề cương thành đầu ra học tập có thể phát hành mà không tách rời workflow.</p>
+              </article>
+            </div>
           </div>
-          <div className={styles.heroMediaFrame}>
-            <div className={styles.heroMediaImageSurface}>
-              <img
-                alt="Minh họa giao diện dashboard khóa học AI của VibeCourseAI"
-                className={styles.heroMediaImage}
-                src={heroImage}
-              />
+
+          <div className={styles.heroMediaWrap}>
+            <div className={styles.heroMediaAccentTop} aria-hidden="true" />
+            <div className={styles.heroMediaAccentBottom} aria-hidden="true" />
+            <div className={styles.heroLiveCards} aria-label="Live system highlights">
+              {liveSystemCards.map((card) => (
+                <article
+                  key={card.title}
+                  className={`${styles.heroLiveCard} ${styles[`heroLiveCard--${card.tone}`]} ${styles[`heroLiveCard--${card.position}`]}`}
+                >
+                  <span className={styles.heroLiveCardSignal} aria-hidden="true" />
+                  <div className={styles.heroLiveCardCopy}>
+                    <strong>{card.title}</strong>
+                    <p>{card.description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className={styles.heroMediaFrame}>
+              <div className={styles.heroMediaImageSurface}>
+                <img
+                  alt="Minh họa giao diện dashboard khóa học AI của VibeCourseAI"
+                  className={styles.heroMediaImage}
+                  src={heroImage}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -400,9 +452,9 @@ export default function HomePage() {
           </div>
 
           <div className={styles.statsGrid}>
-            {stats.map((item) => (
+            {animatedStats.map((item) => (
               <article key={item.label} className={styles.statsCard}>
-                <strong>{item.value}</strong>
+                <strong>{item.displayValue}</strong>
                 <span>{item.label}</span>
               </article>
             ))}
@@ -427,4 +479,21 @@ export default function HomePage() {
       </section>
     </div>
   );
+}
+
+function animateHomepageStatValue(value, progress) {
+  const match = /^(\d+)(.*)$/.exec(value);
+
+  if (!match) {
+    return value;
+  }
+
+  const numericValue = Number(match[1]);
+  const suffix = match[2] ?? "";
+
+  return `${Math.round(numericValue * progress)}${suffix}`;
+}
+
+function easeOutCubic(value) {
+  return 1 - (1 - value) ** 3;
 }

@@ -5,6 +5,8 @@ import MainLayout from "../components/layout/MainLayout";
 import AdminCoursesPage from "../pages/AdminCoursesPage";
 import AdminCategoriesPage from "../pages/AdminCategoriesPage";
 import AdminFinancePage from "../pages/AdminFinancePage";
+import AdminPaymentDetailPage from "../pages/AdminPaymentDetailPage";
+import AdminPaymentsPage from "../pages/AdminPaymentsPage";
 import AdminProfilePage from "../pages/AdminProfilePage";
 import AdminSettingsPage from "../pages/AdminSettingsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
@@ -45,6 +47,8 @@ export default function AppRoutes() {
         <Route path="/admin/courses" element={<AdminCoursesPage />} />
         <Route path="/admin/categories" element={<AdminCategoriesPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+        <Route path="/admin/payments/:paymentOrderId" element={<AdminPaymentDetailPage />} />
         <Route path="/admin/finance" element={<AdminFinancePage />} />
         <Route path="/admin/profile" element={<AdminProfilePage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />

@@ -32,7 +32,7 @@ public class CourseRepository : ICourseRepository
         return await _dbContext.Courses
             .Include(course => course.Category)
             .Include(course => course.Modules) // We use include here because Category and Module are same level of course and we want to get all the modules of the course, and then we use ThenInclude to get all the lessons of the modules, because we want to show the number of lessons in the admin page.
-            .ThenInclude(module => module.Lessons) 
+            .ThenInclude(module => module.Lessons)
             .OrderByDescending(course => course.CreatedAt)
             .ToListAsync();
     }

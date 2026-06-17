@@ -243,7 +243,7 @@ export default function CourseStructurePage() {
       contentSeed: lesson.contentSeed
     });
   }
-
+  // ==================================================================================================
   async function handleGenerateFullCourse() {
     setMessage("");
     setErrorMessage("");
@@ -269,7 +269,7 @@ export default function CourseStructurePage() {
       setErrorMessage(apiMessage || "Không thể khởi tạo tiến trình generate khóa học.");
     }
   }
-
+  // ==================================================================================================
   async function handleRegenerateLessonContent(lessonId) {
     setMessage("");
     setErrorMessage("");
@@ -341,7 +341,7 @@ export default function CourseStructurePage() {
       setErrorMessage(apiMessage || "Không thể generate audio cho lesson này.");
     }
   }
-
+  // ============================================================================================================
   async function handleViewGeneratedContent(lessonId) {
     setMessage("");
     setErrorMessage("");
@@ -401,7 +401,7 @@ export default function CourseStructurePage() {
       setIsGeneratingContent(false);
     }
   }
-
+  // ============================================================================================================
   async function handleViewLessonVideo(lessonId) {
     setMessage("");
     setErrorMessage("");

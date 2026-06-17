@@ -22,7 +22,7 @@ public class SyllabusesController : ControllerBase
     }
 
     [HttpPost("import")]
-    [RequestSizeLimit(20 * 1024 * 1024)]
+    [RequestSizeLimit(20 * 1024 * 1024)] // Giới hạn kích thước file upload tối đa là 20MB
     public async Task<IActionResult> Import([FromForm] ImportSyllabusRequest request)
     {
         if (request.File is null)

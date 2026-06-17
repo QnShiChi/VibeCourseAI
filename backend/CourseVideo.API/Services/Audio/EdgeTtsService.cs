@@ -16,7 +16,7 @@ public class EdgeTtsService : IEdgeTtsService
         _logger = logger;
         _defaultVoice = configuration["EDGE_TTS_VOICE"] ?? "vi-VN-HoaiMyNeural";
     }
-
+    // tổng hợp thành bytes
     public async Task<byte[]> SynthesizeToBytesAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
     {
         var normalizedText = NormalizeText(text);
@@ -29,7 +29,7 @@ public class EdgeTtsService : IEdgeTtsService
         {
             try
             {
-                return await SynthesizeWithRetriesAsync(normalizedText, voice, cancellationToken);
+                return await SynthesizeWithRetriesAsync(normalizedText, voice, cancellationToken); // tổng hợp các lần thử lại 
             }
             catch (Exception)
             {

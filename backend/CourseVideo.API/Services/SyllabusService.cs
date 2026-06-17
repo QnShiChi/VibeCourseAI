@@ -47,10 +47,11 @@ public class SyllabusService : ISyllabusService
 
         var storedFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
         var fullPath = Path.Combine(storageDirectory, storedFileName);
-        await using (var fileStream = File.Create(fullPath))
+        // await using dùng xong thì sẽ tự động đóng lại
+        await using (var fileStream = File.Create(fullPath)) // Mở 1 file trên ổ đĩa để ghi nội dung upload vào, đảm bảo file được tạo mới và không bị ghi đè
         {
             await request.File.CopyToAsync(fileStream);
-            await fileStream.FlushAsync();
+            await fileStream.FlushAsync(); // Bước này là optional vì using sẽ tự động đóng fileStream, nhưng để chắc chắn dữ liệu đã được ghi vào ổ đĩa thì có thể gọi FlushAsync() trước khi đóng
         }
 
         string extractedText;

@@ -15,7 +15,7 @@ public class RenderService : IRenderService
     public async Task RenderSlidePngAsync(string outputPath, SlideItem slide, CancellationToken cancellationToken = default)
     {
         var imageBytes = await _imageProvider.FetchImageForSlideAsync(slide.ImageKeyword, cancellationToken);
-        SKBitmap? illustration = null;
+        SKBitmap? illustration = null; // SKBitmap là lớp dùng để lưu trữ, quản lý và thao tác với một lưới điểm ảnh 2D.
         if (imageBytes != null)
         {
             illustration = SKBitmap.Decode(imageBytes);

@@ -34,8 +34,8 @@ public class FFmpegService : IFFmpegService
         {
             // Escape single quotes for ffmpeg concat demuxer
             var safePath = slidePaths[i].Replace("'", "'\\''");
-            manifestLines.Add($"file '{safePath}'");
-            manifestLines.Add($"duration {Math.Max(durations[i], 0.1).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)}");
+            manifestLines.Add($"file '{safePath}'"); // nói với FFmpeg dùng file ảnh nào
+            manifestLines.Add($"duration {Math.Max(durations[i], 0.1).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)}"); // Đảm bảo duration tối thiểu 0.1, format số thành 3 chữ số thập phân
         }
         
         var safeLastPath = slidePaths.Last().Replace("'", "'\\''");

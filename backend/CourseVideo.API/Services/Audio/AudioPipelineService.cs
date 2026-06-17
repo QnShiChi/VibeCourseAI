@@ -31,7 +31,7 @@ public class AudioPipelineService : IAudioPipelineService
         }
 
         var maxParallelism = Math.Min(1, narrationSegments.Count);
-        using var semaphore = new SemaphoreSlim(maxParallelism);
+        using var semaphore = new SemaphoreSlim(maxParallelism); // Quy định số lượng luồng
         var completedSegments = 0;
         var segmentTasks = narrationSegments
             .Select((segment, index) => GenerateSegmentAudioAsync(
@@ -79,7 +79,7 @@ public class AudioPipelineService : IAudioPipelineService
         Func<Task> onCompleted,
         CancellationToken cancellationToken)
     {
-        await semaphore.WaitAsync(cancellationToken);
+        await semaphore.WaitAsync(cancellationToken); // xin slot từ semaphore, nếu có thì đi ngay, nếu ko có thì phải chờ
         try
         {
             _logger.LogInformation("Generating audio for slide {SlideNumber}: '{NarrationText}'", segment.SlideNumber, segment.NarrationText);

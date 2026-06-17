@@ -9,7 +9,7 @@ namespace CourseVideo.API.Services;
 
 public class CourseService : ICourseService
 {
-    private static readonly HashSet<string> AllowedThumbnailExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedThumbnailExtensions = new(StringComparer.OrdinalIgnoreCase) 
     {
         ".png", ".jpg", ".jpeg", ".webp"
     };

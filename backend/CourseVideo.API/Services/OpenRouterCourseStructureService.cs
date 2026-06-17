@@ -142,7 +142,7 @@ public partial class OpenRouterCourseStructureService : IOpenRouterCourseStructu
 
         ValidateLessonDensity(structure, extractedText);
     }
-
+    // Xác thực mật độ bài học
     private static void ValidateLessonDensity(ParsedCourseStructure structure, string extractedText)
     {
         if (string.IsNullOrWhiteSpace(extractedText))
@@ -170,7 +170,7 @@ public partial class OpenRouterCourseStructureService : IOpenRouterCourseStructu
         throw new OpenRouterValidationException(
             $"OpenRouter tra ve cau truc qua it lesson cho de cuong dau vao (co {totalLessons} lesson cho {structure.Modules.Count} module).");
     }
-
+    // hàm này dùng để kiểm tra trong đề cương đã trích có những múc chương nào, bài nào
     private static int CountTeachingUnitMarkers(string extractedText)
     {
         return TeachingUnitRegex().Matches(extractedText).Count;

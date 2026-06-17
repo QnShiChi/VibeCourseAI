@@ -216,6 +216,9 @@ public class FullCourseGenerationService : IFullCourseGenerationService
             _ when failed < lessonPairs.Count => "CompletedWithWarnings",
             _ => "Failed"
         };
+        // - _ = match mọi giá trị còn lại
+        //   - when ... = nhưng chỉ chọn nếu điều kiện đúng
+
 
         job.Status = status;
         job.CompletedAt = DateTime.UtcNow;

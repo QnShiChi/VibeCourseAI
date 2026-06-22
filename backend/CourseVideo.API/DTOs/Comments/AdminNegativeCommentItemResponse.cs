@@ -13,4 +13,5 @@ public class AdminNegativeCommentItemResponse
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public string Sentiment { get; set; } = string.Empty;
+    public DateTime? PinnedAt { get; set; }
 }

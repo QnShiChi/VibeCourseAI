@@ -720,6 +720,11 @@ public static class DbInitializer
             BEGIN
                 ALTER TABLE [LessonComments] ADD [Sentiment] nvarchar(50) NULL;
             END
+
+            IF COL_LENGTH('LessonComments', 'PinnedAt') IS NULL
+            BEGIN
+                ALTER TABLE [LessonComments] ADD [PinnedAt] datetime2 NULL;
+            END
             """);
     }
 
